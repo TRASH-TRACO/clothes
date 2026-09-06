@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #111111;
+  --color-paper: #ffffff;
+  --color-mist: #f5f5f5;
+  --color-line: #e5e5e5;
+  --color-muted: #757575;
+  --color-accent: #fa5400;
+
+  --font-sans: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-display: var(--font-anton), var(--font-black-han-sans), "Helvetica Neue", Impact,
+    sans-serif;
+}
+
+html {
+  color-scheme: light;
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+
+/* @apply에서 재사용할 수 있도록 커스텀 유틸리티로 등록한다 */
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-medium
+    transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40;
+}
+
+@utility chip {
+  @apply inline-flex shrink-0 items-center gap-2 rounded-full border border-line px-4 py-2
+    text-sm text-ink transition-colors hover:border-ink;
+}
+
+/* chip과 같은 레이어여야 색이 덮인다 (components 레이어면 chip의 text-ink에 밀린다) */
+@utility chip-active {
+  @apply border-ink bg-ink text-paper hover:border-ink;
+}
+
+@layer components {
+  /* 나이키식 대문자 헤드라인 */
+  .display {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+    line-height: 0.9;
+  }
+
+  .eyebrow {
+    @apply text-[11px] font-medium uppercase tracking-[0.18em] text-muted;
+  }
+
+  .btn-dark {
+    @apply btn bg-ink text-paper hover:bg-[#3d3d3d];
+  }
+
+  .btn-light {
+    @apply btn border border-line bg-paper text-ink hover:border-ink;
+  }
+
+  .btn-ghost {
+    @apply btn text-ink underline underline-offset-4 hover:text-muted;
+  }
+
+  .field {
+    @apply w-full rounded-lg border border-line bg-paper px-4 py-3 text-sm text-ink
+      outline-none transition-colors placeholder:text-muted focus:border-ink;
+  }
+
+  .label {
+    @apply mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-ink;
+  }
+
+  .surface {
+    @apply overflow-hidden rounded-xl bg-mist;
+  }
+}
+
+/* 가로 스크롤 영역에서 스크롤바 숨기기 */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
