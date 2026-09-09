@@ -149,6 +149,8 @@ export function OutfitBuilder({ items, userId, initialSelection = {}, outfit }: 
                 defaultPath={outfit?.photo_path ?? null}
                 emptyLabel="탭해서 착장 사진 올리기"
                 alt="착장 사진"
+                /* 상세 페이지가 3:4로 보여준다 */
+                aspect={3 / 4}
               />
             </div>
           </div>
