@@ -37,8 +37,13 @@ create table if not exists public.outfits (
   user_id uuid not null references auth.users (id) on delete cascade,
   name text not null check (char_length(name) between 1 and 60),
   memo text,
+  -- 착장 사진. 옷 사진과 같은 clothes 버킷의 <user_id>/<uuid>.jpg
+  photo_path text,
   created_at timestamptz not null default now()
 );
+
+-- 이미 outfits 테이블이 있는 프로젝트를 위한 추가 (없으면 아무 일도 하지 않음)
+alter table public.outfits add column if not exists photo_path text;
 
 create index if not exists outfits_user_created_idx on public.outfits (user_id, created_at desc);
 

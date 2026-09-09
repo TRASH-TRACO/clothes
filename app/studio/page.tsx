@@ -1,15 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { OutfitBuilder } from "@/components/outfit-builder";
 import { CATEGORIES, type Category } from "@/lib/categories";
 import { getItems, getOutfit } from "@/lib/data";
+import { getUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "코디 만들기" };
 
 export default async function StudioPage({ searchParams }: PageProps<"/studio">) {
   const params = await searchParams;
-  const items = await getItems({ sort: "recent" });
+  const [items, user] = await Promise.all([getItems({ sort: "recent" }), getUser()]);
+  if (!user) redirect("/login?next=/studio");
 
   // ?edit=<outfitId> 로 저장된 코디를 다시 불러와 수정
   const editId = typeof params.edit === "string" ? params.edit : null;
@@ -53,8 +56,18 @@ export default async function StudioPage({ searchParams }: PageProps<"/studio">)
       ) : (
         <OutfitBuilder
           items={items}
+          userId={user.id}
           initialSelection={selection}
-          outfit={editing ? { id: editing.id, name: editing.name, memo: editing.memo } : undefined}
+          outfit={
+            editing
+              ? {
+                  id: editing.id,
+                  name: editing.name,
+                  memo: editing.memo,
+                  photo_path: editing.photo_path,
+                }
+              : undefined
+          }
         />
       )}
     </div>

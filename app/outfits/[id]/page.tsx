@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { deleteOutfit } from "@/app/actions/outfits";
 import { ColorDot } from "@/components/color-dot";
 import { ItemPhoto } from "@/components/item-photo";
+import { OutfitPhoto } from "@/components/outfit-photo";
 import { CATEGORY_META, formatMeasurements } from "@/lib/categories";
 import { getOutfit } from "@/lib/data";
 
@@ -49,7 +50,21 @@ export default async function OutfitPage({ params }: PageProps<"/outfits/[id]">)
         </div>
       </div>
 
-      <div className="mt-10 grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 lg:grid-cols-5">
+      {outfit.photo_path ? (
+        <div className="mt-10">
+          <p className="eyebrow mb-3">착장 사진</p>
+          <OutfitPhoto
+            path={outfit.photo_path}
+            alt={`${outfit.name} 착장 사진`}
+            className="aspect-[3/4] w-full max-w-md rounded-2xl"
+            sizes="(max-width: 768px) 100vw, 448px"
+            priority
+          />
+        </div>
+      ) : null}
+
+      <p className="eyebrow mt-12">이 코디의 옷</p>
+      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 lg:grid-cols-5">
         {entries.map(({ slot, item }) => {
           const measurements = formatMeasurements(item!.category, item!.measurements);
           return (

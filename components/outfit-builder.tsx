@@ -7,6 +7,7 @@ import { useActionState, useMemo, useState } from "react";
 import { saveOutfit } from "@/app/actions/outfits";
 import { ColorDot } from "@/components/color-dot";
 import { ItemPhoto } from "@/components/item-photo";
+import { PhotoInput } from "@/components/photo-input";
 import { CATEGORY_META, SLOT_ORDER, type Category } from "@/lib/categories";
 import { photoUrl } from "@/lib/supabase/env";
 import type { ActionState, Item } from "@/lib/types";
@@ -15,11 +16,12 @@ type Selection = Partial<Record<Category, string>>;
 
 type Props = {
   items: Item[];
+  userId: string;
   initialSelection?: Selection;
-  outfit?: { id: string; name: string; memo: string | null };
+  outfit?: { id: string; name: string; memo: string | null; photo_path: string | null };
 };
 
-export function OutfitBuilder({ items, initialSelection = {}, outfit }: Props) {
+export function OutfitBuilder({ items, userId, initialSelection = {}, outfit }: Props) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(saveOutfit, null);
   const [selection, setSelection] = useState<Selection>(initialSelection);
   const [activeSlot, setActiveSlot] = useState<Category>(SLOT_ORDER[0]);
@@ -135,7 +137,22 @@ export function OutfitBuilder({ items, initialSelection = {}, outfit }: Props) {
           ))}
         </div>
 
-        <div className="mt-8 space-y-4 border-t border-line pt-6">
+        <div className="mt-8 space-y-6 border-t border-line pt-6">
+          <div>
+            <p className="label mb-2">착장 사진 (선택)</p>
+            <p className="mb-3 text-sm text-muted">
+              실제로 입은 모습을 남겨두면 나중에 고를 때 훨씬 빠릅니다.
+            </p>
+            <div className="max-w-[320px]">
+              <PhotoInput
+                userId={userId}
+                defaultPath={outfit?.photo_path ?? null}
+                emptyLabel="탭해서 착장 사진 올리기"
+                alt="착장 사진"
+              />
+            </div>
+          </div>
+
           <div>
             <label className="label" htmlFor="name">
               코디 이름

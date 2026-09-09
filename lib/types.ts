@@ -20,6 +20,8 @@ export type Outfit = {
   user_id: string;
   name: string;
   memo: string | null;
+  /** 착장 사진 (clothes 버킷 경로). 옷 사진과 같은 규칙 */
+  photo_path: string | null;
   created_at: string;
 };
 

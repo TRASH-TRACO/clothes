@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { ItemPhoto } from "@/components/item-photo";
+import { OutfitPhoto } from "@/components/outfit-photo";
 import { CATEGORY_META } from "@/lib/categories";
 import type { OutfitWithItems } from "@/lib/types";
 
@@ -9,21 +10,31 @@ export function OutfitCard({ outfit }: { outfit: OutfitWithItems }) {
 
   return (
     <Link href={`/outfits/${outfit.id}`} className="group block">
-      <div className="grid grid-cols-2 gap-1 overflow-hidden rounded-xl bg-mist p-1">
-        {filled.slice(0, 4).map((entry) => (
-          <ItemPhoto
-            key={entry.slot}
-            path={entry.item!.photo_path}
-            alt={entry.item!.name}
-            category={entry.item!.category}
-            className="aspect-square rounded-lg"
-            sizes="(max-width: 768px) 25vw, 180px"
-          />
-        ))}
-        {Array.from({ length: Math.max(0, 4 - filled.length) }).map((_, index) => (
-          <div key={index} className="aspect-square rounded-lg bg-paper/60" />
-        ))}
-      </div>
+      {/* 착장 사진이 있으면 그게 대표 이미지, 없으면 옷 4장 그리드 */}
+      {outfit.photo_path ? (
+        <OutfitPhoto
+          path={outfit.photo_path}
+          alt={`${outfit.name} 착장 사진`}
+          className="aspect-square rounded-xl"
+          sizes="(max-width: 768px) 50vw, 320px"
+        />
+      ) : (
+        <div className="grid grid-cols-2 gap-1 overflow-hidden rounded-xl bg-mist p-1">
+          {filled.slice(0, 4).map((entry) => (
+            <ItemPhoto
+              key={entry.slot}
+              path={entry.item!.photo_path}
+              alt={entry.item!.name}
+              category={entry.item!.category}
+              className="aspect-square rounded-lg"
+              sizes="(max-width: 768px) 25vw, 180px"
+            />
+          ))}
+          {Array.from({ length: Math.max(0, 4 - filled.length) }).map((_, index) => (
+            <div key={index} className="aspect-square rounded-lg bg-paper/60" />
+          ))}
+        </div>
+      )}
       <div className="mt-3">
         <p className="text-sm font-semibold group-hover:underline">{outfit.name}</p>
         <p className="mt-1 text-sm text-muted">

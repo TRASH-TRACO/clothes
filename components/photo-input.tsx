@@ -10,13 +10,25 @@ import { PHOTO_BUCKET, photoUrl } from "@/lib/supabase/env";
 type Props = {
   userId: string;
   defaultPath?: string | null;
+  /** 폼에 실릴 필드 이름 */
+  name?: string;
+  /** 비어 있을 때 안내 문구 */
+  emptyLabel?: string;
+  /** 이미지 alt */
+  alt?: string;
 };
 
 /**
  * 사진은 서버 액션 본문 대신 브라우저에서 바로 Storage로 올린다.
  * 업로드가 끝나면 경로만 hidden input으로 폼에 실린다.
  */
-export function PhotoInput({ userId, defaultPath = null }: Props) {
+export function PhotoInput({
+  userId,
+  defaultPath = null,
+  name = "photo_path",
+  emptyLabel = "탭해서 사진 올리기",
+  alt = "등록할 옷 사진",
+}: Props) {
   const [path, setPath] = useState<string | null>(defaultPath);
   const [status, setStatus] = useState<"idle" | "uploading" | "error">("idle");
   const [error, setError] = useState("");
@@ -50,18 +62,11 @@ export function PhotoInput({ userId, defaultPath = null }: Props) {
 
   return (
     <div>
-      <input type="hidden" name="photo_path" value={path ?? ""} />
+      <input type="hidden" name={name} value={path ?? ""} />
 
       <div className="surface relative aspect-square w-full">
         {preview ? (
-          <Image
-            src={preview}
-            alt="등록할 옷 사진"
-            fill
-            sizes="480px"
-            unoptimized
-            className="object-cover"
-          />
+          <Image src={preview} alt={alt} fill sizes="480px" unoptimized className="object-cover" />
         ) : (
           <button
             type="button"
@@ -69,7 +74,7 @@ export function PhotoInput({ userId, defaultPath = null }: Props) {
             className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted transition-colors hover:text-ink"
           >
             <span className="display text-3xl text-line">Photo</span>
-            <span className="text-sm">탭해서 사진 올리기</span>
+            <span className="text-sm">{emptyLabel}</span>
           </button>
         )}
 
