@@ -25,6 +25,8 @@ export function ItemPhoto({ path, alt, category, className = "", sizes, priority
           fill
           sizes={sizes ?? "(max-width: 768px) 50vw, 25vw"}
           priority={priority}
+          // 인증이 필요한 경로라 최적화기가 못 가져온다 (헤더를 전달하지 않음)
+          unoptimized
           className="object-cover"
         />
       ) : (

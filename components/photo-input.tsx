@@ -54,7 +54,14 @@ export function PhotoInput({ userId, defaultPath = null }: Props) {
 
       <div className="surface relative aspect-square w-full">
         {preview ? (
-          <Image src={preview} alt="등록할 옷 사진" fill sizes="480px" className="object-cover" />
+          <Image
+            src={preview}
+            alt="등록할 옷 사진"
+            fill
+            sizes="480px"
+            unoptimized
+            className="object-cover"
+          />
         ) : (
           <button
             type="button"

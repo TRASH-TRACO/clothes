@@ -23,9 +23,13 @@ export function assertSupabaseConfigured() {
   }
 }
 
-/** Storage 경로 → 공개 URL */
+/**
+ * Storage 경로 → 앱 내부 URL.
+ * 버킷이 private이라 공개 URL이 없다. 인증을 거치는 프록시 라우트로 보낸다.
+ * (동기 함수라 클라이언트 컴포넌트에서도 그대로 쓸 수 있다)
+ */
 export function photoUrl(path: string | null | undefined) {
   if (!path) return null;
   if (path.startsWith("http")) return path;
-  return `${SUPABASE_URL}/storage/v1/object/public/${PHOTO_BUCKET}/${path}`;
+  return `/api/photo/${path.split("/").map(encodeURIComponent).join("/")}`;
 }

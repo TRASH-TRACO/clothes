@@ -93,15 +93,20 @@ create policy "outfit items follow outfit owner" on public.outfit_items
   );
 
 -- 6. 사진 Storage 버킷 --------------------------------------------
+-- private 버킷: 공개 URL로는 못 읽는다.
+-- 읽기는 앱의 /api/photo 라우트가 로그인 세션으로 대신 받아온다.
 insert into storage.buckets (id, name, public)
-values ('clothes', 'clothes', true)
-on conflict (id) do update set public = true;
+values ('clothes', 'clothes', false)
+on conflict (id) do update set public = false;
 
 -- 사진은 <user_id>/<uuid>.jpg 경로로 올린다. 폴더명이 본인 uid여야 한다.
 drop policy if exists "clothes photos are readable" on storage.objects;
 create policy "clothes photos are readable" on storage.objects
-  for select to public
-  using (bucket_id = 'clothes');
+  for select to authenticated
+  using (
+    bucket_id = 'clothes'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
 
 drop policy if exists "clothes photos are writable by owner" on storage.objects;
 create policy "clothes photos are writable by owner" on storage.objects

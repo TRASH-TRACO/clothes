@@ -108,6 +108,7 @@ export function OutfitBuilder({ items, initialSelection = {}, outfit }: Props) {
                         alt={item.name}
                         fill
                         sizes="(max-width: 640px) 50vw, 260px"
+                        unoptimized
                         className="object-cover"
                       />
                     ) : (
