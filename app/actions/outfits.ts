@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { SLOT_ORDER, isCategory } from "@/lib/categories";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import type { ActionState } from "@/lib/types";
 
 function fail(message: string): ActionState {
@@ -32,9 +32,7 @@ export async function saveOutfit(_prev: ActionState, formData: FormData): Promis
   const outfitId = String(formData.get("outfit_id") ?? "").trim();
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) return fail("로그인이 필요합니다.");
 
   let id = outfitId;
@@ -75,9 +73,7 @@ export async function deleteOutfit(formData: FormData) {
   if (!id) return;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) return;
 
   await supabase.from("outfits").delete().eq("id", id).eq("user_id", user.id);

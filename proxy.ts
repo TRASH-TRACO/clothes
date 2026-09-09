@@ -35,11 +35,12 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  let user = null;
+  // getUser()는 요청마다 Auth 서버로 왕복한다. 비대칭 키(ES256) 프로젝트라
+  // getClaims()가 JWKS로 로컬 검증하므로 왕복이 사라진다. (JWKS는 전역 캐시)
+  let signedIn = false;
   try {
-    ({
-      data: { user },
-    } = await supabase.auth.getUser());
+    const { data, error } = await supabase.auth.getClaims();
+    signedIn = !error && Boolean(data?.claims?.sub);
   } catch {
     // 네트워크 문제로 세션을 확인하지 못하면 그대로 통과시킨다
     return response;
@@ -48,14 +49,14 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const needsAuth = PROTECTED.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 
-  if (!user && needsAuth) {
+  if (!signedIn && needsAuth) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }
 
-  if (user && pathname === "/login") {
+  if (signedIn && pathname === "/login") {
     const url = request.nextUrl.clone();
     url.pathname = "/closet";
     url.search = "";

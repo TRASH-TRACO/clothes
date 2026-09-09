@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { isCategory, measurementFields, type Category } from "@/lib/categories";
 import { PHOTO_BUCKET } from "@/lib/supabase/env";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import type { ActionState } from "@/lib/types";
 
 function fail(message: string): ActionState {
@@ -73,9 +73,7 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
   if (!parsed.ok) return fail(parsed.message);
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) return fail("로그인이 필요합니다.");
 
   const { data, error } = await supabase
@@ -99,9 +97,7 @@ export async function updateItem(_prev: ActionState, formData: FormData): Promis
   if (!parsed.ok) return fail(parsed.message);
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) return fail("로그인이 필요합니다.");
 
   const { error } = await supabase
@@ -123,9 +119,7 @@ export async function deleteItem(formData: FormData) {
   if (!id) return;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) return;
 
   const { data: item } = await supabase
