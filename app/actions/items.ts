@@ -24,11 +24,13 @@ type ItemValues = {
   measurements: Record<string, number>;
 };
 
-type ParseResult = { ok: true; values: ItemValues } | { ok: false; message: string };
+type ParseResult =
+  { ok: true; values: ItemValues } | { ok: false; message: string };
 
 function parseItem(formData: FormData): ParseResult {
   const category = formData.get("category");
-  if (!isCategory(category)) return { ok: false, message: "카테고리를 선택하세요." };
+  if (!isCategory(category))
+    return { ok: false, message: "카테고리를 선택하세요." };
 
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { ok: false, message: "이름을 입력하세요." };
@@ -68,7 +70,35 @@ function parseItem(formData: FormData): ParseResult {
   };
 }
 
-export async function createItem(_prev: ActionState, formData: FormData): Promise<ActionState> {
+/**
+ * 표기만 다른 같은 브랜드가 늘어나지 않게, 이미 쓰던 표기가 있으면 그쪽을 따른다.
+ * (carhartt 로 넣어도 이미 Carhartt 가 있으면 Carhartt 로 저장된다)
+ * 폼에서 고르지 않고 직접 친 경우까지 막기 위한 마지막 방어선이다.
+ */
+async function canonicalBrand(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  brand: string | null,
+): Promise<string | null> {
+  if (!brand) return null;
+
+  // ilike의 와일드카드로 해석되지 않게 escape 한다
+  const pattern = brand.replace(/[\\%_]/g, (match) => `\\${match}`);
+  const { data } = await supabase
+    .from("items")
+    .select("brand")
+    .eq("user_id", userId)
+    .ilike("brand", pattern)
+    .limit(1)
+    .maybeSingle();
+
+  return data?.brand ?? brand;
+}
+
+export async function createItem(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const parsed = parseItem(formData);
   if (!parsed.ok) return fail(parsed.message);
 
@@ -76,9 +106,10 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
   const user = await getUser();
   if (!user) return fail("로그인이 필요합니다.");
 
+  const brand = await canonicalBrand(supabase, user.id, parsed.values.brand);
   const { data, error } = await supabase
     .from("items")
-    .insert({ ...parsed.values, user_id: user.id })
+    .insert({ ...parsed.values, brand, user_id: user.id })
     .select("id")
     .single();
 
@@ -89,7 +120,10 @@ export async function createItem(_prev: ActionState, formData: FormData): Promis
   redirect(`/closet/${data.id}`);
 }
 
-export async function updateItem(_prev: ActionState, formData: FormData): Promise<ActionState> {
+export async function updateItem(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const id = String(formData.get("id") ?? "");
   if (!id) return fail("잘못된 요청입니다.");
 
@@ -100,9 +134,10 @@ export async function updateItem(_prev: ActionState, formData: FormData): Promis
   const user = await getUser();
   if (!user) return fail("로그인이 필요합니다.");
 
+  const brand = await canonicalBrand(supabase, user.id, parsed.values.brand);
   const { error } = await supabase
     .from("items")
-    .update(parsed.values)
+    .update({ ...parsed.values, brand })
     .eq("id", id)
     .eq("user_id", user.id);
 

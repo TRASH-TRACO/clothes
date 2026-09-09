@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 
+import { BrandInput, type BrandOption } from "@/components/brand-input";
 import { PhotoInput } from "@/components/photo-input";
 import { CATEGORIES, CATEGORY_META, measurementFields, type Category } from "@/lib/categories";
 import { COLOR_PRESETS, isLight } from "@/lib/colors";
@@ -11,10 +12,12 @@ import type { ActionState, Item } from "@/lib/types";
 type Props = {
   userId: string;
   item?: Item;
+  /** 이미 등록된 브랜드. 오타로 중복이 생기지 않게 골라 쓴다 */
+  brands: BrandOption[];
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
 };
 
-export function ItemForm({ userId, item, action }: Props) {
+export function ItemForm({ userId, item, brands, action }: Props) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(action, null);
   const [category, setCategory] = useState<Category>(item?.category ?? "top");
   const [color, setColor] = useState({
@@ -71,14 +74,7 @@ export function ItemForm({ userId, item, action }: Props) {
             <label className="label" htmlFor="brand">
               브랜드
             </label>
-            <input
-              id="brand"
-              name="brand"
-              defaultValue={item?.brand ?? ""}
-              maxLength={60}
-              placeholder="선택 입력"
-              className="field"
-            />
+            <BrandInput brands={brands} defaultValue={item?.brand ?? ""} />
           </div>
           <div>
             <label className="label" htmlFor="size_label">

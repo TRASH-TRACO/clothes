@@ -57,6 +57,22 @@ export async function getColorFacets() {
   return [...map.values()].sort((a, b) => b.count - a.count);
 }
 
+/** 이미 등록된 브랜드 목록 (많이 쓴 순). 오타로 중복이 늘지 않게 고르는 용도 */
+export async function getBrands() {
+  const items = await getItems();
+  const map = new Map<string, { name: string; count: number }>();
+  for (const item of items) {
+    const brand = item.brand?.trim();
+    if (!brand) continue;
+    // 표기가 갈려도 한 줄로 모은다 (Carhartt / carhartt)
+    const key = brand.toLowerCase();
+    const found = map.get(key);
+    if (found) found.count += 1;
+    else map.set(key, { name: brand, count: 1 });
+  }
+  return [...map.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+}
+
 export async function getCategoryCounts() {
   const items = await getItems();
   const counts = {} as Record<Category, number>;
