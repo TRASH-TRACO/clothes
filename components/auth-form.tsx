@@ -5,10 +5,10 @@ import { useActionState, useState } from "react";
 import { signIn, signUp } from "@/app/actions/auth";
 import type { ActionState } from "@/lib/types";
 
+type Mode = "signin" | "signup";
+
 export function AuthForm({ next }: { next: string }) {
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const action = mode === "signin" ? signIn : signUp;
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(action, null);
+  const [mode, setMode] = useState<Mode>("signin");
 
   return (
     <div className="w-full max-w-md">
@@ -32,51 +32,61 @@ export function AuthForm({ next }: { next: string }) {
         ))}
       </div>
 
-      <form key={mode} action={formAction} className="space-y-5">
-        <input type="hidden" name="next" value={next} />
-        <div>
-          <label className="label" htmlFor="email">
-            이메일
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            required
-            className="field"
-            placeholder="you@example.com"
-          />
-        </div>
-        <div>
-          <label className="label" htmlFor="password">
-            비밀번호
-          </label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete={mode === "signin" ? "current-password" : "new-password"}
-            required
-            minLength={6}
-            className="field"
-            placeholder="6자 이상"
-          />
-        </div>
-
-        {state ? (
-          <p
-            role="alert"
-            className={`text-sm font-medium ${state.ok ? "text-ink" : "text-accent"}`}
-          >
-            {state.message}
-          </p>
-        ) : null}
-
-        <button type="submit" disabled={pending} className="btn-dark w-full">
-          {pending ? "처리 중…" : mode === "signin" ? "로그인" : "가입하기"}
-        </button>
-      </form>
+      {/*
+        key가 useActionState보다 바깥에 있어야 탭을 바꿀 때 state까지 초기화된다.
+        (form에만 걸면 이전 모드의 에러 메시지가 남는다)
+      */}
+      <ModeForm key={mode} mode={mode} next={next} />
     </div>
+  );
+}
+
+function ModeForm({ mode, next }: { mode: Mode; next: string }) {
+  const action = mode === "signin" ? signIn : signUp;
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(action, null);
+
+  return (
+    <form action={formAction} className="space-y-5">
+      <input type="hidden" name="next" value={next} />
+      <div>
+        <label className="label" htmlFor="email">
+          이메일
+        </label>
+        <input
+          id="email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          required
+          className="field"
+          placeholder="you@example.com"
+        />
+      </div>
+      <div>
+        <label className="label" htmlFor="password">
+          비밀번호
+        </label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          autoComplete={mode === "signin" ? "current-password" : "new-password"}
+          required
+          minLength={6}
+          className="field"
+          placeholder="6자 이상"
+        />
+      </div>
+
+      {state ? (
+        <p role="alert" className={`text-sm font-medium ${state.ok ? "text-ink" : "text-accent"}`}>
+          {state.message}
+        </p>
+      ) : null}
+
+      <button type="submit" disabled={pending} className="btn-dark w-full">
+        {pending ? "처리 중…" : mode === "signin" ? "로그인" : "가입하기"}
+      </button>
+    </form>
   );
 }
