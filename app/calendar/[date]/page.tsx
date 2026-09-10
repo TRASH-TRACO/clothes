@@ -1,16 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
-import { saveWearLog } from "@/app/actions/wear";
-import { WeatherGlyph } from "@/components/weather-glyph";
-import { WearForm } from "@/components/wear-form";
-import { dayLabel, isValidDate, seoulToday } from "@/lib/calendar";
-import { getBasePlace, getItems, getOutfits, getWearLog, logPlace } from "@/lib/data";
-import { weatherKind, weatherLabel } from "@/lib/weather";
+import { DayHeader } from "@/components/day-header";
+import { ItemPhoto } from "@/components/item-photo";
+import { OutfitPhoto } from "@/components/outfit-photo";
+import { CATEGORY_META } from "@/lib/categories";
+import { dayLabel, isValidDate } from "@/lib/calendar";
+import { getBasePlace, getWearLog, logPlace } from "@/lib/data";
 import { getDayWeather } from "@/lib/weather-store";
 
-export async function generateMetadata({ params }: PageProps<"/calendar/[date]">): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps<"/calendar/[date]">): Promise<Metadata> {
   const { date } = await params;
   return { title: isValidDate(date) ? dayLabel(date) : "캘린더" };
 }
@@ -19,70 +21,79 @@ export default async function WearDayPage({ params }: PageProps<"/calendar/[date
   const { date } = await params;
   if (!isValidDate(date)) notFound();
 
-  const [log, items, outfits, base] = await Promise.all([
-    getWearLog(date),
-    getItems({ sort: "recent" }),
-    getOutfits(),
-    getBasePlace(),
-  ]);
+  const log = await getWearLog(date);
 
-  // 여행을 적어둔 날이면 그 지역 날씨를 본다
+  // 남긴 게 없는 날은 볼 것도 없으니 바로 기록하러 보낸다
+  if (!log) redirect(`/calendar/${date}/edit`);
+
+  const base = await getBasePlace();
   const override = logPlace(log);
   const place = override ?? base;
-  const day = await getDayWeather(date, place);
-  const today = seoulToday();
+  const day = await getDayWeather(date, place, override !== null);
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-12 lg:px-10">
-      <Link
-        href={`/calendar?m=${date.slice(0, 7)}`}
-        className="text-sm text-muted underline underline-offset-4 hover:text-ink"
-      >
-        ← {date.slice(0, 4)}년 {Number(date.slice(5, 7))}월
-      </Link>
+      <DayHeader date={date} place={place} pinned={override !== null} day={day} />
 
-      <div className="mt-4 flex flex-wrap items-end justify-between gap-6">
-        <div>
-          <p className="eyebrow">
-            {date === today ? "오늘" : date > today ? "예정" : "기록"}
-          </p>
-          <h1 className="display mt-2 text-5xl sm:text-6xl">{dayLabel(date)}</h1>
+      {log.outfit ? (
+        <p className="mt-10 text-sm text-muted">
+          저장한 코디{" "}
+          <Link
+            href={`/outfits/${log.outfit.id}`}
+            className="font-semibold text-ink underline underline-offset-4"
+          >
+            {log.outfit.name}
+          </Link>
+        </p>
+      ) : null}
+
+      {log.outfit?.photo_path ? (
+        <OutfitPhoto
+          path={log.outfit.photo_path}
+          alt={`${log.outfit.name} 착장 사진`}
+          className="mt-6 aspect-square max-w-sm rounded-xl"
+          sizes="(max-width: 768px) 100vw, 384px"
+        />
+      ) : null}
+
+      <h2 className="display mt-10 text-2xl">입은 옷 {log.items.length}개</h2>
+      {log.items.length === 0 ? (
+        <p className="mt-4 text-muted">옷은 남기지 않고 지역만 기록한 날입니다.</p>
+      ) : (
+        <div className="mt-5 grid grid-cols-3 gap-x-3 gap-y-6 sm:grid-cols-4 lg:grid-cols-6">
+          {log.items.map((item) => (
+            <Link key={item.id} href={`/closet/${item.id}`} className="group">
+              <ItemPhoto
+                path={item.photo_path}
+                alt={item.name}
+                category={item.category}
+                className="aspect-square rounded-xl"
+                sizes="(max-width: 640px) 30vw, 160px"
+              />
+              <p className="mt-2 truncate text-xs font-semibold group-hover:underline">
+                {item.name}
+              </p>
+              <p className="truncate text-xs text-muted">{CATEGORY_META[item.category].label}</p>
+            </Link>
+          ))}
         </div>
+      )}
 
-        {day ? (
-          <div className="flex items-center gap-4">
-            <WeatherGlyph kind={weatherKind(day.code)} className="h-10 w-10 shrink-0" />
-            <div>
-              <p className="text-lg font-semibold">
-                {day.high === null ? "―" : `${Math.round(day.high)}°`}
-                <span className="text-muted">
-                  {day.low === null ? "" : ` / ${Math.round(day.low)}°`}
-                </span>
-              </p>
-              <p className="mt-1 text-sm text-muted">
-                {place.name}
-                {override ? "" : " (기본)"} · {weatherLabel(day.code)}
-                {day.rainAmount !== null && day.rainAmount >= 0.5
-                  ? ` · 강수량 ${day.rainAmount < 10 ? day.rainAmount.toFixed(1) : Math.round(day.rainAmount)}mm`
-                  : ""}
-              </p>
-            </div>
-          </div>
-        ) : (
-          // 예보 API가 주는 기간(과거 92일 ~ 이후 15일)을 벗어난 날짜
-          <p className="text-sm text-muted">이 날짜의 날씨는 남아 있지 않습니다.</p>
-        )}
+      {log.memo ? (
+        <>
+          <h2 className="display mt-10 text-2xl">메모</h2>
+          <p className="mt-3 whitespace-pre-wrap text-muted">{log.memo}</p>
+        </>
+      ) : null}
+
+      <div className="mt-12 flex flex-wrap gap-3">
+        <Link href={`/calendar/${date}/edit`} className="btn-dark">
+          수정하기
+        </Link>
+        <Link href={`/calendar?m=${date.slice(0, 7)}`} className="btn-light">
+          캘린더로
+        </Link>
       </div>
-
-      <WearForm
-        date={date}
-        items={items}
-        outfits={outfits}
-        log={log}
-        basePlace={base}
-        place={override}
-        action={saveWearLog}
-      />
     </div>
   );
 }

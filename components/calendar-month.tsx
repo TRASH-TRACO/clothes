@@ -26,10 +26,8 @@ function Temps({ day }: { day: DayWeather }) {
   );
 }
 
-/** 그날 대표 이미지: 착장 사진 > 첫 옷 사진 */
+/** 그날 대표 이미지: 착장 사진 > 입은 옷 (최대 4장, 2×2) */
 function Thumb({ log }: { log: WearLogWithItems }) {
-  const first = log.items[0];
-
   if (log.outfit?.photo_path) {
     return (
       <OutfitPhoto
@@ -40,17 +38,38 @@ function Thumb({ log }: { log: WearLogWithItems }) {
       />
     );
   }
-  if (!first) return null;
 
+  const shown = log.items.slice(0, 4);
+  if (shown.length === 0) return null;
+
+  if (shown.length === 1) {
+    return (
+      <ItemPhoto
+        path={shown[0].photo_path}
+        alt={shown[0].name}
+        category={shown[0].category}
+        className="min-h-0 flex-1 rounded"
+        sizes="(max-width: 640px) 14vw, 120px"
+        compact
+      />
+    );
+  }
+
+  // 2장이면 한 줄, 3~4장이면 두 줄로 알아서 쌓인다
   return (
-    <ItemPhoto
-      path={first.photo_path}
-      alt={first.name}
-      category={first.category}
-      className="min-h-0 flex-1 rounded"
-      sizes="(max-width: 640px) 14vw, 120px"
-      compact
-    />
+    <div className="grid min-h-0 flex-1 auto-rows-fr grid-cols-2 gap-px">
+      {shown.map((item) => (
+        <ItemPhoto
+          key={item.id}
+          path={item.photo_path}
+          alt={item.name}
+          category={item.category}
+          className="min-h-0 rounded-[3px]"
+          sizes="(max-width: 640px) 8vw, 60px"
+          compact
+        />
+      ))}
+    </div>
   );
 }
 

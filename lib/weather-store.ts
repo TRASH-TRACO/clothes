@@ -1,16 +1,20 @@
 import "server-only";
 
 import { addDays, seoulToday } from "./calendar";
-import { isPlace, roundPlace, placeKey, type Place } from "./places";
+import { isPlace, placeKey, roundPlace, type Place } from "./places";
 import { isSupabaseConfigured } from "./supabase/env";
 import { createClient, getUser } from "./supabase/server";
-import { getDailyRange, getDailyRangeByPlace, type DayWeather } from "./weather";
+import { getDailyRange, type DayWeather } from "./weather";
 
-/** 예보 API가 지난 날씨를 주는 한계. 이보다 옛날은 받아올 방법이 없다 */
+/** 예보 API가 주는 구간. 이 밖은 받아올 방법이 없으니 부르지도 않는다 */
 const MAX_PAST_DAYS = 92;
+const MAX_FUTURE_DAYS = 15;
 
-/** 저장해 둔 하루치 날씨. 어느 지역 기준이었는지도 같이 남는다 */
-export type StoredDay = DayWeather & { place: Place };
+/** 아직 지나지 않은 날은 예보라 값이 바뀐다. 이보다 오래된 저장분은 다시 받는다 */
+const FORECAST_STALE_MS = 3 * 60 * 60 * 1000;
+
+/** 저장해 둔 하루치 날씨. 어느 지역 기준으로 받았는지도 같이 남는다 */
+export type StoredDay = DayWeather & { place: Place; fetchedAt: number };
 
 type Row = {
   on_date: string;
@@ -21,7 +25,11 @@ type Row = {
   temp_high: number | null;
   temp_low: number | null;
   rain_amount: number | null;
+  fetched_at: string;
 };
+
+const COLUMNS =
+  "on_date, place_name, place_lat, place_lon, code, temp_high, temp_low, rain_amount, fetched_at";
 
 function toStored(row: Row): StoredDay | null {
   const place = { name: row.place_name, lat: row.place_lat, lon: row.place_lon };
@@ -32,35 +40,8 @@ function toStored(row: Row): StoredDay | null {
     high: row.temp_high,
     low: row.temp_low,
     rainAmount: row.rain_amount,
+    fetchedAt: Date.parse(row.fetched_at) || 0,
   };
-}
-
-/** 저장해 둔 구간의 날씨 (양 끝 포함) */
-export async function readStoredWeather(from: string, to: string): Promise<Map<string, StoredDay>> {
-  const result = new Map<string, StoredDay>();
-  if (!isSupabaseConfigured()) return result;
-
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("daily_weather")
-    .select("on_date, place_name, place_lat, place_lon, code, temp_high, temp_low, rain_amount")
-    .gte("on_date", from)
-    .lte("on_date", to);
-
-  // 아직 마이그레이션을 안 돌렸으면 저장된 게 없는 것처럼 군다
-  if (error || !data) return result;
-
-  for (const row of data as Row[]) {
-    const stored = toStored(row);
-    if (stored) result.set(row.on_date, stored);
-  }
-  return result;
-}
-
-async function upsert(rows: (Row & { user_id: string })[]) {
-  if (rows.length === 0) return;
-  const supabase = await createClient();
-  await supabase.from("daily_weather").upsert(rows, { onConflict: "user_id,on_date" });
 }
 
 function toRow(userId: string, date: string, place: Place, day: DayWeather) {
@@ -74,29 +55,50 @@ function toRow(userId: string, date: string, place: Place, day: DayWeather) {
     temp_high: day.high,
     temp_low: day.low,
     rain_amount: day.rainAmount,
+    fetched_at: new Date().toISOString(),
   };
 }
 
-/**
- * 아직 저장 안 된 지난 날짜를 채운다. 여기서만 지난 날씨를 API로 부른다.
- * 지역이 같은 날짜끼리 묶어 한 번씩만 부르고, 받은 값은 바로 저장한다.
- */
-export async function fillPastWeather(
+/** 받아올 수 있는 날짜인지 (너무 옛날이거나 너무 먼 미래면 부르지 않는다) */
+function reachable(date: string) {
+  const today = seoulToday();
+  return date >= addDays(today, -MAX_PAST_DAYS) && date <= addDays(today, MAX_FUTURE_DAYS);
+}
+
+async function readRows(from: string, to: string): Promise<Map<string, StoredDay>> {
+  const result = new Map<string, StoredDay>();
+  if (!isSupabaseConfigured()) return result;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("daily_weather")
+    .select(COLUMNS)
+    .gte("on_date", from)
+    .lte("on_date", to);
+
+  // 아직 마이그레이션을 안 돌렸으면 저장된 게 없는 것처럼 군다
+  if (error || !data) return result;
+
+  for (const row of data as Row[]) {
+    const stored = toStored(row);
+    if (stored) result.set(row.on_date, stored);
+  }
+  return result;
+}
+
+/** 지정한 날짜들의 날씨를 받아서 저장한다 */
+async function fetchAndStore(
   dates: string[],
   placeOf: (date: string) => Place,
 ): Promise<Map<string, StoredDay>> {
   const filled = new Map<string, StoredDay>();
-  if (!isSupabaseConfigured()) return filled;
-
-  // API가 못 주는 옛날 날짜는 부르지 않는다. 부르면 매번 빈손으로 돌아와
-  // 그 달을 열 때마다 헛되이 호출하게 된다.
-  const oldest = addDays(seoulToday(), -MAX_PAST_DAYS);
-  const targets = dates.filter((date) => date >= oldest);
-  if (targets.length === 0) return filled;
+  const targets = dates.filter(reachable);
+  if (targets.length === 0 || !isSupabaseConfigured()) return filled;
 
   const user = await getUser();
   if (!user) return filled;
 
+  // 지역이 같은 날끼리 묶어 한 번씩만 부른다
   const groups = new Map<string, { place: Place; dates: string[] }>();
   for (const date of targets) {
     const place = placeOf(date);
@@ -106,54 +108,41 @@ export async function fillPastWeather(
     else groups.set(key, { place, dates: [date] });
   }
 
-  const rows: (Row & { user_id: string })[] = [];
+  const rows: ReturnType<typeof toRow>[] = [];
   await Promise.all(
     [...groups.values()].map(async (group) => {
       const sorted = [...group.dates].sort();
       const range = await getDailyRange(group.place, sorted[0], sorted[sorted.length - 1]);
       for (const date of group.dates) {
         const day = range.get(date);
-        // 예보 API가 못 주는 옛날 날짜는 그냥 비워 둔다 (다음에 다시 시도한다)
         if (!day) continue;
         rows.push(toRow(user.id, date, group.place, day));
-        filled.set(date, { ...day, place: group.place });
+        filled.set(date, { ...day, place: group.place, fetchedAt: Date.now() });
       }
     }),
   );
 
-  await upsert(rows);
+  if (rows.length > 0) {
+    const supabase = await createClient();
+    await supabase.from("daily_weather").upsert(rows, { onConflict: "user_id,on_date" });
+  }
   return filled;
 }
 
-/**
- * 그 날짜의 지역이 바뀌었으니 날씨를 다시 받아 덮어쓴다.
- * 오늘과 그 이후는 저장하지 않으므로 (예보라 계속 바뀐다) 지난 날짜만 손댄다.
- */
-export async function refreshStoredDay(date: string, place: Place): Promise<void> {
-  if (!isSupabaseConfigured()) return;
-  const supabase = await createClient();
-  const user = await getUser();
-  if (!user) return;
-
-  if (date >= seoulToday()) {
-    // 예보 구간이면 저장해 둔 값이 있어도 의미가 없다. 지워서 다시 받게 한다.
-    await supabase.from("daily_weather").delete().eq("user_id", user.id).eq("on_date", date);
-    return;
-  }
-
-  const stored = (await readStoredWeather(date, date)).get(date);
-  if (stored && placeKey(stored.place) === placeKey(place)) return;
-
-  const range = await getDailyRange(place, date, date);
-  const day = range.get(date);
-  if (!day) return;
-  await upsert([toRow(user.id, date, place, day)]);
+/** 저장분을 다시 받아야 하는지 */
+function needsFetch(stored: StoredDay | undefined, want: Place, date: string) {
+  if (!stored) return true;
+  // 지역을 바꿨으면 옛 지역 값이 남아 있는 것이다
+  if (placeKey(stored.place) !== placeKey(want)) return true;
+  // 아직 지나지 않은 날은 예보라 값이 바뀐다. 지난 날은 확정이라 그대로 둔다.
+  return date >= seoulToday() && Date.now() - stored.fetchedAt > FORECAST_STALE_MS;
 }
 
 /**
  * 달력 한 판의 날씨.
- * 지난 날짜는 저장해 둔 값을 쓰고 (없으면 한 번 받아서 저장),
- * 오늘부터는 예보라 매번 새로 받는다.
+ *
+ * - 지역을 따로 정해 둔 날: DB에 저장해 둔 값 (없거나 지역이 바뀌었으면 그때 받아 저장)
+ * - 그 외의 날: 기본 지역으로 그때그때 받아온다 (한 번의 범위 조회로 끝난다)
  */
 export async function getCalendarWeather(
   base: Place,
@@ -163,58 +152,57 @@ export async function getCalendarWeather(
   const merged = new Map<string, DayWeather>();
   if (dates.length === 0) return merged;
 
-  const today = seoulToday();
   const sorted = [...dates].sort();
-  const placeOf = (date: string) => placeByDate.get(date) ?? base;
+  const pinned = sorted.filter((date) => placeByDate.has(date));
+  const plain = sorted.filter((date) => !placeByDate.has(date));
 
-  const stored = await readStoredWeather(sorted[0], sorted[sorted.length - 1]);
-  const missing = sorted.filter((date) => date < today && !stored.has(date));
-  const ahead = sorted.filter((date) => date >= today);
+  const stored = pinned.length > 0 ? await readRows(pinned[0], pinned[pinned.length - 1]) : new Map();
+  const stale = pinned.filter((date) => needsFetch(stored.get(date), placeByDate.get(date)!, date));
 
-  const [filled, forecast] = await Promise.all([
-    fillPastWeather(missing, placeOf),
-    ahead.length > 0
-      ? getDailyRangeByPlace(base, placeByDate, ahead)
+  const [filled, fromApi] = await Promise.all([
+    fetchAndStore(stale, (date) => placeByDate.get(date)!),
+    plain.length > 0
+      ? getDailyRange(base, plain[0], plain[plain.length - 1])
       : Promise.resolve(new Map<string, DayWeather>()),
   ]);
 
   for (const date of sorted) {
-    const day = date < today ? (stored.get(date) ?? filled.get(date)) : forecast.get(date);
+    const day = placeByDate.has(date)
+      ? (filled.get(date) ?? stored.get(date))
+      : fromApi.get(date);
     if (day) merged.set(date, day);
   }
   return merged;
 }
 
-/** 하루치. 규칙은 달력과 같다 (지난 날은 저장분, 오늘부터는 예보) */
-export async function getDayWeather(date: string, place: Place): Promise<DayWeather | null> {
-  if (date >= seoulToday()) {
+/** 하루치. 규칙은 달력과 같다 */
+export async function getDayWeather(
+  date: string,
+  place: Place,
+  pinned: boolean,
+): Promise<DayWeather | null> {
+  if (!pinned) {
     const range = await getDailyRange(place, date, date);
     return range.get(date) ?? null;
   }
 
-  const stored = await readStoredWeather(date, date);
-  const hit = stored.get(date);
-  if (hit) return hit;
+  const stored = (await readRows(date, date)).get(date);
+  if (!needsFetch(stored, place, date)) return stored ?? null;
 
-  const filled = await fillPastWeather([date], () => place);
-  return filled.get(date) ?? null;
+  const filled = await fetchAndStore([date], () => place);
+  return filled.get(date) ?? stored ?? null;
 }
 
-/**
- * 이 지역 기준으로 저장해 둔 날들을 지운다.
- * 기본 지역을 바꿨을 때 예전 기본 지역으로 채워진 날들을 비워, 다음에 볼 때
- * 새 기본 지역으로 다시 채워지게 하는 용도다. (날짜별로 따로 정해 둔 날은 건드리지 않는다)
- */
-export async function dropStoredForPlace(place: Place): Promise<void> {
+/** 그날 지역을 정했으니 그 지역 날씨를 받아 저장해 둔다 */
+export async function storeDay(date: string, place: Place): Promise<void> {
+  await fetchAndStore([date], () => place);
+}
+
+/** 그날 지역 지정을 지웠으니 저장분도 버린다 (다시 기본 지역으로 본다) */
+export async function dropStoredDay(date: string): Promise<void> {
   if (!isSupabaseConfigured()) return;
   const supabase = await createClient();
   const user = await getUser();
   if (!user) return;
-
-  await supabase
-    .from("daily_weather")
-    .delete()
-    .eq("user_id", user.id)
-    .eq("place_lat", place.lat)
-    .eq("place_lon", place.lon);
+  await supabase.from("daily_weather").delete().eq("user_id", user.id).eq("on_date", date);
 }
