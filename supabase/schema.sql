@@ -152,6 +152,29 @@ create policy "wear log items follow log owner" on public.wear_log_items
     )
   );
 
+-- 5-2. 사용자 설정: 기본 지역 ----------------------------------------
+-- 날씨는 "그날의 기록"이라 접속 위치로 추정하면 안 된다. 사용자가 정해 둔다.
+create table if not exists public.user_settings (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  place_name text not null,
+  place_lat double precision not null,
+  place_lon double precision not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.user_settings enable row level security;
+
+drop policy if exists "settings are private" on public.user_settings;
+create policy "settings are private" on public.user_settings
+  for all to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- 그날 어디 있었는지 (여행 등). 비어 있으면 기본 지역으로 본다.
+alter table public.wear_logs add column if not exists place_name text;
+alter table public.wear_logs add column if not exists place_lat double precision;
+alter table public.wear_logs add column if not exists place_lon double precision;
+
 -- 6. 사진 Storage 버킷 --------------------------------------------
 -- private 버킷: 공개 URL로는 못 읽는다.
 -- 읽기는 앱의 /api/photo 라우트가 로그인 세션으로 대신 받아온다.

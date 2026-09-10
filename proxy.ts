@@ -4,7 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 import { SUPABASE_ANON_KEY, SUPABASE_URL, isSupabaseConfigured } from "@/lib/supabase/env";
 
 /** 로그인이 필요한 경로 */
-const PROTECTED = ["/closet", "/studio", "/outfits", "/calendar"];
+const PROTECTED = ["/closet", "/studio", "/outfits", "/calendar", "/settings"];
 
 /**
  * Next.js 16에서 middleware는 proxy로 이름이 바뀌었다.

@@ -6,8 +6,9 @@ import { ItemCard } from "@/components/item-card";
 import { OutfitCard } from "@/components/outfit-card";
 import { WeatherBand, WeatherBandSkeleton } from "@/components/weather-band";
 import { CATEGORY_META, SLOT_ORDER } from "@/lib/categories";
-import { getCategoryCounts, getItems, getOutfits } from "@/lib/data";
+import { getBasePlace, getCategoryCounts, getItems, getOutfits, getWearLog, logPlace } from "@/lib/data";
 import { getUser } from "@/lib/supabase/server";
+import { weatherTarget } from "@/lib/weather";
 
 function SectionHeader({
   title,
@@ -55,11 +56,16 @@ export default async function HomePage() {
     );
   }
 
-  const [items, outfits, counts] = await Promise.all([
+  // 예보로 보여줄 날짜에 여행을 적어뒀으면 그 지역으로 본다
+  const target = weatherTarget();
+  const [items, outfits, counts, base, targetLog] = await Promise.all([
     getItems({ sort: "recent" }),
     getOutfits(),
     getCategoryCounts(),
+    getBasePlace(),
+    getWearLog(target.date),
   ]);
+  const place = logPlace(targetLog) ?? base;
 
   return (
     <>
@@ -69,7 +75,7 @@ export default async function HomePage() {
         aside={
           // 날씨는 외부 API라 느릴 수 있다. 옷장 내용이 먼저 뜨도록 떼어둔다
           <Suspense fallback={<WeatherBandSkeleton />}>
-            <WeatherBand />
+            <WeatherBand place={place} />
           </Suspense>
         }
       />

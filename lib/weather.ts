@@ -1,13 +1,10 @@
 import "server-only";
 
-import { headers } from "next/headers";
-
 import { TIME_ZONE, addDays, seoulNow } from "./calendar";
+import { placeKey, type Place } from "./places";
 
 /** 이 시각(KST)을 넘기면 오늘이 아니라 내일 예보를 본다 */
 const TOMORROW_AFTER_HOUR = 17;
-
-const SEOUL = { lat: 37.57, lon: 126.98, city: "서울" };
 
 export type HourPoint = {
   /** 0~23 */
@@ -37,34 +34,6 @@ export type Weather = {
   /** 비교 기준이 되는 전날 (오늘 예보면 어제, 내일 예보면 오늘) */
   baseline: { high: number | null; low: number | null; windMax: number | null } | null;
 };
-
-/**
- * 예보를 볼 위치.
- * 1) WEATHER_LAT/WEATHER_LON 을 넣었으면 그걸 쓰고
- * 2) Vercel이 붙여주는 IP 기반 좌표가 있으면 그걸 쓰고
- * 3) 둘 다 없으면 서울로 본다.
- */
-async function resolveLocation() {
-  const envLat = Number(process.env.WEATHER_LAT);
-  const envLon = Number(process.env.WEATHER_LON);
-  if (Number.isFinite(envLat) && Number.isFinite(envLon)) {
-    return { lat: envLat, lon: envLon, city: process.env.WEATHER_CITY || "" };
-  }
-
-  const head = await headers();
-  const lat = Number(head.get("x-vercel-ip-latitude"));
-  const lon = Number(head.get("x-vercel-ip-longitude"));
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return SEOUL;
-
-  // 도시명은 퍼센트 인코딩돼서 온다 (Seoul, %EC%84%9C%EC%9A%B8)
-  let city = "";
-  try {
-    city = decodeURIComponent(head.get("x-vercel-ip-city") ?? "");
-  } catch {
-    city = head.get("x-vercel-ip-city") ?? "";
-  }
-  return { lat, lon, city };
-}
 
 /** 응답이 기대와 달라도 화면이 깨지지 않게 숫자만 걸러낸다 */
 function num(value: unknown): number | null {
@@ -103,15 +72,15 @@ function buildHours(hourly: Record<string, unknown> | undefined, date: string, n
 
 /**
  * 오전엔 오늘, 오후 5시부터는 내일 예보를 가져온다.
+ * 어느 지역인지는 부르는 쪽이 정한다 (접속 위치로 추정하지 않는다).
  * 날씨는 거들 뿐이라 실패하면 null을 주고 홈은 그대로 뜬다.
  */
-export async function getWeather(): Promise<Weather | null> {
-  const { lat, lon, city } = await resolveLocation();
+export async function getWeather(place: Place): Promise<Weather | null> {
+  const { lat, lon } = place;
   const seoul = seoulNow();
   const target = seoul.hour >= TOMORROW_AFTER_HOUR ? "tomorrow" : "today";
   const date = target === "today" ? seoul.date : addDays(seoul.date, 1);
 
-  // 좌표를 적당히 잘라 같은 동네면 캐시를 같이 쓰게 한다
   const url =
     "https://api.open-meteo.com/v1/forecast" +
     `?latitude=${lat.toFixed(2)}&longitude=${lon.toFixed(2)}` +
@@ -157,7 +126,7 @@ export async function getWeather(): Promise<Weather | null> {
 
   return {
     target,
-    city: city || SEOUL.city,
+    city: place.name,
     code: code ?? 0,
     high: at("temperature_2m_max"),
     low: at("temperature_2m_min"),
@@ -260,11 +229,18 @@ export type DayWeather = {
 const MAX_PAST_DAYS = 92;
 const MAX_FUTURE_DAYS = 15;
 
+/** 달력 한 판에서 지역별로 따로 부를 최대 횟수 */
+const MAX_PLACE_REQUESTS = 4;
+
 /**
  * 달력 한 판에 뿌릴 날짜별 기온·강수량. 키는 YYYY-MM-DD.
  * API가 주지 못하는 기간은 그냥 빠진다 (달력은 그대로 그린다).
  */
-export async function getDailyRange(from: string, to: string): Promise<Map<string, DayWeather>> {
+export async function getDailyRange(
+  place: Place,
+  from: string,
+  to: string,
+): Promise<Map<string, DayWeather>> {
   const empty = new Map<string, DayWeather>();
   const today = seoulNow().date;
 
@@ -273,7 +249,7 @@ export async function getDailyRange(from: string, to: string): Promise<Map<strin
   const end = to > addDays(today, MAX_FUTURE_DAYS) ? addDays(today, MAX_FUTURE_DAYS) : to;
   if (start > end) return empty;
 
-  const { lat, lon } = await resolveLocation();
+  const { lat, lon } = place;
   const url =
     "https://api.open-meteo.com/v1/forecast" +
     `?latitude=${lat.toFixed(2)}&longitude=${lon.toFixed(2)}` +
@@ -314,4 +290,70 @@ export async function getDailyRange(from: string, to: string): Promise<Map<strin
     });
   });
   return result;
+}
+
+/** 지금 보여줄 예보가 어느 날짜인지 (오전엔 오늘, 오후 5시부터는 내일) */
+export function weatherTarget() {
+  const seoul = seoulNow();
+  const target = seoul.hour >= TOMORROW_AFTER_HOUR ? "tomorrow" : "today";
+  return {
+    target,
+    date: target === "today" ? seoul.date : addDays(seoul.date, 1),
+  } as const;
+}
+
+/**
+ * 날짜마다 지역이 다를 수 있는 구간의 날씨.
+ * 여행 간 날은 그 지역으로, 나머지는 기본 지역으로 본다.
+ *
+ * 지역별로 묶어서 한 번씩만 부른다. 다만 한 달에 여기저기 옮겨 다녔더라도
+ * 요청이 무한정 늘지 않게 상위 몇 곳까지만 따로 부르고, 나머지는 기본 지역으로 둔다.
+ */
+export async function getDailyRangeByPlace(
+  base: Place,
+  placeByDate: Map<string, Place>,
+  dates: string[],
+): Promise<Map<string, DayWeather>> {
+  if (dates.length === 0) return new Map();
+
+  const groups = new Map<string, { place: Place; dates: string[] }>();
+  for (const date of dates) {
+    const place = placeByDate.get(date) ?? base;
+    const key = placeKey(place);
+    const group = groups.get(key);
+    if (group) group.dates.push(date);
+    else groups.set(key, { place, dates: [date] });
+  }
+
+  const baseKey = placeKey(base);
+  const ordered = [...groups.entries()].sort((a, b) => {
+    // 기본 지역을 먼저, 그다음 날짜가 많은 곳 순
+    if (a[0] === baseKey) return -1;
+    if (b[0] === baseKey) return 1;
+    return b[1].dates.length - a[1].dates.length;
+  });
+
+  const kept = ordered.slice(0, MAX_PLACE_REQUESTS);
+  const dropped = ordered.slice(MAX_PLACE_REQUESTS).flatMap(([, group]) => group.dates);
+  if (dropped.length > 0) {
+    const baseGroup = kept.find(([key]) => key === baseKey);
+    if (baseGroup) baseGroup[1].dates.push(...dropped);
+  }
+
+  const results = await Promise.all(
+    kept.map(async ([, group]) => {
+      const sorted = [...group.dates].sort();
+      const range = await getDailyRange(group.place, sorted[0], sorted[sorted.length - 1]);
+      // 이 지역에 속한 날짜만 골라 쓴다 (범위 안의 남의 날짜가 섞이면 안 된다)
+      return group.dates.map((date) => [date, range.get(date)] as const);
+    }),
+  );
+
+  const merged = new Map<string, DayWeather>();
+  for (const pairs of results) {
+    for (const [date, day] of pairs) {
+      if (day) merged.set(date, day);
+    }
+  }
+  return merged;
 }

@@ -1,4 +1,5 @@
 import { WeatherGlyph } from "@/components/weather-glyph";
+import type { Place } from "@/lib/places";
 import {
   compareLine,
   getWeather,
@@ -39,8 +40,8 @@ function Hour({ point }: { point: HourPoint }) {
  * 오전엔 오늘, 오후 5시부터는 내일 예보.
  * 날씨를 못 불러오면 아무것도 그리지 않는다 (홈의 본체는 옷장이라서).
  */
-export async function WeatherBand() {
-  const weather = await getWeather();
+export async function WeatherBand({ place }: { place: Place }) {
+  const weather = await getWeather(place);
   if (!weather) return null;
   return <WeatherCard weather={weather} />;
 }

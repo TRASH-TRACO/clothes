@@ -38,6 +38,10 @@ export type WearLog = {
   /** 저장한 코디에서 골랐으면 그 코디 id */
   outfit_id: string | null;
   memo: string | null;
+  /** 그날 있던 곳. 비어 있으면 기본 지역으로 본다 (여행 간 날만 채운다) */
+  place_name: string | null;
+  place_lat: number | null;
+  place_lon: number | null;
   created_at: string;
 };
 

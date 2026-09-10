@@ -27,6 +27,9 @@ export function SiteFooter() {
           <Link href="/calendar" className="hover:text-paper">
             캘린더
           </Link>
+          <Link href="/settings" className="hover:text-paper">
+            설정
+          </Link>
         </nav>
       </div>
       <p className="mx-auto mt-10 max-w-7xl text-xs text-white/40">

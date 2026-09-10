@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 
 import { ItemPhoto } from "@/components/item-photo";
+import { PlacePicker } from "@/components/place-picker";
 import { deleteWearLog } from "@/app/actions/wear";
 import { CATEGORIES, CATEGORY_META, type Category } from "@/lib/categories";
+import type { Place } from "@/lib/places";
 import type { ActionState, Item, OutfitWithItems, WearLogWithItems } from "@/lib/types";
 
 type Props = {
@@ -13,10 +15,14 @@ type Props = {
   items: Item[];
   outfits: OutfitWithItems[];
   log: WearLogWithItems | null;
+  /** 설정에 정해 둔 기본 지역 */
+  basePlace: Place;
+  /** 이 날만 따로 적어 둔 지역 (없으면 기본 지역을 쓴다) */
+  place: Place | null;
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
 };
 
-export function WearForm({ date, items, outfits, log, action }: Props) {
+export function WearForm({ date, items, outfits, log, basePlace, place, action }: Props) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(action, null);
 
   const [outfitId, setOutfitId] = useState<string | null>(log?.outfit_id ?? null);
@@ -24,6 +30,7 @@ export function WearForm({ date, items, outfits, log, action }: Props) {
     () => new Set(log?.items.map((item) => item.id) ?? []),
   );
   const [filter, setFilter] = useState<Category | "all">("all");
+  const [spot, setSpot] = useState<Place | null>(place);
 
   /** 코디를 고르면 그 구성 옷으로 통째로 바꾼다 */
   function chooseOutfit(outfit: OutfitWithItems) {
@@ -172,6 +179,22 @@ export function WearForm({ date, items, outfits, log, action }: Props) {
               })}
             </div>
           )}
+        </section>
+
+        <section>
+          <h2 className="display text-2xl">이 날 있던 곳</h2>
+          <p className="mt-2 text-sm text-muted">
+            여행처럼 다른 지역이었던 날만 골라주세요. 비워두면 기본 지역({basePlace.name}) 날씨로
+            봅니다.
+          </p>
+          <div className="mt-5">
+            <PlacePicker
+              value={spot}
+              onChange={setSpot}
+              clearable
+              clearLabel={`기본 지역 (${basePlace.name})`}
+            />
+          </div>
         </section>
 
         <section>

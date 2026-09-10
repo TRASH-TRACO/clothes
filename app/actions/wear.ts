@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { isValidDate, monthOf } from "@/lib/calendar";
+import { isPlace, roundPlace } from "@/lib/places";
 import { createClient, getUser } from "@/lib/supabase/server";
 import type { ActionState } from "@/lib/types";
 
@@ -20,7 +21,19 @@ export async function saveWearLog(_prev: ActionState, formData: FormData): Promi
   if (!isValidDate(date)) return fail("날짜가 올바르지 않습니다.");
 
   const itemIds = [...new Set(formData.getAll("item_ids").map(String).filter(Boolean))];
-  if (itemIds.length === 0) return fail("입은 옷을 하나 이상 골라주세요.");
+
+  // 그날 있던 곳. 안 고르면 기본 지역을 쓴다는 뜻이라 null로 둔다.
+  const candidate = {
+    name: String(formData.get("place_name") ?? "").trim(),
+    lat: Number(formData.get("place_lat")),
+    lon: Number(formData.get("place_lon")),
+  };
+  const place = isPlace(candidate) ? roundPlace(candidate) : null;
+
+  // 옷을 안 골라도 "이 날은 부산에 있었다"만 남길 수 있어야 한다
+  if (itemIds.length === 0 && !place) {
+    return fail("입은 옷을 고르거나, 그날 있던 지역을 남겨주세요.");
+  }
 
   const memo = String(formData.get("memo") ?? "").trim() || null;
   const requestedOutfit = String(formData.get("outfit_id") ?? "").trim() || null;
@@ -44,7 +57,15 @@ export async function saveWearLog(_prev: ActionState, formData: FormData): Promi
   const { data: log, error } = await supabase
     .from("wear_logs")
     .upsert(
-      { user_id: user.id, worn_on: date, outfit_id: outfitId, memo },
+      {
+        user_id: user.id,
+        worn_on: date,
+        outfit_id: outfitId,
+        memo,
+        place_name: place?.name ?? null,
+        place_lat: place?.lat ?? null,
+        place_lon: place?.lon ?? null,
+      },
       { onConflict: "user_id,worn_on" },
     )
     .select("id")
@@ -57,13 +78,17 @@ export async function saveWearLog(_prev: ActionState, formData: FormData): Promi
     .eq("wear_log_id", log.id);
   if (clearError) return fail(clearError.message);
 
-  const { error: itemsError } = await supabase
-    .from("wear_log_items")
-    .insert(itemIds.map((itemId) => ({ wear_log_id: log.id, item_id: itemId })));
-  if (itemsError) return fail(itemsError.message);
+  if (itemIds.length > 0) {
+    const { error: itemsError } = await supabase
+      .from("wear_log_items")
+      .insert(itemIds.map((itemId) => ({ wear_log_id: log.id, item_id: itemId })));
+    if (itemsError) return fail(itemsError.message);
+  }
 
   revalidatePath("/calendar");
   revalidatePath(`/calendar/${date}`);
+  // 홈 날씨도 이 날짜 지역을 따라가므로 같이 새로 그린다
+  revalidatePath("/");
   redirect(`/calendar?m=${monthOf(date)}`);
 }
 

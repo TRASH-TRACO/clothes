@@ -25,9 +25,13 @@ export async function SiteHeader() {
         <div className="flex items-center gap-3">
           {user ? (
             <>
-              <span className="hidden max-w-[180px] truncate text-sm text-muted lg:inline">
+              <Link
+                href="/settings"
+                className="hidden max-w-[180px] truncate text-sm text-muted hover:text-ink lg:inline"
+                title="설정"
+              >
                 {user.email}
-              </span>
+              </Link>
               <Link href="/closet/new" className="btn-dark px-5 py-2.5">
                 옷 등록
               </Link>

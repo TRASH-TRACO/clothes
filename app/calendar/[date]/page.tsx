@@ -6,7 +6,7 @@ import { saveWearLog } from "@/app/actions/wear";
 import { WeatherGlyph } from "@/components/weather-glyph";
 import { WearForm } from "@/components/wear-form";
 import { dayLabel, isValidDate, seoulToday } from "@/lib/calendar";
-import { getItems, getOutfits, getWearLog } from "@/lib/data";
+import { getBasePlace, getItems, getOutfits, getWearLog, logPlace } from "@/lib/data";
 import { getDailyRange, weatherKind, weatherLabel } from "@/lib/weather";
 
 export async function generateMetadata({ params }: PageProps<"/calendar/[date]">): Promise<Metadata> {
@@ -18,13 +18,17 @@ export default async function WearDayPage({ params }: PageProps<"/calendar/[date
   const { date } = await params;
   if (!isValidDate(date)) notFound();
 
-  const [log, items, outfits, weather] = await Promise.all([
+  const [log, items, outfits, base] = await Promise.all([
     getWearLog(date),
     getItems({ sort: "recent" }),
     getOutfits(),
-    getDailyRange(date, date),
+    getBasePlace(),
   ]);
 
+  // 여행을 적어둔 날이면 그 지역 날씨를 본다
+  const override = logPlace(log);
+  const place = override ?? base;
+  const weather = await getDailyRange(place, date, date);
   const day = weather.get(date);
   const today = seoulToday();
 
@@ -56,7 +60,8 @@ export default async function WearDayPage({ params }: PageProps<"/calendar/[date
                 </span>
               </p>
               <p className="mt-1 text-sm text-muted">
-                {weatherLabel(day.code)}
+                {place.name}
+                {override ? "" : " (기본)"} · {weatherLabel(day.code)}
                 {day.rainAmount !== null && day.rainAmount >= 0.5
                   ? ` · 강수량 ${day.rainAmount < 10 ? day.rainAmount.toFixed(1) : Math.round(day.rainAmount)}mm`
                   : ""}
@@ -69,7 +74,15 @@ export default async function WearDayPage({ params }: PageProps<"/calendar/[date
         )}
       </div>
 
-      <WearForm date={date} items={items} outfits={outfits} log={log} action={saveWearLog} />
+      <WearForm
+        date={date}
+        items={items}
+        outfits={outfits}
+        log={log}
+        basePlace={base}
+        place={override}
+        action={saveWearLog}
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { SLOT_ORDER, type Category } from "./categories";
+import { DEFAULT_PLACE, isPlace, roundPlace, type Place } from "./places";
 import { isSupabaseConfigured } from "./supabase/env";
 import { createClient } from "./supabase/server";
 import type { Item, Outfit, OutfitWithItems, WearLog, WearLogWithItems } from "./types";
@@ -177,3 +178,48 @@ export const getWearLog = cache(async (date: string): Promise<WearLogWithItems |
   if (error) throw new Error(error.message);
   return data ? toWearLog(data as WearLogRow) : null;
 });
+
+/** 환경변수로 박아둔 기본 지역 (설정 화면을 아직 안 쓴 경우의 대비책) */
+function envPlace(): Place | null {
+  const place = {
+    name: process.env.WEATHER_CITY || "기본 지역",
+    lat: Number(process.env.WEATHER_LAT),
+    lon: Number(process.env.WEATHER_LON),
+  };
+  return isPlace(place) ? roundPlace(place) : null;
+}
+
+/**
+ * 날씨를 볼 기본 지역.
+ * 접속 위치로 추정하지 않는다. 날씨는 그날의 기록이라 추정값이 남으면 곤란하다.
+ */
+export const getBasePlace = cache(async (): Promise<Place> => {
+  const fallback = envPlace() ?? DEFAULT_PLACE;
+  if (!isSupabaseConfigured()) return fallback;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("user_settings")
+    .select("place_name, place_lat, place_lon")
+    .maybeSingle();
+
+  if (error || !data) return fallback;
+
+  const place = { name: data.place_name, lat: data.place_lat, lon: data.place_lon };
+  return isPlace(place) ? roundPlace(place) : fallback;
+});
+
+/** 기본 지역을 직접 정해 뒀는지 (안 정했으면 설정하라고 안내한다) */
+export const hasBasePlace = cache(async (): Promise<boolean> => {
+  if (!isSupabaseConfigured()) return false;
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("user_settings").select("user_id").maybeSingle();
+  return !error && Boolean(data);
+});
+
+/** 그날 따로 적어 둔 지역 (여행 등). 없으면 null */
+export function logPlace(log: WearLog | null | undefined): Place | null {
+  if (!log) return null;
+  const place = { name: log.place_name, lat: log.place_lat, lon: log.place_lon };
+  return isPlace(place) ? roundPlace(place) : null;
+}
