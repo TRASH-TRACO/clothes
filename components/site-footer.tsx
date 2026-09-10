@@ -1,8 +1,9 @@
 import Link from "next/link";
 
 export function SiteFooter() {
+  // 아래 여백은 아이폰 홈 인디케이터에 가리지 않게 safe-area 를 더한다
   return (
-    <footer className="mt-24 bg-ink px-6 py-12 text-paper lg:px-10">
+    <footer className="mt-24 bg-ink px-6 pt-12 pb-[calc(3rem+env(safe-area-inset-bottom))] text-paper lg:px-10">
       <div className="mx-auto flex max-w-7xl flex-col gap-8 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="display text-4xl leading-none">Closet</p>

@@ -92,3 +92,12 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* viewport-fit=cover 라 가로 모드에선 노치가 좌우를 파고든다.
+   세로 모드에선 좌우 inset이 0이므로 가로일 때만 밀어준다. */
+@media (orientation: landscape) {
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
