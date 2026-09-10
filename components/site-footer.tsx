@@ -24,6 +24,9 @@ export function SiteFooter() {
           <Link href="/outfits" className="hover:text-paper">
             저장한 코디
           </Link>
+          <Link href="/calendar" className="hover:text-paper">
+            캘린더
+          </Link>
         </nav>
       </div>
       <p className="mx-auto mt-10 max-w-7xl text-xs text-white/40">

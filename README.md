@@ -94,6 +94,8 @@ maskable 쪽은 안드로이드가 원형으로 잘라내는 걸 감안해 글�
 | `/closet/[id]` | 옷 상세. 실측값 카드, 이 옷으로 코디 시작 |
 | `/studio` | 코디 만들기. 슬롯 6칸을 채우고 저장 (`?edit=<id>`로 수정, `?top=<itemId>`로 미리 채우기) |
 | `/outfits`, `/outfits/[id]` | 저장한 코디 목록·상세 |
+| `/calendar` | 달력. 날짜마다 기온·강수량과 그날 입은 옷 |
+| `/calendar/[date]` | 그날 입은 옷 기록·수정 |
 
 ## 날씨
 
@@ -120,6 +122,23 @@ maskable 쪽은 안드로이드가 원형으로 잘라내는 걸 감안해 글�
 브라우저 위치 권한은 쓰지 않습니다. 정확한 현재 위치가 필요해지면 `lib/weather.ts`의
 `resolveLocation()`만 바꾸면 됩니다.
 
+## 캘린더
+
+달력에서 하루하루가 어떤 날씨였고 뭘 입었는지 봅니다.
+
+- **기본으로 채워지는 값**: 최고/최저 기온, 강수량. 비가 온(올) 날은 날짜 옆에 주황 점이 붙습니다.
+- **직접 남기는 값**: 그날 입은 옷. 저장한 코디를 고르면 그 구성 옷이 그대로 채워지고,
+  거기서 하나씩 빼거나 더할 수 있습니다. 메모도 남길 수 있습니다.
+- 하루에 한 줄입니다 (`user_id + worn_on` 유니크). 같은 날짜에 다시 저장하면 덮어씁니다.
+- 코디를 골라 저장해도 **구성 옷을 복사해 둡니다.** 나중에 그 코디를 고치거나 지워도
+  지난 기록은 그대로 남습니다.
+- 날씨는 [Open-Meteo](https://open-meteo.com) 예보 API가 주는 **과거 92일 ~ 이후 15일** 구간만
+  채워집니다. 그 밖의 달을 보면 날씨 칸만 비고 기록은 정상적으로 보입니다.
+
+> **이미 배포한 프로젝트라면 `supabase/schema.sql`을 SQL Editor에서 다시 실행하세요.**
+> `wear_logs` / `wear_log_items` 테이블과 RLS 정책이 새로 추가됐습니다.
+> 여러 번 실행해도 안전합니다. 실행 전에는 캘린더가 날씨만 보여주고 기록은 저장되지 않습니다.
+
 ## 데이터 모델
 
 ```
@@ -127,6 +146,10 @@ items         id, user_id, name, brand, category, color_name, color_hex,
               size_label, photo_path, measurements(jsonb), notes, created_at
 outfits       id, user_id, name, memo, created_at
 outfit_items  outfit_id, item_id, slot   -- (outfit_id, slot) unique
+
+wear_logs      id, user_id, worn_on, outfit_id, memo, created_at
+               -- (user_id, worn_on) unique. 하루에 한 줄
+wear_log_items wear_log_id, item_id  -- 그날 입은 옷
 ```
 
 카테고리는 `hat / outer / top / bottom / shoes / acc` 6종이고,

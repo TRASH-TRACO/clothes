@@ -7,6 +7,7 @@ const LINKS = [
   { href: "/closet", label: "옷장" },
   { href: "/studio", label: "코디 만들기" },
   { href: "/outfits", label: "저장한 코디" },
+  { href: "/calendar", label: "캘린더" },
 ];
 
 export function NavLinks({ className = "" }: { className?: string }) {

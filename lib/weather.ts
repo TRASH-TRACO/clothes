@@ -2,8 +2,7 @@ import "server-only";
 
 import { headers } from "next/headers";
 
-/** 예보 기준 시간대. 옷 고민은 한국 시간으로 한다. */
-const TIME_ZONE = "Asia/Seoul";
+import { TIME_ZONE, addDays, seoulNow } from "./calendar";
 
 /** 이 시각(KST)을 넘기면 오늘이 아니라 내일 예보를 본다 */
 const TOMORROW_AFTER_HOUR = 17;
@@ -38,30 +37,6 @@ export type Weather = {
   /** 비교 기준이 되는 전날 (오늘 예보면 어제, 내일 예보면 오늘) */
   baseline: { high: number | null; low: number | null; windMax: number | null } | null;
 };
-
-/** 지금 한국 시각 (날짜 문자열 + 시) */
-function nowInSeoul() {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    // hour12:false 는 자정을 24로 주는 구현이 있어 h23을 명시한다
-    hourCycle: "h23",
-  }).formatToParts(new Date());
-
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
-  return {
-    date: `${get("year")}-${get("month")}-${get("day")}`,
-    hour: Number(get("hour")),
-  };
-}
-
-function addDays(date: string, days: number) {
-  const [y, m, d] = date.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
-}
 
 /**
  * 예보를 볼 위치.
@@ -132,7 +107,7 @@ function buildHours(hourly: Record<string, unknown> | undefined, date: string, n
  */
 export async function getWeather(): Promise<Weather | null> {
   const { lat, lon, city } = await resolveLocation();
-  const seoul = nowInSeoul();
+  const seoul = seoulNow();
   const target = seoul.hour >= TOMORROW_AFTER_HOUR ? "tomorrow" : "today";
   const date = target === "today" ? seoul.date : addDays(seoul.date, 1);
 
@@ -271,4 +246,72 @@ export function compareLine(weather: Weather): string | null {
   }
 
   return clauses.length ? clauses.join(" · ") : null;
+}
+
+export type DayWeather = {
+  code: number;
+  high: number | null;
+  low: number | null;
+  /** mm */
+  rainAmount: number | null;
+};
+
+// open-meteo 예보 API가 주는 범위. 이보다 옛날/먼 미래는 값이 없다.
+const MAX_PAST_DAYS = 92;
+const MAX_FUTURE_DAYS = 15;
+
+/**
+ * 달력 한 판에 뿌릴 날짜별 기온·강수량. 키는 YYYY-MM-DD.
+ * API가 주지 못하는 기간은 그냥 빠진다 (달력은 그대로 그린다).
+ */
+export async function getDailyRange(from: string, to: string): Promise<Map<string, DayWeather>> {
+  const empty = new Map<string, DayWeather>();
+  const today = seoulNow().date;
+
+  // 받을 수 있는 구간으로 좁힌다. YYYY-MM-DD는 사전순 비교가 곧 날짜순 비교다.
+  const start = from < addDays(today, -MAX_PAST_DAYS) ? addDays(today, -MAX_PAST_DAYS) : from;
+  const end = to > addDays(today, MAX_FUTURE_DAYS) ? addDays(today, MAX_FUTURE_DAYS) : to;
+  if (start > end) return empty;
+
+  const { lat, lon } = await resolveLocation();
+  const url =
+    "https://api.open-meteo.com/v1/forecast" +
+    `?latitude=${lat.toFixed(2)}&longitude=${lon.toFixed(2)}` +
+    `&timezone=${encodeURIComponent(TIME_ZONE)}` +
+    `&start_date=${start}&end_date=${end}` +
+    "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum";
+
+  let payload: Record<string, unknown>;
+  try {
+    const response = await fetch(url, {
+      next: { revalidate: 1800 },
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!response.ok) return empty;
+    payload = await response.json();
+  } catch {
+    return empty;
+  }
+
+  const daily = payload.daily as Record<string, unknown> | undefined;
+  const times = daily?.time;
+  if (!daily || !Array.isArray(times)) return empty;
+
+  const column = (key: string) => (Array.isArray(daily[key]) ? (daily[key] as unknown[]) : []);
+  const codes = column("weather_code");
+  const highs = column("temperature_2m_max");
+  const lows = column("temperature_2m_min");
+  const rains = column("precipitation_sum");
+
+  const result = new Map<string, DayWeather>();
+  times.forEach((time, i) => {
+    if (typeof time !== "string") return;
+    result.set(time, {
+      code: num(codes[i]) ?? 0,
+      high: num(highs[i]),
+      low: num(lows[i]),
+      rainAmount: num(rains[i]),
+    });
+  });
+  return result;
 }

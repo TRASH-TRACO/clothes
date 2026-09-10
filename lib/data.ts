@@ -5,7 +5,7 @@ import { cache } from "react";
 import { SLOT_ORDER, type Category } from "./categories";
 import { isSupabaseConfigured } from "./supabase/env";
 import { createClient } from "./supabase/server";
-import type { Item, Outfit, OutfitWithItems } from "./types";
+import type { Item, Outfit, OutfitWithItems, WearLog, WearLogWithItems } from "./types";
 
 export type ItemQuery = {
   category?: Category;
@@ -119,4 +119,61 @@ export const getOutfit = cache(async (id: string): Promise<OutfitWithItems | nul
     .maybeSingle();
   if (error) throw new Error(error.message);
   return data ? toOutfit(data as OutfitRow) : null;
+});
+
+/**
+ * schema.sql 의 착장 기록 부분을 아직 안 돌렸으면 테이블이 없다.
+ * 그때 캘린더 전체가 죽는 대신 빈 화면으로 두고, 저장할 때 진짜 이유를 보여준다.
+ */
+function isMissingTable(error: { code?: string } | null) {
+  return error?.code === "42P01";
+}
+
+type WearLogRow = WearLog & {
+  outfits: Pick<Outfit, "id" | "name" | "photo_path"> | null;
+  wear_log_items: { items: Item | null }[];
+};
+
+const WEAR_SELECT = "*, outfits(id, name, photo_path), wear_log_items(items(*))";
+
+function toWearLog(row: WearLogRow): WearLogWithItems {
+  return {
+    ...row,
+    outfit: row.outfits,
+    // 코디 슬롯 순서대로 세워야 카드가 늘 같은 순서로 보인다
+    items: row.wear_log_items
+      .map((entry) => entry.items)
+      .filter((item): item is Item => item !== null)
+      .sort((a, b) => SLOT_ORDER.indexOf(a.category) - SLOT_ORDER.indexOf(b.category)),
+  };
+}
+
+/** 달력 한 판에 뿌릴 기록. from/to 는 YYYY-MM-DD (양 끝 포함) */
+export const getWearLogs = cache(
+  async (from: string, to: string): Promise<WearLogWithItems[]> => {
+    if (!isSupabaseConfigured()) return [];
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("wear_logs")
+      .select(WEAR_SELECT)
+      .gte("worn_on", from)
+      .lte("worn_on", to)
+      .order("worn_on", { ascending: true });
+    if (isMissingTable(error)) return [];
+    if (error) throw new Error(error.message);
+    return ((data ?? []) as WearLogRow[]).map(toWearLog);
+  },
+);
+
+export const getWearLog = cache(async (date: string): Promise<WearLogWithItems | null> => {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("wear_logs")
+    .select(WEAR_SELECT)
+    .eq("worn_on", date)
+    .maybeSingle();
+  if (isMissingTable(error)) return null;
+  if (error) throw new Error(error.message);
+  return data ? toWearLog(data as WearLogRow) : null;
 });

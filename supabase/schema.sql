@@ -97,6 +97,61 @@ create policy "outfit items follow outfit owner" on public.outfit_items
     )
   );
 
+-- 5-1. 착장 기록 (하루에 한 줄) --------------------------------------
+create table if not exists public.wear_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  worn_on date not null,
+  -- 저장한 코디에서 가져왔으면 그 코디를 가리킨다.
+  -- 코디를 나중에 지워도 그날 입은 옷 기록은 남아야 하므로 set null.
+  outfit_id uuid references public.outfits (id) on delete set null,
+  memo text,
+  created_at timestamptz not null default now(),
+  unique (user_id, worn_on)
+);
+
+create index if not exists wear_logs_user_date_idx on public.wear_logs (user_id, worn_on desc);
+
+-- 그날 입은 옷. 코디를 골랐어도 구성 옷을 그대로 복사해 둔다
+-- (나중에 코디를 고쳐도 지난 기록은 그대로 남게)
+create table if not exists public.wear_log_items (
+  id uuid primary key default gen_random_uuid(),
+  wear_log_id uuid not null references public.wear_logs (id) on delete cascade,
+  item_id uuid not null references public.items (id) on delete cascade,
+  unique (wear_log_id, item_id)
+);
+
+create index if not exists wear_log_items_log_idx on public.wear_log_items (wear_log_id);
+
+alter table public.wear_logs enable row level security;
+alter table public.wear_log_items enable row level security;
+
+drop policy if exists "wear logs are private" on public.wear_logs;
+create policy "wear logs are private" on public.wear_logs
+  for all to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "wear log items follow log owner" on public.wear_log_items;
+create policy "wear log items follow log owner" on public.wear_log_items
+  for all to authenticated
+  using (
+    exists (
+      select 1 from public.wear_logs w
+      where w.id = wear_log_items.wear_log_id and w.user_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.wear_logs w
+      where w.id = wear_log_items.wear_log_id and w.user_id = auth.uid()
+    )
+    and exists (
+      select 1 from public.items i
+      where i.id = wear_log_items.item_id and i.user_id = auth.uid()
+    )
+  );
+
 -- 6. 사진 Storage 버킷 --------------------------------------------
 -- private 버킷: 공개 URL로는 못 읽는다.
 -- 읽기는 앱의 /api/photo 라우트가 로그인 세션으로 대신 받아온다.
