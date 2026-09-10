@@ -35,6 +35,8 @@ export type Weather = {
   rainAmount: number | null;
   windMax: number | null;
   hours: HourPoint[];
+  /** 비교 기준이 되는 전날 (오늘 예보면 어제, 내일 예보면 오늘) */
+  baseline: { high: number | null; low: number | null; windMax: number | null } | null;
 };
 
 /** 지금 한국 시각 (날짜 문자열 + 시) */
@@ -138,7 +140,8 @@ export async function getWeather(): Promise<Weather | null> {
   const url =
     "https://api.open-meteo.com/v1/forecast" +
     `?latitude=${lat.toFixed(2)}&longitude=${lon.toFixed(2)}` +
-    `&timezone=${encodeURIComponent(TIME_ZONE)}&forecast_days=2` +
+    // past_days=1 이면 어제치가 daily에 같이 들어온다 (비교 문구용)
+    `&timezone=${encodeURIComponent(TIME_ZONE)}&forecast_days=2&past_days=1` +
     "&current=temperature_2m,apparent_temperature,weather_code" +
     "&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_min," +
     "precipitation_sum,precipitation_probability_max,wind_speed_10m_max" +
@@ -167,6 +170,12 @@ export async function getWeather(): Promise<Weather | null> {
     return Array.isArray(arr) ? num(arr[index]) : null;
   };
 
+  const baseIndex = pickIndex(daily.time, addDays(date, -1));
+  const baseAt = (key: string) => {
+    const arr = daily[key];
+    return Array.isArray(arr) && baseIndex >= 0 ? num(arr[baseIndex]) : null;
+  };
+
   const current = payload.current as Record<string, unknown> | undefined;
   const isToday = target === "today";
   const code = at("weather_code");
@@ -187,6 +196,14 @@ export async function getWeather(): Promise<Weather | null> {
       date,
       isToday ? seoul.hour : null,
     ),
+    baseline:
+      baseIndex < 0
+        ? null
+        : {
+            high: baseAt("temperature_2m_max"),
+            low: baseAt("temperature_2m_min"),
+            windMax: baseAt("wind_speed_10m_max"),
+          },
   };
 }
 
@@ -216,4 +233,42 @@ export function weatherKind(code: number) {
   if (code === 85 || code === 86) return "snow" as const;
   if (code >= 95) return "thunder" as const;
   return "rain" as const;
+}
+
+/**
+ * "어제보다 6° 추워요" 같은 한 줄.
+ * 내일 예보를 보고 있으면 기준은 어제가 아니라 오늘이다 (그게 몸으로 아는 기준이라).
+ * 비교할 값이 없으면 null.
+ */
+export function compareLine(weather: Weather): string | null {
+  const base = weather.baseline;
+  if (!base) return null;
+
+  const today = weather.target === "today";
+  const label = today ? "어제" : "오늘";
+  const clauses: string[] = [];
+
+  if (weather.high !== null && base.high !== null) {
+    const gap = Math.round(weather.high - base.high);
+    if (Math.abs(gap) < 2) clauses.push(today ? "어제와 비슷해요" : "오늘과 비슷해요");
+    else clauses.push(`${label}보다 ${Math.abs(gap)}° ${gap > 0 ? "더워요" : "추워요"}`);
+  }
+
+  // 곁들이는 한마디는 하나만. 바람이 우선이고, 없으면 일교차를 본다.
+  const windier =
+    weather.windMax !== null &&
+    base.windMax !== null &&
+    weather.windMax >= 6 &&
+    weather.windMax - base.windMax >= 3;
+
+  const swing =
+    weather.high !== null && weather.low !== null ? weather.high - weather.low : null;
+
+  if (windier) {
+    clauses.push(clauses.length ? "바람도 많이 불어요" : `${label}보다 바람이 많이 불어요`);
+  } else if (swing !== null && swing >= 12) {
+    clauses.push("일교차가 커요");
+  }
+
+  return clauses.length ? clauses.join(" · ") : null;
 }

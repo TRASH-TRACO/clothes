@@ -1,39 +1,13 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
+import { HomeHero } from "@/components/home-hero";
 import { ItemCard } from "@/components/item-card";
 import { OutfitCard } from "@/components/outfit-card";
 import { WeatherBand, WeatherBandSkeleton } from "@/components/weather-band";
 import { CATEGORY_META, SLOT_ORDER } from "@/lib/categories";
 import { getCategoryCounts, getItems, getOutfits } from "@/lib/data";
 import { getUser } from "@/lib/supabase/server";
-
-function Hero({ signedIn }: { signedIn: boolean }) {
-  return (
-    <section className="relative overflow-hidden bg-mist">
-      <div className="mx-auto flex max-w-7xl flex-col gap-8 px-6 py-24 lg:px-10 lg:py-32">
-        <p className="eyebrow">Your closet, organized</p>
-        <h1 className="display text-6xl sm:text-7xl lg:text-8xl">
-          오늘 뭐 입지
-          <br />
-          고민 끝
-        </h1>
-        <p className="max-w-xl text-lg text-muted">
-          사진과 실측, 색상까지 옷 하나하나 기록하고 모자·상의·하의·신발을 한 화면에서 조합하세요.
-          마음에 든 조합은 그대로 저장됩니다.
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <Link href={signedIn ? "/closet/new" : "/login"} className="btn-dark">
-            {signedIn ? "옷 등록하기" : "시작하기"}
-          </Link>
-          <Link href={signedIn ? "/studio" : "/login"} className="btn-light">
-            코디 만들기
-          </Link>
-        </div>
-      </div>
-    </section>
-  );
-}
 
 function SectionHeader({
   title,
@@ -60,7 +34,7 @@ export default async function HomePage() {
   if (!user) {
     return (
       <>
-        <Hero signedIn={false} />
+        <HomeHero signedIn={false} />
         <section className="mx-auto max-w-7xl px-6 py-20 lg:px-10">
           <h2 className="display text-4xl">이렇게 씁니다</h2>
           <ol className="mt-10 grid gap-8 md:grid-cols-3">
@@ -89,12 +63,15 @@ export default async function HomePage() {
 
   return (
     <>
-      <Hero signedIn />
-
-      {/* 날씨는 외부 API라 느릴 수 있다. 옷장 내용이 먼저 뜨도록 떼어둔다 */}
-      <Suspense fallback={<WeatherBandSkeleton />}>
-        <WeatherBand />
-      </Suspense>
+      <HomeHero
+        signedIn
+        aside={
+          // 날씨는 외부 API라 느릴 수 있다. 옷장 내용이 먼저 뜨도록 떼어둔다
+          <Suspense fallback={<WeatherBandSkeleton />}>
+            <WeatherBand />
+          </Suspense>
+        }
+      />
 
       <section className="mx-auto max-w-7xl px-6 py-14 lg:px-10">
         <div className="grid grid-cols-3 gap-px overflow-hidden rounded-xl bg-line sm:grid-cols-6">
