@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { ItemCard } from "@/components/item-card";
 import { OutfitCard } from "@/components/outfit-card";
+import { WeatherBand, WeatherBandSkeleton } from "@/components/weather-band";
 import { CATEGORY_META, SLOT_ORDER } from "@/lib/categories";
 import { getCategoryCounts, getItems, getOutfits } from "@/lib/data";
 import { getUser } from "@/lib/supabase/server";
@@ -88,6 +90,11 @@ export default async function HomePage() {
   return (
     <>
       <Hero signedIn />
+
+      {/* 날씨는 외부 API라 느릴 수 있다. 옷장 내용이 먼저 뜨도록 떼어둔다 */}
+      <Suspense fallback={<WeatherBandSkeleton />}>
+        <WeatherBand />
+      </Suspense>
 
       <section className="mx-auto max-w-7xl px-6 py-14 lg:px-10">
         <div className="grid grid-cols-3 gap-px overflow-hidden rounded-xl bg-line sm:grid-cols-6">
