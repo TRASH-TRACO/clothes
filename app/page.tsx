@@ -65,6 +65,7 @@ export default async function HomePage() {
     <>
       <HomeHero
         signedIn
+        waveItems={items}
         aside={
           // 날씨는 외부 API라 느릴 수 있다. 옷장 내용이 먼저 뜨도록 떼어둔다
           <Suspense fallback={<WeatherBandSkeleton />}>
