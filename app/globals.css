@@ -101,3 +101,28 @@ body {
     padding-right: env(safe-area-inset-right);
   }
 }
+
+/* 헤드라인 뒤 옷 물결. 자리마다 시작 시점을 어긋나게 줘서
+   왼쪽에서 오른쪽으로 파도가 흘러가는 것처럼 보이게 한다. */
+@keyframes wave-drift {
+  0%,
+  100% {
+    transform: translateY(calc(var(--swing) * -1)) rotate(calc(var(--tilt) - 2deg));
+  }
+  50% {
+    transform: translateY(var(--swing)) rotate(calc(var(--tilt) + 2deg));
+  }
+}
+
+.wave-drift {
+  animation: wave-drift var(--dur) ease-in-out infinite;
+  animation-delay: var(--delay);
+  transform: rotate(var(--tilt));
+}
+
+/* 움직임을 줄여달라는 설정이면 가만히 둔다 */
+@media (prefers-reduced-motion: reduce) {
+  .wave-drift {
+    animation: none;
+  }
+}

@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 import { ItemPhoto } from "@/components/item-photo";
 import { seoulToday } from "@/lib/calendar";
 import type { Item } from "@/lib/types";
@@ -10,6 +12,9 @@ const COUNT = 22;
  * 자리 수만큼 다 받으면 홈이 무거워진다. 이 수를 넘으면 돌려 쓴다.
  */
 const MAX_PHOTOS = 10;
+
+/** 한 번 일렁이는 데 걸리는 시간. 느긋하게. */
+const PERIOD = 12;
 
 function hash(text: string) {
   let h = 2166136261;
@@ -76,6 +81,11 @@ export function ClosetWave({ items }: { items: Item[] }) {
       opacity: 0.1 + hug * 0.22,
       // 좁은 화면에서는 절반만 띄운다 (글자와 겹쳐 지저분해지지 않게)
       onlyWide: i % 2 === 1,
+      // 오른쪽으로 갈수록 늦게 시작해 파도가 지나가는 것처럼 보인다.
+      // 음수 delay라 첫 화면부터 이미 흐르는 중이다.
+      delay: -(t * PERIOD * 1.5 + next() * 0.6),
+      // 줄기에 가까운(큰) 사진이 더 크게 일렁인다
+      swing: 5 + hug * 8,
     };
   });
 
@@ -86,25 +96,39 @@ export function ClosetWave({ items }: { items: Item[] }) {
       className="pointer-events-none absolute inset-0 overflow-hidden [--wave:0.6] sm:[--wave:0.85] lg:[--wave:1]"
     >
       {drops.map((drop, i) => (
+        // 바깥은 자리만 잡고, 안쪽에서 일렁인다 (transform이 서로 부딪히지 않게)
         <div
           key={i}
-          className={`absolute ${drop.onlyWide ? "hidden sm:block" : ""}`}
+          className={`absolute -translate-x-1/2 -translate-y-1/2 ${
+            drop.onlyWide ? "hidden sm:block" : ""
+          }`}
           style={{
             left: `${drop.x}%`,
             top: `${drop.y}%`,
             width: `calc(${Math.round(drop.size)}px * var(--wave))`,
             opacity: drop.opacity,
-            transform: `translate(-50%, -50%) rotate(${drop.tilt.toFixed(1)}deg)`,
           }}
         >
-          <ItemPhoto
-            path={drop.item.photo_path}
-            alt=""
-            category={drop.item.category}
-            className="aspect-square rounded-lg"
-            sizes="72px"
-            compact
-          />
+          <div
+            className="wave-drift"
+            style={
+              {
+                "--tilt": `${drop.tilt.toFixed(1)}deg`,
+                "--swing": `${drop.swing.toFixed(1)}px`,
+                "--dur": `${PERIOD}s`,
+                "--delay": `${drop.delay.toFixed(2)}s`,
+              } as CSSProperties
+            }
+          >
+            <ItemPhoto
+              path={drop.item.photo_path}
+              alt=""
+              category={drop.item.category}
+              className="aspect-square rounded-lg"
+              sizes="72px"
+              compact
+            />
+          </div>
         </div>
       ))}
     </div>
