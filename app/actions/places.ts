@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 
-import { isPlace, roundPlace, type Place } from "@/lib/places";
+import { getBasePlace } from "@/lib/data";
+import { isPlace, roundPlace, samePlace, type Place } from "@/lib/places";
 import { createClient, getUser } from "@/lib/supabase/server";
+import { dropStoredForPlace } from "@/lib/weather-store";
 import type { ActionState } from "@/lib/types";
 
 /**
@@ -62,6 +64,8 @@ export async function saveBasePlace(_prev: ActionState, formData: FormData): Pro
   if (!user) return fail("로그인이 필요합니다.");
 
   const rounded = roundPlace(place);
+  const previous = await getBasePlace();
+
   const { error } = await supabase.from("user_settings").upsert(
     {
       user_id: user.id,
@@ -73,6 +77,12 @@ export async function saveBasePlace(_prev: ActionState, formData: FormData): Pro
     { onConflict: "user_id" },
   );
   if (error) return fail(error.message);
+
+  // 예전 기본 지역으로 채워 둔 지난 날씨는 비운다. 다음에 캘린더를 열 때
+  // 새 기본 지역으로 다시 채워진다. (날짜별로 따로 정해 둔 날은 그대로 남는다)
+  if (!samePlace(previous, rounded)) {
+    await dropStoredForPlace(previous);
+  }
 
   revalidatePath("/", "layout");
   return { ok: true, message: `기본 지역을 ${rounded.name}(으)로 정했습니다.` };

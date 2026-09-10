@@ -12,7 +12,7 @@ import {
 } from "@/lib/calendar";
 import { getBasePlace, getWearLogs, logPlace } from "@/lib/data";
 import type { Place } from "@/lib/places";
-import { getDailyRangeByPlace } from "@/lib/weather";
+import { getCalendarWeather } from "@/lib/weather-store";
 
 export const metadata: Metadata = { title: "캘린더" };
 
@@ -36,8 +36,8 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
     if (place) placeByDate.set(log.worn_on, place);
   }
 
-  // 날씨는 없어도 달력은 떠야 하므로 실패해도 빈 Map이 온다
-  const weather = await getDailyRangeByPlace(base, placeByDate, weeks.flat());
+  // 지난 날짜는 저장해 둔 값, 오늘부터는 예보. 실패해도 빈 Map이라 달력은 그대로 뜬다
+  const weather = await getCalendarWeather(base, placeByDate, weeks.flat());
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-12 lg:px-10">
@@ -73,7 +73,8 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
         <Link href="/settings" className="underline underline-offset-4 hover:text-ink">
           기본 지역({base.name})
         </Link>{" "}
-        기준이고, 여행을 적어둔 날은 그 지역으로 보여줍니다.
+        기준이고, 여행을 적어둔 날은 그 지역으로 봅니다. 지난 날씨는 한 번 받아 저장해 두므로
+        나중에 다시 열어도 그대로입니다.
       </p>
     </div>
   );

@@ -175,6 +175,33 @@ alter table public.wear_logs add column if not exists place_name text;
 alter table public.wear_logs add column if not exists place_lat double precision;
 alter table public.wear_logs add column if not exists place_lon double precision;
 
+-- 5-3. 날짜별 날씨 기록 ----------------------------------------------
+-- 지난 날씨는 한 번 받아서 여기 넣어두고 그 뒤로는 DB에서 읽는다.
+-- 예보 API가 주는 기간(과거 92일)이 지나도 기록이 남고, 같은 날을 다시 부르지 않는다.
+-- 오늘과 그 이후는 예보라 계속 바뀌므로 저장하지 않고 그때그때 불러온다.
+create table if not exists public.daily_weather (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  on_date date not null,
+  -- 그날 어느 지역 기준으로 받은 값인지 (나중에 지역을 고치면 다시 받는다)
+  place_name text not null,
+  place_lat double precision not null,
+  place_lon double precision not null,
+  code smallint,
+  temp_high double precision,
+  temp_low double precision,
+  rain_amount double precision,
+  fetched_at timestamptz not null default now(),
+  primary key (user_id, on_date)
+);
+
+alter table public.daily_weather enable row level security;
+
+drop policy if exists "daily weather is private" on public.daily_weather;
+create policy "daily weather is private" on public.daily_weather
+  for all to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
 -- 6. 사진 Storage 버킷 --------------------------------------------
 -- private 버킷: 공개 URL로는 못 읽는다.
 -- 읽기는 앱의 /api/photo 라우트가 로그인 세션으로 대신 받아온다.

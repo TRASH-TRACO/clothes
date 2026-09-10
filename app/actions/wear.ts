@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 
 import { isValidDate, monthOf } from "@/lib/calendar";
 import { isPlace, roundPlace } from "@/lib/places";
+import { getBasePlace } from "@/lib/data";
+import { refreshStoredDay } from "@/lib/weather-store";
 import { createClient, getUser } from "@/lib/supabase/server";
 import type { ActionState } from "@/lib/types";
 
@@ -85,6 +87,9 @@ export async function saveWearLog(_prev: ActionState, formData: FormData): Promi
     if (itemsError) return fail(itemsError.message);
   }
 
+  // 지역이 바뀌었으면 저장해 둔 그날 날씨도 그 지역 기준으로 다시 받는다
+  await refreshStoredDay(date, place ?? (await getBasePlace()));
+
   revalidatePath("/calendar");
   revalidatePath(`/calendar/${date}`);
   // 홈 날씨도 이 날짜 지역을 따라가므로 같이 새로 그린다
@@ -101,6 +106,9 @@ export async function deleteWearLog(formData: FormData) {
   if (!user) return;
 
   await supabase.from("wear_logs").delete().eq("user_id", user.id).eq("worn_on", date);
+
+  // 지역 기록도 같이 사라지므로 기본 지역 기준으로 되돌린다
+  await refreshStoredDay(date, await getBasePlace());
 
   revalidatePath("/calendar");
   revalidatePath(`/calendar/${date}`);

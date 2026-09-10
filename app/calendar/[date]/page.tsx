@@ -7,7 +7,8 @@ import { WeatherGlyph } from "@/components/weather-glyph";
 import { WearForm } from "@/components/wear-form";
 import { dayLabel, isValidDate, seoulToday } from "@/lib/calendar";
 import { getBasePlace, getItems, getOutfits, getWearLog, logPlace } from "@/lib/data";
-import { getDailyRange, weatherKind, weatherLabel } from "@/lib/weather";
+import { weatherKind, weatherLabel } from "@/lib/weather";
+import { getDayWeather } from "@/lib/weather-store";
 
 export async function generateMetadata({ params }: PageProps<"/calendar/[date]">): Promise<Metadata> {
   const { date } = await params;
@@ -28,8 +29,7 @@ export default async function WearDayPage({ params }: PageProps<"/calendar/[date
   // 여행을 적어둔 날이면 그 지역 날씨를 본다
   const override = logPlace(log);
   const place = override ?? base;
-  const weather = await getDailyRange(place, date, date);
-  const day = weather.get(date);
+  const day = await getDayWeather(date, place);
   const today = seoulToday();
 
   return (

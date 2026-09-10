@@ -112,6 +112,9 @@ maskable 쪽은 안드로이드가 원형으로 잘라내는 걸 감안해 글�
   최고기온 차가 2° 미만이면 "비슷해요", 그 이상이면 몇 도 차이인지 말합니다. 바람이 전날보다
   3m/s 이상 세지면서 6m/s를 넘거나, 일교차가 12°를 넘으면 한마디가 더 붙습니다 (`compareLine()`).
 - [Open-Meteo](https://open-meteo.com)를 쓰기 때문에 **API 키가 필요 없습니다.** 응답은 30분 캐시합니다.
+- **지난 날씨는 DB에 저장합니다** (`daily_weather`). 한 번 받아 넣어두고 그 뒤로는 DB에서 읽으므로
+  같은 날을 다시 부르지 않고, 예보 API가 주는 기간(과거 92일)이 지나도 기록이 남습니다.
+  오늘과 그 이후는 예보라 계속 바뀌므로 저장하지 않고 그때그때 받아옵니다.
 - 날씨를 못 불러와도 홈은 그대로 뜹니다 (`getWeather()`가 `null`을 주면 그 영역만 사라집니다).
 
 ### 지역은 사용자가 정합니다
@@ -139,8 +142,20 @@ maskable 쪽은 안드로이드가 원형으로 잘라내는 걸 감안해 글�
   채워지고, 거기서 하나씩 빼거나 더할 수 있습니다. 메모도 남길 수 있습니다.
 - 지역은 여행처럼 기본 지역과 달랐던 날만 적으면 됩니다. 옷을 안 골라도 지역만 남길 수 있습니다
   ("이 날은 부산에 있었다").
-- 달력의 날씨는 지역별로 묶어서 조회합니다. 한 달에 여러 곳을 옮겨 다녔으면 요청이 늘어나므로
-  상위 4곳까지만 따로 부르고 나머지는 기본 지역으로 봅니다 (`MAX_PLACE_REQUESTS`).
+### 날씨는 이렇게 채워집니다
+
+| 날짜 | 어디서 오나 |
+|---|---|
+| 어제까지 | `daily_weather`에 저장된 값. 없으면 그때 한 번 받아서 저장합니다 |
+| 오늘·앞으로 | 예보라 매번 새로 받습니다 (저장하지 않음) |
+
+- 지난 날짜를 채울 때는 지역이 같은 날끼리 묶어 한 번씩만 부릅니다. 이미 채워진 달을 다시 열면
+  API를 아예 부르지 않습니다.
+- 과거 92일을 넘는 날짜는 API가 주지 못하므로 아예 부르지 않습니다. 그전에 저장해 둔 날은
+  그대로 남습니다.
+- **날짜의 지역을 고치면** 그날 저장분을 그 지역 기준으로 다시 받아 덮어씁니다.
+- **기본 지역을 바꾸면** 예전 기본 지역으로 채워 둔 날들을 비워, 다음에 캘린더를 열 때 새 지역으로
+  다시 채웁니다. 날짜별로 따로 정해 둔 날(여행)은 건드리지 않습니다.
 - 하루에 한 줄입니다 (`user_id + worn_on` 유니크). 같은 날짜에 다시 저장하면 덮어씁니다.
 - 코디를 골라 저장해도 **구성 옷을 복사해 둡니다.** 나중에 그 코디를 고치거나 지워도
   지난 기록은 그대로 남습니다.
@@ -148,8 +163,8 @@ maskable 쪽은 안드로이드가 원형으로 잘라내는 걸 감안해 글�
   채워집니다. 그 밖의 달을 보면 날씨 칸만 비고 기록은 정상적으로 보입니다.
 
 > **이미 배포한 프로젝트라면 `supabase/schema.sql`을 SQL Editor에서 다시 실행하세요.**
-> `wear_logs` / `wear_log_items` / `user_settings` 테이블과 RLS 정책, 그리고 `wear_logs`의
-> 지역 칼럼(`place_name`, `place_lat`, `place_lon`)이 새로 추가됐습니다.
+> `wear_logs` / `wear_log_items` / `user_settings` / `daily_weather` 테이블과 RLS 정책,
+> 그리고 `wear_logs`의 지역 칼럼(`place_name`, `place_lat`, `place_lon`)이 새로 추가됐습니다.
 > 여러 번 실행해도 안전합니다. 실행 전에는 캘린더가 날씨만 보여주고 기록은 저장되지 않습니다.
 
 ## 홈 헤드라인 뒤 옷 물결
@@ -181,6 +196,10 @@ outfit_items  outfit_id, item_id, slot   -- (outfit_id, slot) unique
 wear_logs      id, user_id, worn_on, outfit_id, memo, created_at
                -- (user_id, worn_on) unique. 하루에 한 줄
 wear_log_items wear_log_id, item_id  -- 그날 입은 옷
+
+user_settings  user_id, place_name, place_lat, place_lon   -- 기본 지역
+daily_weather  user_id, on_date, place_*, code, temp_high, temp_low, rain_amount
+               -- (user_id, on_date) 기본키. 지난 날씨를 받아서 넣어둔다
 ```
 
 카테고리는 `hat / outer / top / bottom / shoes / acc` 6종이고,
