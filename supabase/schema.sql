@@ -176,13 +176,14 @@ alter table public.wear_logs add column if not exists place_lat double precision
 alter table public.wear_logs add column if not exists place_lon double precision;
 
 -- 5-3. 날짜별 날씨 기록 ----------------------------------------------
--- 지난 날씨는 한 번 받아서 여기 넣어두고 그 뒤로는 DB에서 읽는다.
--- 예보 API가 주는 기간(과거 92일)이 지나도 기록이 남고, 같은 날을 다시 부르지 않는다.
--- 오늘과 그 이후는 예보라 계속 바뀌므로 저장하지 않고 그때그때 불러온다.
+-- 지역을 따로 정해 둔 날(여행 등)의 날씨를 받아서 여기 넣어둔다.
+-- 지역을 정하지 않은 날은 기본 지역으로 그때그때 불러오므로 저장하지 않는다.
+-- 저장해 두면 예보 API가 주는 기간(과거 92일)이 지나도 기록이 남는다.
 create table if not exists public.daily_weather (
   user_id uuid not null references auth.users (id) on delete cascade,
   on_date date not null,
-  -- 그날 어느 지역 기준으로 받은 값인지 (나중에 지역을 고치면 다시 받는다)
+  -- 어느 지역 기준으로 받은 값인지. 그 날짜 지역을 바꾸면 값이 달라지므로 다시 받는다.
+  -- fetched_at 은 아직 지나지 않은 날의 예보가 낡았는지 판단하는 데 쓴다.
   place_name text not null,
   place_lat double precision not null,
   place_lon double precision not null,
