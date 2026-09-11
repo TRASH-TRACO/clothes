@@ -1,6 +1,6 @@
 import "server-only";
 
-import { addDays, seoulToday } from "./calendar";
+import { addDays, gridRange, seoulToday } from "./calendar";
 import { isPlace, placeKey, roundPlace, type Place } from "./places";
 import { isSupabaseConfigured } from "./supabase/env";
 import { createClient, getUser } from "./supabase/server";
@@ -161,8 +161,10 @@ export async function getCalendarWeather(
 
   const [filled, fromApi] = await Promise.all([
     fetchAndStore(stale, (date) => placeByDate.get(date)!),
+    // 지정한 날을 빼고 부르면 범위가 들쭉날쭉해져 날짜 화면과 캐시가 갈린다.
+    // 판 전체를 한 번 부르고 필요한 날짜만 꺼내 쓴다.
     plain.length > 0
-      ? getDailyRange(base, plain[0], plain[plain.length - 1])
+      ? getDailyRange(base, sorted[0], sorted[sorted.length - 1])
       : Promise.resolve(new Map<string, DayWeather>()),
   ]);
 
@@ -182,7 +184,10 @@ export async function getDayWeather(
   pinned: boolean,
 ): Promise<DayWeather | null> {
   if (!pinned) {
-    const range = await getDailyRange(place, date, date);
+    // 하루만 부르면 날짜마다 새로 받게 된다. 달력과 같은 범위로 불러
+    // 이미 받아둔 응답을 그대로 쓴다.
+    const { from, to } = gridRange(date);
+    const range = await getDailyRange(place, from, to);
     return range.get(date) ?? null;
   }
 

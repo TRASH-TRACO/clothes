@@ -91,3 +91,13 @@ export function dayLabel(date: string) {
   const weekday = WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()];
   return `${m}월 ${d}일 (${weekday})`;
 }
+
+/**
+ * 그 날짜가 속한 달력 한 판의 범위.
+ * 달력과 날짜 화면이 같은 범위로 날씨를 부르게 해서, 날짜를 옮겨 다녀도
+ * 이미 받아둔 응답을 그대로 쓰게 한다.
+ */
+export function gridRange(date: string) {
+  const weeks = monthGrid(monthOf(date));
+  return { from: weeks[0][0], to: weeks[weeks.length - 1][6] };
+}

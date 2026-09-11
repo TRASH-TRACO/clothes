@@ -3,18 +3,17 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 
+import { useClosetData } from "@/components/closet-data";
 import { ItemPhoto } from "@/components/item-photo";
 import { FeltPicker } from "@/components/feedback-picker";
 import { PlacePicker } from "@/components/place-picker";
 import { deleteWearLog } from "@/app/actions/wear";
 import { CATEGORIES, CATEGORY_META, type Category } from "@/lib/categories";
 import type { Place } from "@/lib/places";
-import type { ActionState, Item, OutfitWithItems, WearLogWithItems } from "@/lib/types";
+import type { ActionState, OutfitWithItems, WearLogWithItems } from "@/lib/types";
 
 type Props = {
   date: string;
-  items: Item[];
-  outfits: OutfitWithItems[];
   log: WearLogWithItems | null;
   /** 설정에 정해 둔 기본 지역 */
   basePlace: Place;
@@ -23,7 +22,9 @@ type Props = {
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
 };
 
-export function WearForm({ date, items, outfits, log, basePlace, place, action }: Props) {
+export function WearForm({ date, log, basePlace, place, action }: Props) {
+  // 어느 날짜든 같은 목록이라 캘린더 레이아웃에서 한 번 받아둔 것을 쓴다
+  const { items, outfits } = useClosetData();
   const [state, formAction, pending] = useActionState<ActionState, FormData>(action, null);
 
   const [outfitId, setOutfitId] = useState<string | null>(log?.outfit_id ?? null);
