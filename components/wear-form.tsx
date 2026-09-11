@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 
 import { ItemPhoto } from "@/components/item-photo";
+import { FeltPicker } from "@/components/feedback-picker";
 import { PlacePicker } from "@/components/place-picker";
 import { deleteWearLog } from "@/app/actions/wear";
 import { CATEGORIES, CATEGORY_META, type Category } from "@/lib/categories";
@@ -179,6 +180,16 @@ export function WearForm({ date, items, outfits, log, basePlace, place, action }
               })}
             </div>
           )}
+        </section>
+
+        <section>
+          <h2 className="display text-2xl">그날 체감</h2>
+          <p className="mt-2 text-sm text-muted">
+            기온만으로는 안 남는 것. 다음에 비슷한 날씨일 때 참고가 됩니다.
+          </p>
+          <div className="mt-5">
+            <FeltPicker defaultValue={log?.felt ?? null} />
+          </div>
         </section>
 
         <section>

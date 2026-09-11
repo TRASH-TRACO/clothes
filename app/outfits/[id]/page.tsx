@@ -3,9 +3,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { deleteOutfit } from "@/app/actions/outfits";
+import { RatingGlyph } from "@/components/feedback-glyph";
 import { ColorDot } from "@/components/color-dot";
 import { ItemPhoto } from "@/components/item-photo";
 import { OutfitPhoto } from "@/components/outfit-photo";
+import { RATING_LABELS } from "@/lib/feedback";
 import { CATEGORY_META, formatMeasurements } from "@/lib/categories";
 import { getOutfit } from "@/lib/data";
 
@@ -32,6 +34,12 @@ export default async function OutfitPage({ params }: PageProps<"/outfits/[id]">)
         <div>
           <p className="eyebrow">Look</p>
           <h1 className="display mt-2 text-5xl sm:text-6xl">{outfit.name}</h1>
+          {outfit.rating ? (
+            <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-mist px-4 py-2 text-sm font-medium">
+              <RatingGlyph value={outfit.rating} className="h-5 w-5" />
+              {RATING_LABELS[outfit.rating]}
+            </p>
+          ) : null}
           {outfit.memo ? <p className="mt-4 max-w-xl text-muted">{outfit.memo}</p> : null}
         </div>
         <div className="flex items-center gap-4">

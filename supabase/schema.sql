@@ -203,6 +203,15 @@ create policy "daily weather is private" on public.daily_weather
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
+-- 5-4. 한 줄 평가 ---------------------------------------------------
+-- 그날 체감: 추웠다 / 적당 / 더웠다
+alter table public.wear_logs
+  add column if not exists felt text check (felt in ('cold', 'ok', 'hot'));
+
+-- 코디 만족도: 별로다 / 적당 / 맘에 들었다
+alter table public.outfits
+  add column if not exists rating text check (rating in ('bad', 'ok', 'good'));
+
 -- 6. 사진 Storage 버킷 --------------------------------------------
 -- private 버킷: 공개 URL로는 못 읽는다.
 -- 읽기는 앱의 /api/photo 라우트가 로그인 세션으로 대신 받아온다.

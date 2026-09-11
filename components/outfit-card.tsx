@@ -1,8 +1,10 @@
 import Link from "next/link";
 
+import { RatingGlyph } from "@/components/feedback-glyph";
 import { ItemPhoto } from "@/components/item-photo";
 import { OutfitPhoto } from "@/components/outfit-photo";
 import { CATEGORY_META } from "@/lib/categories";
+import { RATING_LABELS } from "@/lib/feedback";
 import type { OutfitWithItems } from "@/lib/types";
 
 export function OutfitCard({ outfit }: { outfit: OutfitWithItems }) {
@@ -36,7 +38,15 @@ export function OutfitCard({ outfit }: { outfit: OutfitWithItems }) {
         </div>
       )}
       <div className="mt-3">
-        <p className="text-sm font-semibold group-hover:underline">{outfit.name}</p>
+        <p className="flex items-center gap-1.5 text-sm font-semibold group-hover:underline">
+          {outfit.rating ? (
+            <>
+              <RatingGlyph value={outfit.rating} className="h-4 w-4 shrink-0 text-muted" />
+              <span className="sr-only">{RATING_LABELS[outfit.rating]}</span>
+            </>
+          ) : null}
+          <span className="truncate">{outfit.name}</span>
+        </p>
         <p className="mt-1 text-sm text-muted">
           {filled.map((entry) => CATEGORY_META[entry.slot].label).join(" · ")}
         </p>

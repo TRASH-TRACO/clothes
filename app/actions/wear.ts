@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { isValidDate, monthOf } from "@/lib/calendar";
+import { isFelt } from "@/lib/feedback";
 import { isPlace, roundPlace } from "@/lib/places";
 import { dropStoredDay, storeDay } from "@/lib/weather-store";
 import { createClient, getUser } from "@/lib/supabase/server";
@@ -37,6 +38,8 @@ export async function saveWearLog(_prev: ActionState, formData: FormData): Promi
   }
 
   const memo = String(formData.get("memo") ?? "").trim() || null;
+  const feltInput = formData.get("felt");
+  const felt = isFelt(feltInput) ? feltInput : null;
   const requestedOutfit = String(formData.get("outfit_id") ?? "").trim() || null;
 
   const supabase = await createClient();
@@ -63,6 +66,7 @@ export async function saveWearLog(_prev: ActionState, formData: FormData): Promi
         worn_on: date,
         outfit_id: outfitId,
         memo,
+        felt,
         place_name: place?.name ?? null,
         place_lat: place?.lat ?? null,
         place_lon: place?.lon ?? null,

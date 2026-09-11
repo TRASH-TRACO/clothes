@@ -3,9 +3,11 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { DayHeader } from "@/components/day-header";
+import { FeltGlyph } from "@/components/feedback-glyph";
 import { ItemPhoto } from "@/components/item-photo";
 import { OutfitPhoto } from "@/components/outfit-photo";
 import { CATEGORY_META } from "@/lib/categories";
+import { FELT_LABELS } from "@/lib/feedback";
 import { dayLabel, isValidDate } from "@/lib/calendar";
 import { getBasePlace, getWearLog, logPlace } from "@/lib/data";
 import { getDayWeather } from "@/lib/weather-store";
@@ -34,6 +36,13 @@ export default async function WearDayPage({ params }: PageProps<"/calendar/[date
   return (
     <div className="mx-auto max-w-5xl px-6 py-12 lg:px-10">
       <DayHeader date={date} place={place} pinned={override !== null} day={day} />
+
+      {log.felt ? (
+        <p className="mt-8 inline-flex items-center gap-2 rounded-full bg-mist px-4 py-2 text-sm font-medium">
+          <FeltGlyph value={log.felt} className="h-5 w-5" />
+          {FELT_LABELS[log.felt]}
+        </p>
+      ) : null}
 
       {log.outfit ? (
         <p className="mt-10 text-sm text-muted">

@@ -143,6 +143,8 @@ maskable 쪽은 안드로이드가 원형으로 잘라내는 걸 감안해 글�
   채워지고, 거기서 하나씩 빼거나 더할 수 있습니다. 메모도 남길 수 있습니다.
 - 지역은 여행처럼 기본 지역과 달랐던 날만 적으면 됩니다. 옷을 안 골라도 지역만 남길 수 있습니다
   ("이 날은 부산에 있었다"). 여행 가기 전에 미리 적어둬도 됩니다.
+- **그날 체감**(추웠다 / 적당했다 / 더웠다)을 아이콘으로 고를 수 있습니다. 기온만으로는 안 남는 것이라,
+  다음에 비슷한 날씨일 때 참고가 됩니다. 안 고르면 비워둡니다 (고른 걸 다시 누르면 풀립니다).
 - 달력 칸에는 그날 입은 옷을 **최대 4장까지 2×2로** 보여줍니다 (착장 사진이 있으면 그게 우선).
 - 날짜를 누르면 **남긴 게 있는 날은 보기 화면**이 뜨고, 거기서 `수정하기`로 편집합니다.
   아직 아무것도 안 남긴 날은 곧장 수정 화면으로 갑니다.
@@ -173,7 +175,8 @@ maskable 쪽은 안드로이드가 원형으로 잘라내는 걸 감안해 글�
 
 > **이미 배포한 프로젝트라면 `supabase/schema.sql`을 SQL Editor에서 다시 실행하세요.**
 > `wear_logs` / `wear_log_items` / `user_settings` / `daily_weather` 테이블과 RLS 정책,
-> 그리고 `wear_logs`의 지역 칼럼(`place_name`, `place_lat`, `place_lon`)이 새로 추가됐습니다.
+> 그리고 `wear_logs`의 지역 칼럼(`place_name`, `place_lat`, `place_lon`)과
+> 한 줄 평가 칼럼(`wear_logs.felt`, `outfits.rating`)이 새로 추가됐습니다.
 > 여러 번 실행해도 안전합니다. 실행 전에는 캘린더가 날씨만 보여주고 기록은 저장되지 않습니다.
 
 ## 홈 헤드라인 뒤 옷 물결
@@ -194,15 +197,31 @@ maskable 쪽은 안드로이드가 원형으로 잘라내는 걸 감안해 글�
 - 장식이라 `aria-hidden` + `pointer-events-none` 이고, 좁은 화면에서는 절반만 띄우고
   크기도 `--wave` 로 함께 줄입니다.
 
+## 한 줄 평가
+
+기록해두고 다시 안 보면 의미가 없어서, 고르는 데 1초 걸리는 것만 남깁니다.
+
+| 어디 | 무엇 | 값 |
+|---|---|---|
+| 캘린더의 하루 | 그날 체감 | `cold` 추웠다 · `ok` 적당했다 · `hot` 더웠다 |
+| 코디 | 입어보니 어땠나 | `bad` 별로였다 · `ok` 적당했다 · `good` 맘에 들었다 |
+
+- 아이콘으로 고릅니다 (눈송이 · 등호 · 불꽃 / 찡그림 · 무표정 · 웃음). 화면 톤에 맞춰 흑백 선 아이콘입니다.
+- **고르지 않아도 됩니다.** 고른 걸 다시 누르면 선택이 풀립니다.
+- 값은 `lib/feedback.ts`에 모여 있고, DB에서도 `check` 제약으로 세 값만 받습니다.
+- 코디 만족도는 저장한 코디 목록·상세에, 그날 체감은 날짜 보기 화면에 표시됩니다.
+
 ## 데이터 모델
 
 ```
 items         id, user_id, name, brand, category, color_name, color_hex,
               size_label, photo_path, measurements(jsonb), notes, created_at
-outfits       id, user_id, name, memo, created_at
+outfits       id, user_id, name, memo, rating, created_at
+              -- rating: bad | ok | good (입어보니 어땠나)
 outfit_items  outfit_id, item_id, slot   -- (outfit_id, slot) unique
 
-wear_logs      id, user_id, worn_on, outfit_id, memo, created_at
+wear_logs      id, user_id, worn_on, outfit_id, memo, felt, created_at
+               -- felt: cold | ok | hot (그날 체감)
                -- (user_id, worn_on) unique. 하루에 한 줄
 wear_log_items wear_log_id, item_id  -- 그날 입은 옷
 

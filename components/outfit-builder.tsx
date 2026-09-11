@@ -7,9 +7,11 @@ import { useActionState, useMemo, useState } from "react";
 import { saveOutfit } from "@/app/actions/outfits";
 import { ColorDot } from "@/components/color-dot";
 import { ItemPhoto } from "@/components/item-photo";
+import { RatingPicker } from "@/components/feedback-picker";
 import { PhotoInput } from "@/components/photo-input";
 import { CATEGORY_META, SLOT_ORDER, type Category } from "@/lib/categories";
 import { photoUrl } from "@/lib/supabase/env";
+import type { Rating } from "@/lib/feedback";
 import type { ActionState, Item } from "@/lib/types";
 
 type Selection = Partial<Record<Category, string>>;
@@ -18,7 +20,13 @@ type Props = {
   items: Item[];
   userId: string;
   initialSelection?: Selection;
-  outfit?: { id: string; name: string; memo: string | null; photo_path: string | null };
+  outfit?: {
+    id: string;
+    name: string;
+    memo: string | null;
+    photo_path: string | null;
+    rating: Rating | null;
+  };
 };
 
 export function OutfitBuilder({ items, userId, initialSelection = {}, outfit }: Props) {
@@ -168,6 +176,10 @@ export function OutfitBuilder({ items, userId, initialSelection = {}, outfit }: 
               placeholder="예: 비 오는 날 출근룩"
               className="field max-w-md"
             />
+          </div>
+          <div>
+            <p className="label">입어보니 어땠나요</p>
+            <RatingPicker defaultValue={outfit?.rating ?? null} />
           </div>
           <div>
             <label className="label" htmlFor="memo">

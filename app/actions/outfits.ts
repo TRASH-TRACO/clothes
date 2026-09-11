@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { SLOT_ORDER, isCategory } from "@/lib/categories";
+import { isRating } from "@/lib/feedback";
 import { PHOTO_BUCKET } from "@/lib/supabase/env";
 import { createClient, getUser } from "@/lib/supabase/server";
 import type { ActionState } from "@/lib/types";
@@ -31,6 +32,8 @@ export async function saveOutfit(_prev: ActionState, formData: FormData): Promis
 
   const memo = String(formData.get("memo") ?? "").trim() || null;
   const photoPath = String(formData.get("photo_path") ?? "").trim() || null;
+  const ratingInput = formData.get("rating");
+  const rating = isRating(ratingInput) ? ratingInput : null;
   const outfitId = String(formData.get("outfit_id") ?? "").trim();
 
   const supabase = await createClient();
@@ -42,7 +45,7 @@ export async function saveOutfit(_prev: ActionState, formData: FormData): Promis
   if (id) {
     const { error } = await supabase
       .from("outfits")
-      .update({ name, memo, photo_path: photoPath })
+      .update({ name, memo, photo_path: photoPath, rating })
       .eq("id", id)
       .eq("user_id", user.id);
     if (error) return fail(error.message);
@@ -52,7 +55,7 @@ export async function saveOutfit(_prev: ActionState, formData: FormData): Promis
   } else {
     const { data, error } = await supabase
       .from("outfits")
-      .insert({ name, memo, photo_path: photoPath, user_id: user.id })
+      .insert({ name, memo, photo_path: photoPath, rating, user_id: user.id })
       .select("id")
       .single();
     if (error) return fail(error.message);

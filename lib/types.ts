@@ -1,4 +1,5 @@
 import type { Category } from "./categories";
+import type { Felt, Rating } from "./feedback";
 
 export type Item = {
   id: string;
@@ -22,6 +23,8 @@ export type Outfit = {
   memo: string | null;
   /** 착장 사진 (clothes 버킷 경로). 옷 사진과 같은 규칙 */
   photo_path: string | null;
+  /** 입어보고 어땠는지. 안 남겼으면 null */
+  rating: Rating | null;
   created_at: string;
 };
 
@@ -38,6 +41,8 @@ export type WearLog = {
   /** 저장한 코디에서 골랐으면 그 코디 id */
   outfit_id: string | null;
   memo: string | null;
+  /** 그날 몸으로 느낀 온도. 안 남겼으면 null */
+  felt: Felt | null;
   /** 그날 있던 곳. 비어 있으면 기본 지역으로 본다 (여행 간 날만 채운다) */
   place_name: string | null;
   place_lat: number | null;
