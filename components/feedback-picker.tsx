@@ -18,10 +18,19 @@ type Props<T extends string> = {
   labels: Record<T, string>;
   defaultValue?: T | null;
   glyph: (value: T, className: string) => React.ReactNode;
+  /** 아이콘 자리 크기 (이모지는 글자 크기, SVG는 h/w) */
+  glyphClass: string;
 };
 
 /** 셋 중 하나 고르기. 고른 걸 다시 누르면 선택이 풀린다 */
-function Picker<T extends string>({ name, values, labels, defaultValue, glyph }: Props<T>) {
+function Picker<T extends string>({
+  name,
+  values,
+  labels,
+  defaultValue,
+  glyph,
+  glyphClass,
+}: Props<T>) {
   const [picked, setPicked] = useState<T | null>(defaultValue ?? null);
 
   return (
@@ -40,7 +49,7 @@ function Picker<T extends string>({ name, values, labels, defaultValue, glyph }:
                 active ? "border-ink bg-ink text-paper" : "border-line text-ink hover:border-ink"
               }`}
           >
-            {glyph(value, "h-7 w-7")}
+            {glyph(value, glyphClass)}
             <span className="text-sm font-medium">{labels[value]}</span>
           </button>
         );
@@ -57,6 +66,7 @@ export function FeltPicker({ defaultValue }: { defaultValue?: Felt | null }) {
       labels={FELT_LABELS}
       defaultValue={defaultValue}
       glyph={(value, className) => <FeltGlyph value={value} className={className} />}
+      glyphClass="text-3xl"
     />
   );
 }
@@ -69,6 +79,7 @@ export function RatingPicker({ defaultValue }: { defaultValue?: Rating | null })
       labels={RATING_LABELS}
       defaultValue={defaultValue}
       glyph={(value, className) => <RatingGlyph value={value} className={className} />}
+      glyphClass="h-7 w-7"
     />
   );
 }

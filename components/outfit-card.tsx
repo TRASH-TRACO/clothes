@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { WarmLink } from "@/components/warm-link";
 
 import { RatingGlyph } from "@/components/feedback-glyph";
 import { ItemPhoto } from "@/components/item-photo";
@@ -11,7 +11,7 @@ export function OutfitCard({ outfit }: { outfit: OutfitWithItems }) {
   const filled = outfit.items.filter((entry) => entry.item !== null);
 
   return (
-    <Link href={`/outfits/${outfit.id}`} prefetch={false} className="group block">
+    <WarmLink href={`/outfits/${outfit.id}`} className="group block">
       {/* 착장 사진이 있으면 그게 대표 이미지, 없으면 옷 4장 그리드 */}
       {outfit.photo_path ? (
         <OutfitPhoto
@@ -51,6 +51,6 @@ export function OutfitCard({ outfit }: { outfit: OutfitWithItems }) {
           {filled.map((entry) => CATEGORY_META[entry.slot].label).join(" · ")}
         </p>
       </div>
-    </Link>
+    </WarmLink>
   );
 }

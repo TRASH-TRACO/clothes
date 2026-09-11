@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { DayHeader } from "@/components/day-header";
+import { WearEditor } from "@/components/wear-editor";
 import { FeltGlyph } from "@/components/feedback-glyph";
 import { ItemPhoto } from "@/components/item-photo";
 import { OutfitPhoto } from "@/components/outfit-photo";
@@ -25,8 +26,9 @@ export default async function WearDayPage({ params }: PageProps<"/calendar/[date
 
   const log = await getWearLog(date);
 
-  // 남긴 게 없는 날은 볼 것도 없으니 바로 기록하러 보낸다
-  if (!log) redirect(`/calendar/${date}/edit`);
+  // 남긴 게 없는 날은 볼 것도 없으니 바로 입력 화면을 그린다.
+  // /edit 로 돌려보내면 서버를 한 번 더 다녀오게 된다.
+  if (!log) return <WearEditor date={date} />;
 
   const base = await getBasePlace();
   const override = logPlace(log);
@@ -39,7 +41,7 @@ export default async function WearDayPage({ params }: PageProps<"/calendar/[date
 
       {log.felt ? (
         <p className="mt-8 inline-flex items-center gap-2 rounded-full bg-mist px-4 py-2 text-sm font-medium">
-          <FeltGlyph value={log.felt} className="h-5 w-5" />
+          <FeltGlyph value={log.felt} className="text-lg" />
           {FELT_LABELS[log.felt]}
         </p>
       ) : null}
