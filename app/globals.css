@@ -7,6 +7,8 @@
   --color-line: #e5e5e5;
   --color-muted: #757575;
   --color-accent: #fa5400;
+  /* 비 표시용. 주황 accent는 경고처럼 보여서 비에는 안 어울린다 */
+  --color-rain: #2563eb;
 
   --font-sans: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-display: var(--font-anton), var(--font-black-han-sans), "Helvetica Neue", Impact,

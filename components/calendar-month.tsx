@@ -117,7 +117,7 @@ export function CalendarMonth({ month, weeks, logs, weather, today }: Props) {
                 </span>
                 {day && day.rainAmount !== null && day.rainAmount >= 0.5 && (
                   <span
-                    className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
+                    className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-rain"
                     title={`강수량 ${day.rainAmount}mm`}
                     aria-label={`강수량 ${day.rainAmount}mm`}
                   />
@@ -129,7 +129,7 @@ export function CalendarMonth({ month, weeks, logs, weather, today }: Props) {
               <div className={outside ? "opacity-50" : ""}>
                 {day ? <Temps day={day} /> : null}
                 {day && day.rainAmount !== null && day.rainAmount >= 0.5 ? (
-                  <p className="hidden text-[10px] leading-tight text-accent sm:block">
+                  <p className="hidden text-[10px] leading-tight text-rain sm:block">
                     {day.rainAmount < 10 ? day.rainAmount.toFixed(1) : Math.round(day.rainAmount)}mm
                   </p>
                 ) : null}
