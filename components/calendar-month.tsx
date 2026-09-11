@@ -14,6 +14,23 @@ type Props = {
   today: string;
 };
 
+/** 비 온(올) 날 표시. 점보다 물방울이 한눈에 읽힌다 */
+function RainDrop({ amount }: { amount: number }) {
+  const label = `강수량 ${amount}mm`;
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      role="img"
+      aria-label={label}
+      className="h-3 w-3 shrink-0 text-rain"
+    >
+      <title>{label}</title>
+      <path d="M12 2.6c3.4 4.5 5.6 7.3 5.6 10.2a5.6 5.6 0 0 1-11.2 0C6.4 9.9 8.6 7.1 12 2.6Z" />
+    </svg>
+  );
+}
+
 function Temps({ day }: { day: DayWeather }) {
   if (day.high === null && day.low === null) return null;
   return (
@@ -116,11 +133,7 @@ export function CalendarMonth({ month, weeks, logs, weather, today }: Props) {
                   {Number(date.slice(8))}
                 </span>
                 {day && day.rainAmount !== null && day.rainAmount >= 0.5 && (
-                  <span
-                    className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-rain"
-                    title={`강수량 ${day.rainAmount}mm`}
-                    aria-label={`강수량 ${day.rainAmount}mm`}
-                  />
+                  <RainDrop amount={day.rainAmount} />
                 )}
               </div>
 
