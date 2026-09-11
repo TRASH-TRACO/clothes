@@ -18,6 +18,17 @@
 html {
   color-scheme: light;
   scroll-behavior: smooth;
+  /* Tailwind 기본값이 transparent라 모바일에서 눌러도 아무 반응이 없다.
+     화면이 바뀌기 전까지 눌렸다는 걸 알 수 있어야 두 번 누르지 않는다. */
+  -webkit-tap-highlight-color: rgb(17 17 17 / 0.07);
+}
+
+/* 누르는 동안 살짝 눌린 느낌 (마우스·터치 공통) */
+@media (hover: none) {
+  a:active,
+  button:active {
+    opacity: 0.65;
+  }
 }
 
 body {
