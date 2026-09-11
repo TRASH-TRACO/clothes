@@ -116,6 +116,9 @@ export function CalendarMonth({ month, weeks, logs, weather, today }: Props) {
             <Link
               key={date}
               href={`/calendar/${date}`}
+              // 한 판에 40칸이 넘는다. 미리 받아두면 달력을 열 때마다 40번을 부른다.
+              // loading.tsx 가 있어 눌렀을 때 바로 뼈대가 뜨므로 미리 받을 이유가 없다.
+              prefetch={false}
               className={`flex aspect-[3/4] flex-col gap-1 p-1.5 transition-colors sm:aspect-square sm:p-2 ${
                 outside ? "bg-mist/60 text-muted" : "bg-paper hover:bg-mist"
               }`}

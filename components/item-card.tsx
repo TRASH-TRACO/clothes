@@ -9,7 +9,8 @@ export function ItemCard({ item, priority }: { item: Item; priority?: boolean })
   const measurements = formatMeasurements(item.category, item.measurements);
 
   return (
-    <Link href={`/closet/${item.id}`} className="group block">
+    // 옷장에는 카드가 수십 개다. 보이는 족족 미리 받으면 그만큼 서버를 부른다
+    <Link href={`/closet/${item.id}`} prefetch={false} className="group block">
       <ItemPhoto
         path={item.photo_path}
         alt={item.name}
