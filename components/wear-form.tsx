@@ -19,10 +19,12 @@ type Props = {
   basePlace: Place;
   /** 이 날만 따로 적어 둔 지역 (없으면 기본 지역을 쓴다) */
   place: Place | null;
+  /** 패널 안에서 쓸 때. 주면 '취소'가 화면 이동 대신 이걸 부른다 */
+  onCancel?: () => void;
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
 };
 
-export function WearForm({ date, log, basePlace, place, action }: Props) {
+export function WearForm({ date, log, basePlace, place, action, onCancel }: Props) {
   // 어느 날짜든 같은 목록이라 캘린더 레이아웃에서 한 번 받아둔 것을 쓴다
   const { items, outfits } = useClosetData();
   const [state, formAction, pending] = useActionState<ActionState, FormData>(action, null);
@@ -229,9 +231,15 @@ export function WearForm({ date, log, basePlace, place, action }: Props) {
           <button type="submit" disabled={pending} className="btn-dark">
             {pending ? "저장 중…" : "저장"}
           </button>
-          <Link href={`/calendar?m=${date.slice(0, 7)}`} className="btn-light">
-            취소
-          </Link>
+          {onCancel ? (
+            <button type="button" onClick={onCancel} className="btn-light">
+              취소
+            </button>
+          ) : (
+            <Link href={`/calendar?m=${date.slice(0, 7)}`} className="btn-light">
+              취소
+            </Link>
+          )}
         </div>
       </form>
 

@@ -2,6 +2,9 @@ import "server-only";
 
 import { TIME_ZONE, addDays, seoulNow } from "./calendar";
 import { placeKey, type Place } from "./places";
+import type { DayWeather } from "./weather-codes";
+
+export { weatherKind, weatherLabel, type DayWeather } from "./weather-codes";
 
 /** 이 시각(KST)을 넘기면 오늘이 아니라 내일 예보를 본다 */
 const TOMORROW_AFTER_HOUR = 17;
@@ -151,80 +154,6 @@ export async function getWeather(place: Place): Promise<Weather | null> {
   };
 }
 
-/** WMO 날씨 코드 → 한국어. 코드는 open-meteo 문서 기준 */
-export function weatherLabel(code: number) {
-  if (code === 0) return "맑음";
-  if (code === 1) return "대체로 맑음";
-  if (code === 2) return "구름 조금";
-  if (code === 3) return "흐림";
-  if (code === 45 || code === 48) return "안개";
-  if (code >= 51 && code <= 57) return "이슬비";
-  if (code >= 61 && code <= 65) return "비";
-  if (code === 66 || code === 67) return "언 비";
-  if (code >= 71 && code <= 77) return "눈";
-  if (code >= 80 && code <= 82) return "소나기";
-  if (code === 85 || code === 86) return "소낙눈";
-  if (code >= 95) return "뇌우";
-  return "―";
-}
-
-/** 아이콘을 고르기 위한 큰 분류 */
-export function weatherKind(code: number) {
-  if (code === 0 || code === 1) return "clear" as const;
-  if (code === 2 || code === 3) return "cloud" as const;
-  if (code === 45 || code === 48) return "fog" as const;
-  if (code >= 71 && code <= 77) return "snow" as const;
-  if (code === 85 || code === 86) return "snow" as const;
-  if (code >= 95) return "thunder" as const;
-  return "rain" as const;
-}
-
-/**
- * "어제보다 6° 추워요" 같은 한 줄.
- * 내일 예보를 보고 있으면 기준은 어제가 아니라 오늘이다 (그게 몸으로 아는 기준이라).
- * 비교할 값이 없으면 null.
- */
-export function compareLine(weather: Weather): string | null {
-  const base = weather.baseline;
-  if (!base) return null;
-
-  const today = weather.target === "today";
-  const label = today ? "어제" : "오늘";
-  const clauses: string[] = [];
-
-  if (weather.high !== null && base.high !== null) {
-    const gap = Math.round(weather.high - base.high);
-    if (Math.abs(gap) < 2) clauses.push(today ? "어제와 비슷해요" : "오늘과 비슷해요");
-    else clauses.push(`${label}보다 ${Math.abs(gap)}° ${gap > 0 ? "더워요" : "추워요"}`);
-  }
-
-  // 곁들이는 한마디는 하나만. 바람이 우선이고, 없으면 일교차를 본다.
-  const windier =
-    weather.windMax !== null &&
-    base.windMax !== null &&
-    weather.windMax >= 6 &&
-    weather.windMax - base.windMax >= 3;
-
-  const swing =
-    weather.high !== null && weather.low !== null ? weather.high - weather.low : null;
-
-  if (windier) {
-    clauses.push(clauses.length ? "바람도 많이 불어요" : `${label}보다 바람이 많이 불어요`);
-  } else if (swing !== null && swing >= 12) {
-    clauses.push("일교차가 커요");
-  }
-
-  return clauses.length ? clauses.join(" · ") : null;
-}
-
-export type DayWeather = {
-  code: number;
-  high: number | null;
-  low: number | null;
-  /** mm */
-  rainAmount: number | null;
-};
-
 // open-meteo 예보 API가 주는 범위. 이보다 옛날/먼 미래는 값이 없다.
 const MAX_PAST_DAYS = 92;
 const MAX_FUTURE_DAYS = 15;
@@ -356,4 +285,42 @@ export async function getDailyRangeByPlace(
     }
   }
   return merged;
+}
+
+/**
+ * "어제보다 6° 추워요" 같은 한 줄.
+ * 내일 예보를 보고 있으면 기준은 어제가 아니라 오늘이다 (그게 몸으로 아는 기준이라).
+ * 비교할 값이 없으면 null.
+ */
+export function compareLine(weather: Weather): string | null {
+  const base = weather.baseline;
+  if (!base) return null;
+
+  const today = weather.target === "today";
+  const label = today ? "어제" : "오늘";
+  const clauses: string[] = [];
+
+  if (weather.high !== null && base.high !== null) {
+    const gap = Math.round(weather.high - base.high);
+    if (Math.abs(gap) < 2) clauses.push(today ? "어제와 비슷해요" : "오늘과 비슷해요");
+    else clauses.push(`${label}보다 ${Math.abs(gap)}° ${gap > 0 ? "더워요" : "추워요"}`);
+  }
+
+  // 곁들이는 한마디는 하나만. 바람이 우선이고, 없으면 일교차를 본다.
+  const windier =
+    weather.windMax !== null &&
+    base.windMax !== null &&
+    weather.windMax >= 6 &&
+    weather.windMax - base.windMax >= 3;
+
+  const swing =
+    weather.high !== null && weather.low !== null ? weather.high - weather.low : null;
+
+  if (windier) {
+    clauses.push(clauses.length ? "바람도 많이 불어요" : `${label}보다 바람이 많이 불어요`);
+  } else if (swing !== null && swing >= 12) {
+    clauses.push("일교차가 커요");
+  }
+
+  return clauses.length ? clauses.join(" · ") : null;
 }

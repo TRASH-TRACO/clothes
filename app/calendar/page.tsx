@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { CalendarMonth } from "@/components/calendar-month";
+import { CalendarView } from "@/components/calendar-view";
 import {
   isValidMonth,
   monthGrid,
@@ -60,16 +60,17 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
         </div>
       </div>
 
-      <CalendarMonth
+      <CalendarView
         month={month}
         weeks={weeks}
         logs={logsByDate}
         weather={weather}
         today={today}
+        basePlace={base}
       />
 
       <p className="mt-6 text-sm text-muted">
-        날짜를 누르면 그날 입은 옷과 있던 지역을 남길 수 있습니다. 기온과 강수량은{" "}
+        날짜를 누르면 그 자리에서 바로 열립니다. 그날 입은 옷과 있던 지역을 남길 수 있습니다. 기온과 강수량은{" "}
         <Link href="/settings" className="underline underline-offset-4 hover:text-ink">
           기본 지역({base.name})
         </Link>{" "}

@@ -1,12 +1,15 @@
-import { WarmLink } from "@/components/warm-link";
+"use client";
+
 
 import { ItemPhoto } from "@/components/item-photo";
 import { OutfitPhoto } from "@/components/outfit-photo";
 import { WEEKDAYS, monthOf } from "@/lib/calendar";
 import type { WearLogWithItems } from "@/lib/types";
-import type { DayWeather } from "@/lib/weather";
+import type { DayWeather } from "@/lib/weather-codes";
 
 type Props = {
+  /** 날짜를 눌렀을 때. 막으면 화면을 옮기지 않고 패널로 연다 */
+  onPick: (date: string) => void;
   month: string;
   weeks: string[][];
   logs: Map<string, WearLogWithItems>;
@@ -90,7 +93,7 @@ function Thumb({ log }: { log: WearLogWithItems }) {
   );
 }
 
-export function CalendarMonth({ month, weeks, logs, weather, today }: Props) {
+export function CalendarMonth({ onPick, month, weeks, logs, weather, today }: Props) {
   return (
     <div>
       <div className="grid grid-cols-7 gap-px">
@@ -113,9 +116,16 @@ export function CalendarMonth({ month, weeks, logs, weather, today }: Props) {
           const isToday = date === today;
 
           return (
-            <WarmLink
+            // 주소는 그대로 두어 링크 복사·새 탭 열기가 되게 하고,
+            // 그냥 누른 경우에만 가로채 패널로 연다
+            <a
               key={date}
               href={`/calendar/${date}`}
+              onClick={(event) => {
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+                event.preventDefault();
+                onPick(date);
+              }}
               className={`flex aspect-[3/4] flex-col gap-1 p-1.5 transition-colors sm:aspect-square sm:p-2 ${
                 outside ? "bg-mist/60 text-muted" : "bg-paper hover:bg-mist"
               }`}
@@ -147,7 +157,7 @@ export function CalendarMonth({ month, weeks, logs, weather, today }: Props) {
                   </p>
                 ) : null}
               </div>
-            </WarmLink>
+            </a>
           );
         })}
       </div>
