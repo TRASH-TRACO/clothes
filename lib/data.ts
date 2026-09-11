@@ -25,7 +25,10 @@ export const getItems = cache(async (query: ItemQuery = {}): Promise<Item[]> => 
   if (query.q) {
     // PostgREST 필터 문법을 깨뜨리는 문자는 제거한다
     const term = query.q.replace(/[,()*\\]/g, "").trim();
-    if (term) builder = builder.or(`name.ilike.%${term}%,brand.ilike.%${term}%`);
+    if (term)
+      builder = builder.or(
+        `name.ilike.%${term}%,brand.ilike.%${term}%,subcategory.ilike.%${term}%`,
+      );
   }
 
   builder =

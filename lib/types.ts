@@ -7,6 +7,8 @@ export type Item = {
   name: string;
   brand: string | null;
   category: Category;
+  /** 세분류 (반팔 티셔츠, 운동화 …). 안 골랐으면 null */
+  subcategory: string | null;
   color_name: string;
   color_hex: string;
   size_label: string | null;

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { isCategory, measurementFields, type Category } from "@/lib/categories";
+import { isCategory, isKindOf, measurementFields, type Category } from "@/lib/categories";
 import { PHOTO_BUCKET } from "@/lib/supabase/env";
 import { createClient, getUser } from "@/lib/supabase/server";
 import type { ActionState } from "@/lib/types";
@@ -14,6 +14,7 @@ function fail(message: string): ActionState {
 
 type ItemValues = {
   category: Category;
+  subcategory: string | null;
   name: string;
   brand: string | null;
   color_name: string;
@@ -58,6 +59,10 @@ function parseItem(formData: FormData): ParseResult {
     ok: true,
     values: {
       category,
+      // 카테고리를 바꾸면 예전 세분류가 딸려올 수 있으니 목록에 있는 값만 받는다
+      subcategory: isKindOf(category, formData.get("subcategory"))
+        ? String(formData.get("subcategory"))
+        : null,
       name,
       brand: optional("brand"),
       color_name: colorName,

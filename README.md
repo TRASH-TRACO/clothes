@@ -186,8 +186,9 @@ maskable 쪽은 안드로이드가 원형으로 잘라내는 걸 감안해 글�
 
 > **이미 배포한 프로젝트라면 `supabase/schema.sql`을 SQL Editor에서 다시 실행하세요.**
 > `wear_logs` / `wear_log_items` / `user_settings` / `daily_weather` 테이블과 RLS 정책,
-> 그리고 `wear_logs`의 지역 칼럼(`place_name`, `place_lat`, `place_lon`)과
-> 한 줄 평가 칼럼(`wear_logs.felt`, `outfits.rating`)이 새로 추가됐습니다.
+> 그리고 `wear_logs`의 지역 칼럼(`place_name`, `place_lat`, `place_lon`),
+> 한 줄 평가 칼럼(`wear_logs.felt`, `outfits.rating`), 세분류 칼럼(`items.subcategory`)이
+> 새로 추가됐습니다.
 > 여러 번 실행해도 안전합니다. 실행 전에는 캘린더가 날씨만 보여주고 기록은 저장되지 않습니다.
 
 ## 홈 헤드라인 뒤 옷 물결
@@ -225,7 +226,7 @@ maskable 쪽은 안드로이드가 원형으로 잘라내는 걸 감안해 글�
 ## 데이터 모델
 
 ```
-items         id, user_id, name, brand, category, color_name, color_hex,
+items         id, user_id, name, brand, category, subcategory, color_name, color_hex,
               size_label, photo_path, measurements(jsonb), notes, created_at
 outfits       id, user_id, name, memo, rating, created_at
               -- rating: bad | ok | good (입어보니 어땠나)
@@ -243,6 +244,17 @@ daily_weather  user_id, on_date, place_*, code, temp_high, temp_low, rain_amount
 
 카테고리는 `hat / outer / top / bottom / shoes / acc` 6종이고,
 카테고리마다 입력받는 실측 항목이 다릅니다 (`lib/categories.ts`).
+
+### 세분류
+
+카테고리 안에서 한 단계 더 나눕니다 — 상의의 `반팔 티셔츠 / 민소매 / 후드티`,
+신발의 `운동화 / 스니커즈 / 슬리퍼 / 쪼리` 같은 것들입니다.
+
+- **고르지 않아도 됩니다.** 고른 걸 다시 누르면 풀립니다.
+- 목록은 `lib/categories.ts`의 `kinds`에 있습니다. 여기만 고치면 등록 폼이 따라옵니다.
+- 카테고리를 바꾸면 세분류 선택은 지워집니다 (상의 세분류가 신발에 남으면 안 되니까요).
+  서버에서도 그 카테고리 목록에 있는 값만 받습니다.
+- 옷장 검색(`q`)이 이름·브랜드와 함께 세분류도 찾습니다. "쪼리"로 검색하면 나옵니다.
 
 - 상의·아우터: 어깨, 가슴, 총장, 소매
 - 하의: 허리, 엉덩이, 허벅지, 밑위, 총장, 밑단

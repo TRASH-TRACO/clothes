@@ -5,7 +5,13 @@ import { useActionState, useState } from "react";
 
 import { BrandInput, type BrandOption } from "@/components/brand-input";
 import { PhotoInput } from "@/components/photo-input";
-import { CATEGORIES, CATEGORY_META, measurementFields, type Category } from "@/lib/categories";
+import {
+  CATEGORIES,
+  CATEGORY_META,
+  kindsOf,
+  measurementFields,
+  type Category,
+} from "@/lib/categories";
 import { COLOR_PRESETS, isLight } from "@/lib/colors";
 import type { ActionState, Item } from "@/lib/types";
 
@@ -20,17 +26,26 @@ type Props = {
 export function ItemForm({ userId, item, brands, action }: Props) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(action, null);
   const [category, setCategory] = useState<Category>(item?.category ?? "top");
+  const [kind, setKind] = useState<string | null>(item?.subcategory ?? null);
   const [color, setColor] = useState({
     name: item?.color_name ?? COLOR_PRESETS[0].name,
     hex: item?.color_hex ?? COLOR_PRESETS[0].hex,
   });
 
   const fields = measurementFields(category);
+  const kinds = kindsOf(category);
+
+  /** 카테고리를 바꾸면 세분류는 지운다 (상의 세분류가 신발에 남으면 안 된다) */
+  function pickCategory(next: Category) {
+    setCategory(next);
+    if (next !== category) setKind(null);
+  }
 
   return (
     <form action={formAction} className="grid gap-10 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
       {item ? <input type="hidden" name="id" value={item.id} /> : null}
       <input type="hidden" name="category" value={category} />
+      {kind ? <input type="hidden" name="subcategory" value={kind} /> : null}
       <input type="hidden" name="color_name" value={color.name} />
       <input type="hidden" name="color_hex" value={color.hex} />
 
@@ -46,10 +61,27 @@ export function ItemForm({ userId, item, brands, action }: Props) {
               <button
                 key={value}
                 type="button"
-                onClick={() => setCategory(value)}
+                onClick={() => pickCategory(value)}
                 className={`chip ${category === value ? "chip-active" : ""}`}
               >
                 {CATEGORY_META[value].label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <h2 className="eyebrow mb-4">세분류 (선택)</h2>
+          <div className="flex flex-wrap gap-2">
+            {kinds.map((value) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={kind === value}
+                onClick={() => setKind(kind === value ? null : value)}
+                className={`chip ${kind === value ? "chip-active" : ""}`}
+              >
+                {value}
               </button>
             ))}
           </div>

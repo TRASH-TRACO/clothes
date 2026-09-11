@@ -203,7 +203,12 @@ create policy "daily weather is private" on public.daily_weather
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
--- 5-4. 한 줄 평가 ---------------------------------------------------
+-- 5-4. 옷 세분류 ----------------------------------------------------
+-- 상의 안의 "반팔 티셔츠", 신발 안의 "운동화" 처럼. 고르지 않아도 된다.
+-- 목록이 길고 앞으로 늘어날 값이라 DB는 글자만 받고, 검사는 lib/categories.ts 에서 한다.
+alter table public.items add column if not exists subcategory text;
+
+-- 5-5. 한 줄 평가 ---------------------------------------------------
 -- 그날 체감: 추웠다 / 적당 / 더웠다
 alter table public.wear_logs
   add column if not exists felt text check (felt in ('cold', 'ok', 'hot'));

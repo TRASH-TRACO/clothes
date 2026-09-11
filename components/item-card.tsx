@@ -21,6 +21,7 @@ export function ItemCard({ item, priority }: { item: Item; priority?: boolean })
       <div className="mt-3 space-y-1">
         <p className="text-xs uppercase tracking-[0.12em] text-muted">
           {CATEGORY_META[item.category].label}
+          {item.subcategory ? ` · ${item.subcategory}` : ""}
         </p>
         <p className="text-sm font-semibold group-hover:underline">{item.name}</p>
         {item.brand ? <p className="text-sm text-muted">{item.brand}</p> : null}

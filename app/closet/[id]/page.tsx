@@ -40,7 +40,10 @@ export default async function ItemPage({ params }: PageProps<"/closet/[id]">) {
         />
 
         <div>
-          <p className="eyebrow">{CATEGORY_META[item.category].label}</p>
+          <p className="eyebrow">
+            {CATEGORY_META[item.category].label}
+            {item.subcategory ? ` · ${item.subcategory}` : ""}
+          </p>
           <h1 className="display mt-3 text-5xl">{item.name}</h1>
           {item.brand ? <p className="mt-3 text-lg text-muted">{item.brand}</p> : null}
 
