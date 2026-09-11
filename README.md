@@ -236,8 +236,19 @@ maskable 쪽은 안드로이드가 원형으로 잘라내는 걸 감안해 글�
    그 화면 모양의 회색 뼈대가 즉시 뜹니다. Next가 이 뼈대를 미리 받아두므로 탭은 즉시 전환됩니다.
    조각들은 `components/skeleton.tsx`에 모여 있습니다.
 
-`loading.tsx`는 자기 폴더와 그 아래 화면을 모두 덮습니다 — `app/closet/loading.tsx` 하나로
-옷 상세·등록·수정까지 함께 처리됩니다.
+`loading.tsx`는 자기 폴더와 그 아래 화면을 모두 덮습니다. 그래서 모양이 크게 다른 화면에는
+따로 둡니다 — 달력에서 날짜를 눌렀는데 달력 뼈대가 뜨면 엉뚱하니까요.
+
+```
+app/calendar/loading.tsx             달력 그리드
+app/calendar/[date]/loading.tsx      그날 기록 보기
+app/calendar/[date]/edit/loading.tsx 그날 기록 입력
+app/closet/loading.tsx               옷장 그리드
+app/closet/[id]/loading.tsx          옷 상세·수정
+app/closet/new/loading.tsx           옷 등록
+app/outfits/loading.tsx              코디 목록
+app/outfits/[id]/loading.tsx         코디 상세
+```
 
 ### 이동 캐시
 
