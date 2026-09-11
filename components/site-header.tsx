@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { signOut } from "@/app/actions/auth";
+import { AppRefresh } from "@/components/app-refresh";
 import { NavLinks } from "@/components/nav-links";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { getUser } from "@/lib/supabase/server";
@@ -32,6 +33,7 @@ export async function SiteHeader() {
               >
                 {user.email}
               </Link>
+              <AppRefresh />
               <Link href="/closet/new" className="btn-dark px-5 py-2.5">
                 옷 등록
               </Link>
