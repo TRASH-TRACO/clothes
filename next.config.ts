@@ -12,6 +12,17 @@ function supabaseHostname() {
 }
 
 const nextConfig: NextConfig = {
+  experimental: {
+    /**
+     * 클라이언트 라우터 캐시. dynamic 기본값이 0초라 화면을 옮길 때마다
+     * 서버에서 다시 받아온다. 잠깐 사이에 왔다 갔다 하는 건 그대로 재사용한다.
+     *
+     * 내가 고친 내용은 서버 액션의 revalidatePath 가 이 캐시도 비우므로
+     * 저장 직후에는 늘 새 값이 보인다. 앱으로 돌아올 때도 새로 받는다
+     * (components/app-refresh.tsx).
+     */
+    staleTimes: { dynamic: 60 },
+  },
   images: {
     remotePatterns: [
       {

@@ -94,10 +94,10 @@ export async function saveWearLog(_prev: ActionState, formData: FormData): Promi
   // (지우면 다시 기본 지역으로 본다)
   await (place ? storeDay(date, place) : dropStoredDay(date));
 
-  revalidatePath("/calendar");
-  revalidatePath(`/calendar/${date}`);
-  // 홈 날씨도 이 날짜 지역을 따라가므로 같이 새로 그린다
-  revalidatePath("/");
+  // 옷·코디·기록은 홈, 옷장, 코디 만들기, 캘린더에 걸쳐 나온다.
+  // 경로를 하나씩 적으면 빠뜨리는 곳이 생기고, 이동 캐시 때문에 옛 값이 남는다.
+  // 바꿀 일이 잦지 않으니 통째로 비운다.
+  revalidatePath("/", "layout");
   redirect(`/calendar?m=${monthOf(date)}`);
 }
 
@@ -114,7 +114,9 @@ export async function deleteWearLog(formData: FormData) {
   // 지역 기록도 같이 사라지므로 저장분을 버리고 기본 지역으로 되돌린다
   await dropStoredDay(date);
 
-  revalidatePath("/calendar");
-  revalidatePath(`/calendar/${date}`);
+  // 옷·코디·기록은 홈, 옷장, 코디 만들기, 캘린더에 걸쳐 나온다.
+  // 경로를 하나씩 적으면 빠뜨리는 곳이 생기고, 이동 캐시 때문에 옛 값이 남는다.
+  // 바꿀 일이 잦지 않으니 통째로 비운다.
+  revalidatePath("/", "layout");
   redirect(`/calendar?m=${monthOf(date)}`);
 }

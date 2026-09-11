@@ -120,8 +120,10 @@ export async function createItem(
 
   if (error) return fail(error.message);
 
-  revalidatePath("/closet");
-  revalidatePath("/");
+  // 옷·코디·기록은 홈, 옷장, 코디 만들기, 캘린더에 걸쳐 나온다.
+  // 경로를 하나씩 적으면 빠뜨리는 곳이 생기고, 이동 캐시 때문에 옛 값이 남는다.
+  // 바꿀 일이 잦지 않으니 통째로 비운다.
+  revalidatePath("/", "layout");
   redirect(`/closet/${data.id}`);
 }
 
@@ -148,9 +150,10 @@ export async function updateItem(
 
   if (error) return fail(error.message);
 
-  revalidatePath("/closet");
-  revalidatePath(`/closet/${id}`);
-  revalidatePath("/outfits");
+  // 옷·코디·기록은 홈, 옷장, 코디 만들기, 캘린더에 걸쳐 나온다.
+  // 경로를 하나씩 적으면 빠뜨리는 곳이 생기고, 이동 캐시 때문에 옛 값이 남는다.
+  // 바꿀 일이 잦지 않으니 통째로 비운다.
+  revalidatePath("/", "layout");
   redirect(`/closet/${id}`);
 }
 
@@ -175,8 +178,9 @@ export async function deleteItem(formData: FormData) {
     await supabase.storage.from(PHOTO_BUCKET).remove([item.photo_path]);
   }
 
-  revalidatePath("/closet");
-  revalidatePath("/outfits");
-  revalidatePath("/");
+  // 옷·코디·기록은 홈, 옷장, 코디 만들기, 캘린더에 걸쳐 나온다.
+  // 경로를 하나씩 적으면 빠뜨리는 곳이 생기고, 이동 캐시 때문에 옛 값이 남는다.
+  // 바꿀 일이 잦지 않으니 통째로 비운다.
+  revalidatePath("/", "layout");
   redirect("/closet");
 }
