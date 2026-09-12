@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "check": "node --experimental-strip-types bin/check-weather-freshness.ts && node --experimental-strip-types bin/check-recommend-prompt.ts"
+    "check": "node --experimental-strip-types bin/check-weather-freshness.ts && node --experimental-strip-types bin/check-recommend-prompt.ts && node --experimental-strip-types bin/check-secret.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",

@@ -261,3 +261,15 @@ create policy "clothes photos are deletable by owner" on storage.objects
     bucket_id = 'clothes'
     and (storage.foldername(name))[1] = auth.uid()::text
   );
+
+-- 7. 회원별 Anthropic API 키 ---------------------------------------
+-- AI 코디 추천을 각자 자기 키로 쓰게 한다 (요금도 각자 낸다).
+-- 값은 서버의 APP_SECRET 으로 잠가서 넣는다. DB만 새어도 키가 그대로 털리면 안 된다.
+-- hint 는 "sk-ant-…ab12" 처럼 꼬리만 남긴 표시용이라 잠그지 않는다.
+alter table public.user_settings add column if not exists anthropic_key_cipher text;
+alter table public.user_settings add column if not exists anthropic_key_hint text;
+
+-- 지역을 안 정하고 키만 넣는 사람도 있다. 그때 한 줄이 만들어질 수 있어야 한다.
+alter table public.user_settings alter column place_name drop not null;
+alter table public.user_settings alter column place_lat drop not null;
+alter table public.user_settings alter column place_lon drop not null;

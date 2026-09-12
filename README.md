@@ -42,7 +42,11 @@ cp .env.example .env.local
 NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi...
 
-# AI 코디 추천용 (선택). 없으면 그 화면만 안내를 띄우고 나머지는 그대로 돕니다.
+# AI 코디 추천용. 회원이 맡긴 키를 잠글 때 씁니다 (없으면 키를 안 받습니다).
+#   openssl rand -base64 32
+APP_SECRET=...
+
+# (선택) 서버 공용 키. 회원이 자기 키를 안 넣었을 때만 씁니다.
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
@@ -58,7 +62,7 @@ http://localhost:3000 → 회원가입 → 옷 등록.
 ### 4. Vercel 배포
 
 1. GitHub 저장소를 Vercel에 Import (프레임워크 자동 감지)
-2. **Environment Variables**에 위 값을 등록 (`ANTHROPIC_API_KEY`는 AI 추천을 쓸 때만)
+2. **Environment Variables**에 위 값을 등록 (`APP_SECRET`은 AI 추천을 쓸 때만)
 3. Deploy
 
 `next.config.ts`가 `NEXT_PUBLIC_SUPABASE_URL` 호스트를 이미지 도메인으로 자동 등록하므로 별도 설정이 필요 없습니다.
@@ -260,11 +264,37 @@ npm run check
 
 | 파일 | 하는 일 |
 |---|---|
-| `lib/claude.ts` | 클라이언트와 모델 이름. 키가 없으면 `isClaudeConfigured()`가 false |
+| `lib/claude.ts` | 클라이언트와 모델 이름. 회원 키 → 서버 키 순으로 고릅니다 |
+| `lib/secret.ts` | 맡긴 키를 잠그고 푸는 부분 (AES-256-GCM) |
+| `app/actions/ai-key.ts` | 키 저장·삭제. 저장 전에 한 번 써 봅니다 |
+| `components/ai-key-form.tsx` | 설정 화면의 키 칸 |
 | `lib/recommend-prompt.ts` | 무엇을 보낼지 만드는 부분. **아무 모듈도 안 뭅니다** |
 | `app/actions/recommend.ts` | 서버 액션. 부르고, 돌아온 답을 옷장과 대조 |
 | `components/recommend-panel.tsx` | 화면 |
 | `bin/check-recommend-prompt.ts` | 보내는 내용 확인 (`npm run check`) |
+
+### 키는 회원이 각자 맡깁니다
+
+`/settings` 에서 자기 Anthropic 키를 넣습니다. **요금도 각자 냅니다.** 한 사람이 많이 써서
+다른 사람이 막히는 일이 없고, 서버 주인이 남의 사용료를 대신 내지도 않습니다.
+서버 공용 키(`ANTHROPIC_API_KEY`)는 회원이 자기 키를 안 넣었을 때만 쓰는 대비책입니다
+(혼자 쓰거나 시험할 때).
+
+- 키는 `user_settings.anthropic_key_cipher` 에 **서버의 `APP_SECRET` 으로 잠가서** 넣습니다
+  (AES-256-GCM, `lib/secret.ts`). DB만 새어 나가도 키가 그대로 털리면 안 됩니다.
+  둘 다 새면 소용없지만, 한쪽만 새는 사고가 훨씬 흔합니다.
+- **평문은 브라우저로 안 보냅니다.** 화면에는 꼬리 네 자리만 남긴 `sk-ant-…ab12` 가 뜹니다.
+  저장한 키를 다시 보여줄 이유가 없고, 안 보내면 새어 나갈 자리도 줄어듭니다.
+- **저장 전에 한 번 써 봅니다** (`models.list`, 토큰을 쓰지 않아 공짜입니다). 오타 난 키를
+  그대로 넣어두면 나중에 추천을 누를 때가 돼서야 실패하고 원인도 알기 어렵습니다.
+- `APP_SECRET` 이 없으면 키를 **아예 안 받습니다.** 잠글 수 없는데 받으면 평문으로 두게 됩니다.
+- `APP_SECRET` 을 바꾸면 이미 맡아둔 키를 못 풉니다. 그때는 없는 것처럼 굴고, 다시 등록하면 됩니다.
+- 키는 로그에 남기지 않습니다 (확인이 실패해도 예외 메시지만 남깁니다).
+
+규칙은 확인할 수 있습니다 (`npm run check`): 잠갔다 풀면 원래 값인지, 같은 값도 매번 다른
+암호문이 되는지, 다른 `APP_SECRET`이나 망가진 값으로는 못 푸는지.
+
+### 그 밖에
 
 - **모델은 `claude-opus-5`**, 적응형 사고에 `effort: "low"`입니다. 옷 몇십 벌 중에 고르는 일이라
   깊게 생각할 필요가 없고, 사람이 기다리는 시간도 짧아야 합니다.
@@ -274,7 +304,7 @@ npm run check
   앞의 것만 남깁니다. 남은 게 두 벌 미만이면 그 조합은 버립니다. 모델을 믿고 그리지 않습니다.
 - 지시문은 시스템 프롬프트에 두고 `cache_control`을 겁니다. 매번 바뀌는 건 옷 목록·날씨뿐이라
   앞부분이 그대로 캐시에 남습니다.
-- 키가 없으면 그 화면에 안내만 띄웁니다. 나머지 기능은 아무 영향 없습니다.
+- 키가 없으면 그 화면에 안내와 설정 링크만 띄웁니다. 나머지 기능은 아무 영향 없습니다.
 - `maxDuration = 60` — 모델이 생각하는 동안 기다려야 해서 Vercel 기본 제한으로는 모자랍니다.
 
 보내는 내용은 네트워크 없이 확인할 수 있습니다:

@@ -13,7 +13,11 @@ export const metadata: Metadata = { title: "AI 추천" };
 export const maxDuration = 60;
 
 export default async function RecommendPage() {
-  const [user, items] = await Promise.all([getUser(), getItems({ sort: "recent" })]);
+  const [user, items, configured] = await Promise.all([
+    getUser(),
+    getItems({ sort: "recent" }),
+    isClaudeConfigured(),
+  ]);
   if (!user) redirect("/login?next=/recommend");
 
   return (
@@ -26,12 +30,12 @@ export default async function RecommendPage() {
       </p>
 
       <div className="mt-10">
-        {!isClaudeConfigured() ? (
+        {!configured ? (
           <div className="rounded-xl bg-mist px-6 py-8">
-            <p className="font-semibold">아직 연결되지 않았습니다.</p>
+            <p className="font-semibold">API 키가 필요합니다.</p>
             <p className="mt-2 text-sm text-muted">
-              Vercel 환경변수에 <code className="rounded bg-paper px-1.5 py-0.5">ANTHROPIC_API_KEY</code>
-              를 넣으면 켜집니다. 키는{" "}
+              추천은 각자 자기 키로 부릅니다. 요금도 각자 내고, 한 사람이 많이 써도 다른 사람이
+              막히지 않습니다. 키는{" "}
               <a
                 href="https://console.anthropic.com/settings/keys"
                 target="_blank"
@@ -42,6 +46,9 @@ export default async function RecommendPage() {
               </a>
               에서 만듭니다.
             </p>
+            <Link href="/settings" className="btn-dark mt-5">
+              설정에서 키 등록
+            </Link>
           </div>
         ) : items.length < 2 ? (
           <div className="rounded-xl bg-mist px-6 py-20 text-center">

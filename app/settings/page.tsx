@@ -1,16 +1,19 @@
 import type { Metadata } from "next";
 
+import { AiKeyForm } from "@/components/ai-key-form";
 import { BasePlaceForm } from "@/components/base-place-form";
-import { getBasePlace, hasBasePlace } from "@/lib/data";
+import { getBasePlace, getClaudeKeyHint, hasBasePlace } from "@/lib/data";
+import { hasAppSecret } from "@/lib/secret";
 import { weatherStoreStatus } from "@/lib/weather-store";
 
 export const metadata: Metadata = { title: "설정" };
 
 export default async function SettingsPage() {
-  const [place, chosen, store] = await Promise.all([
+  const [place, chosen, store, keyHint] = await Promise.all([
     getBasePlace(),
     hasBasePlace(),
     weatherStoreStatus(),
+    getClaudeKeyHint(),
   ]);
 
   return (
@@ -33,6 +36,32 @@ export default async function SettingsPage() {
       ) : null}
 
       <BasePlaceForm current={place} />
+
+      <section className="mt-16 border-t border-line pt-8">
+        <h2 className="eyebrow mb-3">AI 코디 추천</h2>
+        <p className="mb-6 max-w-xl text-sm text-muted">
+          추천은 <span className="font-semibold text-ink">각자 자기 키</span>로 부릅니다. 요금도
+          각자 내고, 한 사람이 많이 써도 다른 사람이 막히지 않습니다. 키는{" "}
+          <a
+            href="https://console.anthropic.com/settings/keys"
+            target="_blank"
+            rel="noreferrer"
+            className="underline underline-offset-4 hover:text-ink"
+          >
+            console.anthropic.com
+          </a>
+          에서 만듭니다. 맡긴 키는 서버에서 잠가 보관하고 화면으로 다시 내보내지 않습니다.
+        </p>
+
+        {hasAppSecret() ? (
+          <AiKeyForm hint={keyHint} />
+        ) : (
+          <p className="rounded-xl bg-mist px-5 py-4 text-sm text-muted">
+            서버에 <code className="rounded bg-paper px-1.5 py-0.5">APP_SECRET</code> 이 없어 키를
+            받을 수 없습니다. 키를 잠글 때 쓰는 값이라 없으면 평문으로 두게 되므로 아예 막아 뒀습니다.
+          </p>
+        )}
+      </section>
 
       {/* 기본 지역을 바꿔도 지난 날씨는 그대로여야 한다. 그게 되려면 저장이 돼야 하는데,
           안 돼도 화면은 멀쩡히 뜨므로 여기서 상태를 보여준다. */}

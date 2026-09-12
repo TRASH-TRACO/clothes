@@ -4,6 +4,7 @@ import { cache } from "react";
 
 import { SLOT_ORDER, type Category } from "./categories";
 import { DEFAULT_PLACE, isPlace, roundPlace, type Place } from "./places";
+import { decryptSecret, hasAppSecret } from "./secret";
 import { isSupabaseConfigured } from "./supabase/env";
 import { createClient } from "./supabase/server";
 import type { Item, Outfit, OutfitWithItems, WearLog, WearLogWithItems } from "./types";
@@ -222,8 +223,42 @@ export const getBasePlace = cache(async (): Promise<Place> => {
 export const hasBasePlace = cache(async (): Promise<boolean> => {
   if (!isSupabaseConfigured()) return false;
   const supabase = await createClient();
-  const { data, error } = await supabase.from("user_settings").select("user_id").maybeSingle();
-  return !error && Boolean(data);
+  // 지역은 안 정하고 API 키만 넣어도 한 줄이 생긴다. 줄이 있는지가 아니라
+  // 지역이 적혀 있는지를 봐야 한다.
+  const { data, error } = await supabase
+    .from("user_settings")
+    .select("place_name")
+    .maybeSingle();
+  return !error && Boolean(data?.place_name);
+});
+
+/**
+ * 이 사람이 맡겨 둔 Anthropic API 키.
+ *
+ * 평문은 여기서만 만들어지고 화면으로는 절대 안 나간다.
+ * 못 푸는 값이면(APP_SECRET 을 바꿨다거나) 없는 것처럼 군다.
+ */
+export const getUserClaudeKey = cache(async (): Promise<string | null> => {
+  if (!isSupabaseConfigured() || !hasAppSecret()) return null;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("user_settings")
+    .select("anthropic_key_cipher")
+    .maybeSingle();
+  if (error || !data?.anthropic_key_cipher) return null;
+  return decryptSecret(data.anthropic_key_cipher);
+});
+
+/** 화면에 보여줄 꼬리만 남긴 표시. 없으면 null */
+export const getClaudeKeyHint = cache(async (): Promise<string | null> => {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("user_settings")
+    .select("anthropic_key_hint")
+    .maybeSingle();
+  if (error) return null;
+  return data?.anthropic_key_hint ?? null;
 });
 
 /** 그날 따로 적어 둔 지역 (여행 등). 없으면 null */

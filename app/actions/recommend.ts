@@ -5,7 +5,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 
 import { CATEGORY_META, SLOT_ORDER, type Category } from "@/lib/categories";
 import { addDays, seoulToday } from "@/lib/calendar";
-import { claude, isClaudeConfigured, RECOMMEND_MODEL } from "@/lib/claude";
+import { claude, claudeKey, RECOMMEND_MODEL } from "@/lib/claude";
 import { getBasePlace, getItems, getWearLogs } from "@/lib/data";
 import {
   buildUserMessage,
@@ -47,8 +47,9 @@ export async function recommendOutfits(
   _prev: RecommendState,
   formData: FormData,
 ): Promise<RecommendState> {
-  if (!isClaudeConfigured()) {
-    return { ok: false, message: "ANTHROPIC_API_KEY 가 없어 추천을 부를 수 없습니다." };
+  const apiKey = await claudeKey();
+  if (!apiKey) {
+    return { ok: false, message: "설정에서 Anthropic API 키를 먼저 등록해주세요." };
   }
 
   const request = String(formData.get("request") ?? "").slice(0, 200);
@@ -104,7 +105,7 @@ export async function recommendOutfits(
   );
 
   try {
-    const response = await claude().messages.parse({
+    const response = await claude(apiKey).messages.parse({
       model: RECOMMEND_MODEL,
       max_tokens: 4000,
       // 옷 몇십 벌 중에 고르는 일이라 깊게 생각할 필요는 없다.
