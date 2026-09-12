@@ -3,6 +3,16 @@ const QUALITY = 0.85;
 /** 블러 배경을 만들 때 한 번 줄였다가 다시 키우는 크기 */
 const BACKDROP_EDGE = 48;
 
+/**
+ * 투명한 부분을 채울 색.
+ *
+ * JPEG에는 투명이 없다. 그래서 누끼 딴 PNG를 그냥 JPEG로 바꾸면 투명했던 자리가
+ * **검정**이 된다 (캔버스는 아무것도 안 그리면 투명이고, 투명은 JPEG에서 검정으로
+ * 떨어진다). 검은 신발 누끼를 올리면 신발과 배경이 붙어서 아예 안 보였다.
+ * 상품 사진은 흰 바탕이 자연스럽고, 옷 사진이 놓이는 자리도 다 밝은 색이다.
+ */
+const FLATTEN_COLOR = "#ffffff";
+
 /** 크롭 화면의 상태. offset은 프레임 좌상단 기준 이미지 좌상단 위치(CSS px) */
 export type CropView = {
   frame: { width: number; height: number };
@@ -99,6 +109,11 @@ export async function cropToJpeg(
 
   const context = canvas.getContext("2d");
   if (!context) throw new Error("이미지를 처리할 수 없습니다.");
+
+  // 투명한 자리가 검정으로 떨어지지 않게 먼저 깔아 둔다.
+  // 불투명한 사진이면 어차피 위에 덮이므로 달라지는 게 없다.
+  context.fillStyle = FLATTEN_COLOR;
+  context.fillRect(0, 0, width, height);
 
   // 프레임 좌표 → 출력 좌표
   const k = width / view.frame.width;
