@@ -11,7 +11,8 @@ export async function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-40 bg-paper">
-      {/* 홈 화면 설치 시 상태바 뒤까지 이 검은 띠가 깔리도록 safe-area 만큼 위를 더 준다 */}
+      {/* 상태바가 겹치는 기기를 위한 여백. 안드로이드 등에서 inset 이 오면 그만큼 내려간다
+          (iOS 는 statusBarStyle: black 이라 상태바 아래에서 시작한다) */}
       <div className="bg-ink px-6 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] text-center text-[11px] font-medium uppercase tracking-[0.18em] text-paper">
         오늘 뭐 입지 — 옷장에서 바로 조합해보세요
       </div>

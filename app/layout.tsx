@@ -34,12 +34,16 @@ export const metadata: Metadata = {
   },
   description: "가지고 있는 옷을 사진·실측·색상으로 기록하고, 조합해서 코디를 저장하는 앱.",
   applicationName: "CLOSET",
-  // 홈 화면에 추가하면 주소창 없이 뜬다. black-translucent는 상태바 뒤까지
-  // 화면을 채우므로 헤더에서 safe-area 만큼 밀어준다 (site-header.tsx)
+  // 홈 화면에 추가하면 주소창 없이 뜬다.
+  //
+  // black-translucent 는 상태바 뒤까지 화면을 채우는데, iOS 전체화면에서는
+  // env(safe-area-inset-top) 이 0으로 와서 밀어줄 수가 없다. 그래서 상단 검은 띠가
+  // 상태바에 가렸다. black 으로 두면 상태바 아래에서 화면이 시작하고,
+  // 상태바 배경도 검정이라 우리 검은 띠와 이어져 보인다.
   appleWebApp: {
     capable: true,
     title: "CLOSET",
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "black",
   },
   // 실측값 숫자를 사파리가 전화번호로 오인해 링크 거는 걸 막는다
   formatDetection: { telephone: false },

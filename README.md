@@ -65,6 +65,9 @@ http://localhost:3000 → 회원가입 → 옷 등록.
 배포한 주소를 폰에서 열면 주소창 없는 앱처럼 쓸 수 있습니다. **HTTPS에서만** 동작하므로
 `localhost`가 아니라 Vercel 주소로 접속해야 합니다.
 
+> `black-translucent`(상태바 뒤까지 화면을 채우는 설정)는 쓰지 않습니다. iOS 전체화면에서
+> `env(safe-area-inset-top)`이 0으로 와서 밀어줄 수가 없고, 그러면 상단 검은 띠가 상태바에 가립니다.
+
 - **iOS (사파리)**: 공유 버튼 → **홈 화면에 추가**
 - **안드로이드 (크롬)**: 주소창 메뉴 → **앱 설치** (조건이 맞으면 설치 배너가 뜹니다)
 
@@ -75,6 +78,7 @@ http://localhost:3000 → 회원가입 → 옷 등록.
 |---|---|
 | `app/manifest.ts` | 이름·아이콘·시작 URL·바로가기 (`/manifest.webmanifest`로 나감) |
 | `app/layout.tsx` | `viewport`(테마색·`viewport-fit=cover`)와 애플 전용 메타 |
+| 상태바 | iOS는 `statusBarStyle: "black"`. 검은 상태바 아래에서 화면이 시작해 상단 검은 띠와 이어집니다 |
 | `app/apple-icon.png` | iOS 홈 화면 아이콘 180px |
 | `public/icon-*.png` | 매니페스트 아이콘 192·512, 안드로이드용 maskable 512 |
 
