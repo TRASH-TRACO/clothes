@@ -41,6 +41,9 @@ cp .env.example .env.local
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi...
+
+# AI 코디 추천용 (선택). 없으면 그 화면만 안내를 띄우고 나머지는 그대로 돕니다.
+ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 ### 3. 실행
@@ -55,7 +58,7 @@ http://localhost:3000 → 회원가입 → 옷 등록.
 ### 4. Vercel 배포
 
 1. GitHub 저장소를 Vercel에 Import (프레임워크 자동 감지)
-2. **Environment Variables**에 위 두 값을 등록
+2. **Environment Variables**에 위 값을 등록 (`ANTHROPIC_API_KEY`는 AI 추천을 쓸 때만)
 3. Deploy
 
 `next.config.ts`가 `NEXT_PUBLIC_SUPABASE_URL` 호스트를 이미지 도메인으로 자동 등록하므로 별도 설정이 필요 없습니다.
@@ -248,6 +251,37 @@ npm run check
   화면을 확대해 버리고, 확대된 채로 남아서 다음 칸을 누르기 어려워집니다. viewport에
   `maximum-scale=1`을 박아도 막히지만 손가락으로 옷 사진을 키워 볼 수 없게 되므로,
   확대할 이유 자체를 없앴습니다 (`app/globals.css`의 `input, select, textarea` 규칙).
+
+## AI 코디 추천
+
+`/recommend`. 옷장과 오늘 날씨, 최근에 입은 기록을 같이 보고 **가지고 있는 옷으로** 조합을
+2~3개 골라 줍니다. 마음에 들면 `이 조합으로 코디 만들기`로 코디 만들기 화면에 그대로 실려 갑니다
+(`/studio?top=<id>&bottom=<id>` — 원래 있던 기능입니다).
+
+| 파일 | 하는 일 |
+|---|---|
+| `lib/claude.ts` | 클라이언트와 모델 이름. 키가 없으면 `isClaudeConfigured()`가 false |
+| `lib/recommend-prompt.ts` | 무엇을 보낼지 만드는 부분. **아무 모듈도 안 뭅니다** |
+| `app/actions/recommend.ts` | 서버 액션. 부르고, 돌아온 답을 옷장과 대조 |
+| `components/recommend-panel.tsx` | 화면 |
+| `bin/check-recommend-prompt.ts` | 보내는 내용 확인 (`npm run check`) |
+
+- **모델은 `claude-opus-5`**, 적응형 사고에 `effort: "low"`입니다. 옷 몇십 벌 중에 고르는 일이라
+  깊게 생각할 필요가 없고, 사람이 기다리는 시간도 짧아야 합니다.
+- **결과는 구조화 출력**으로 받습니다 (`output_config.format` + zod). 모델이 문장으로 답하면
+  파싱이 깨지는데, 스키마를 주면 `{ name, itemIds, reason }` 모양이 보장됩니다.
+- **돌아온 id 는 전부 옷장과 대조합니다.** 없는 옷을 지어내면 버리고, 한 분류에 두 벌이 오면
+  앞의 것만 남깁니다. 남은 게 두 벌 미만이면 그 조합은 버립니다. 모델을 믿고 그리지 않습니다.
+- 지시문은 시스템 프롬프트에 두고 `cache_control`을 겁니다. 매번 바뀌는 건 옷 목록·날씨뿐이라
+  앞부분이 그대로 캐시에 남습니다.
+- 키가 없으면 그 화면에 안내만 띄웁니다. 나머지 기능은 아무 영향 없습니다.
+- `maxDuration = 60` — 모델이 생각하는 동안 기다려야 해서 Vercel 기본 제한으로는 모자랍니다.
+
+보내는 내용은 네트워크 없이 확인할 수 있습니다:
+
+```bash
+npm run check
+```
 
 ## 사진은 올리기 전에 브라우저에서 굽습니다
 

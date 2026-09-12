@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 const LINKS = [
   { href: "/closet", label: "옷장" },
   { href: "/studio", label: "코디 만들기" },
+  { href: "/recommend", label: "AI 추천" },
   { href: "/outfits", label: "저장한 코디" },
   { href: "/calendar", label: "캘린더" },
 ];
@@ -41,7 +42,8 @@ export function NavLinks({ className = "" }: { className?: string }) {
           <Link
             key={link.href}
             href={link.href}
-            className={`relative py-1 text-sm font-medium transition-colors ${
+            /* 좁은 화면에서는 줄바꿈 대신 옆으로 밀린다 (바깥이 overflow-x-auto) */
+            className={`relative shrink-0 whitespace-nowrap py-1 text-sm font-medium transition-colors ${
               active ? "text-ink" : "text-muted hover:text-ink"
             }`}
           >

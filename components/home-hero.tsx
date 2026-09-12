@@ -47,8 +47,8 @@ export function HomeHero({ signedIn, aside, waveItems = [] }: Props) {
             <Link href={signedIn ? "/closet/new" : "/login"} className="btn-dark">
               {signedIn ? "옷 등록하기" : "시작하기"}
             </Link>
-            <Link href={signedIn ? "/studio" : "/login"} className="btn-light">
-              코디 만들기
+            <Link href={signedIn ? "/recommend" : "/login"} className="btn-light">
+              뭐 입을지 물어보기
             </Link>
           </div>
         </div>
