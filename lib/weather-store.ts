@@ -1,17 +1,15 @@
 import "server-only";
 
-import { addDays, gridRange, seoulToday } from "./calendar";
+import { addDays, seoulToday } from "./calendar";
 import { isPlace, placeKey, roundPlace, type Place } from "./places";
 import { isSupabaseConfigured } from "./supabase/env";
 import { createClient, getUser } from "./supabase/server";
+import { needsFetch, type Freshness } from "./weather-freshness";
 import { getDailyRange, type DayWeather } from "./weather";
 
 /** 예보 API가 주는 구간. 이 밖은 받아올 방법이 없으니 부르지도 않는다 */
 const MAX_PAST_DAYS = 92;
 const MAX_FUTURE_DAYS = 15;
-
-/** 아직 지나지 않은 날은 예보라 값이 바뀐다. 이보다 오래된 저장분은 다시 받는다 */
-const FORECAST_STALE_MS = 3 * 60 * 60 * 1000;
 
 /** 저장해 둔 하루치 날씨. 어느 지역 기준으로 받았는지도 같이 남는다 */
 export type StoredDay = DayWeather & { place: Place; fetchedAt: number };
@@ -86,10 +84,16 @@ async function readRows(from: string, to: string): Promise<Map<string, StoredDay
   return result;
 }
 
-/** 지정한 날짜들의 날씨를 받아서 저장한다 */
+/**
+ * 지정한 날짜들의 날씨를 받아서 저장한다.
+ *
+ * span 을 주면 API 는 그 범위로 부른다. 달력과 같은 범위로 불러야 같은 응답을
+ * 다시 쓸 수 있어서다 (필요한 날짜만 꺼내 저장하는 건 그대로다).
+ */
 async function fetchAndStore(
   dates: string[],
   placeOf: (date: string) => Place,
+  span?: { from: string; to: string },
 ): Promise<Map<string, StoredDay>> {
   const filled = new Map<string, StoredDay>();
   const targets = dates.filter(reachable);
@@ -112,7 +116,9 @@ async function fetchAndStore(
   await Promise.all(
     [...groups.values()].map(async (group) => {
       const sorted = [...group.dates].sort();
-      const range = await getDailyRange(group.place, sorted[0], sorted[sorted.length - 1]);
+      const from = span?.from ?? sorted[0];
+      const to = span?.to ?? sorted[sorted.length - 1];
+      const range = await getDailyRange(group.place, from, to);
       for (const date of group.dates) {
         const day = range.get(date);
         if (!day) continue;
@@ -129,20 +135,30 @@ async function fetchAndStore(
   return filled;
 }
 
-/** 저장분을 다시 받아야 하는지 */
-function needsFetch(stored: StoredDay | undefined, want: Place, date: string) {
-  if (!stored) return true;
-  // 지역을 바꿨으면 옛 지역 값이 남아 있는 것이다
-  if (placeKey(stored.place) !== placeKey(want)) return true;
-  // 아직 지나지 않은 날은 예보라 값이 바뀐다. 지난 날은 확정이라 그대로 둔다.
-  return date >= seoulToday() && Date.now() - stored.fetchedAt > FORECAST_STALE_MS;
+/** 저장분과 지금 보려는 지역을 규칙(lib/weather-freshness)이 읽을 수 있는 모양으로 */
+function freshness(
+  stored: StoredDay | undefined,
+  want: Place,
+  date: string,
+  pinned: boolean,
+): Freshness {
+  return {
+    stored: Boolean(stored),
+    samePlace: Boolean(stored) && placeKey(stored!.place) === placeKey(want),
+    age: stored ? Date.now() - stored.fetchedAt : 0,
+    past: date < seoulToday(),
+    pinned,
+  };
 }
 
 /**
  * 달력 한 판의 날씨.
  *
- * - 지역을 따로 정해 둔 날: DB에 저장해 둔 값 (없거나 지역이 바뀌었으면 그때 받아 저장)
- * - 그 외의 날: 기본 지역으로 그때그때 받아온다 (한 번의 범위 조회로 끝난다)
+ * 한 번 받은 날은 지역과 함께 DB에 남긴다. 그래서 다시 열어도 같은 값이 뜨고,
+ * 나중에 기본 지역을 바꿔도 지난 날 기록은 그대로다.
+ *
+ * 다시 받는 건 아직 안 지난 날(예보라 값이 바뀐다)과,
+ * 그날 지역을 새로 적어 둔 날뿐이다.
  */
 export async function getCalendarWeather(
   base: Place,
@@ -153,49 +169,23 @@ export async function getCalendarWeather(
   if (dates.length === 0) return merged;
 
   const sorted = [...dates].sort();
-  const pinned = sorted.filter((date) => placeByDate.has(date));
-  const plain = sorted.filter((date) => !placeByDate.has(date));
+  const span = { from: sorted[0], to: sorted[sorted.length - 1] };
+  const stored = await readRows(span.from, span.to);
 
-  const stored = pinned.length > 0 ? await readRows(pinned[0], pinned[pinned.length - 1]) : new Map();
-  const stale = pinned.filter((date) => needsFetch(stored.get(date), placeByDate.get(date)!, date));
+  // 여행 간 날은 그 지역, 나머지는 기본 지역
+  const placeOf = (date: string) => placeByDate.get(date) ?? base;
+  const stale = sorted.filter((date) =>
+    needsFetch(freshness(stored.get(date), placeOf(date), date, placeByDate.has(date))),
+  );
 
-  const [filled, fromApi] = await Promise.all([
-    fetchAndStore(stale, (date) => placeByDate.get(date)!),
-    // 지정한 날을 빼고 부르면 범위가 들쭉날쭉해져 날짜 화면과 캐시가 갈린다.
-    // 판 전체를 한 번 부르고 필요한 날짜만 꺼내 쓴다.
-    plain.length > 0
-      ? getDailyRange(base, sorted[0], sorted[sorted.length - 1])
-      : Promise.resolve(new Map<string, DayWeather>()),
-  ]);
+  // 달력 전체 범위로 부른다. 다시 열 때도 같은 주소라 응답을 그대로 쓴다.
+  const filled = await fetchAndStore(stale, placeOf, span);
 
   for (const date of sorted) {
-    const day = placeByDate.has(date)
-      ? (filled.get(date) ?? stored.get(date))
-      : fromApi.get(date);
+    const day = filled.get(date) ?? stored.get(date);
     if (day) merged.set(date, day);
   }
   return merged;
-}
-
-/** 하루치. 규칙은 달력과 같다 */
-export async function getDayWeather(
-  date: string,
-  place: Place,
-  pinned: boolean,
-): Promise<DayWeather | null> {
-  if (!pinned) {
-    // 하루만 부르면 날짜마다 새로 받게 된다. 달력과 같은 범위로 불러
-    // 이미 받아둔 응답을 그대로 쓴다.
-    const { from, to } = gridRange(date);
-    const range = await getDailyRange(place, from, to);
-    return range.get(date) ?? null;
-  }
-
-  const stored = (await readRows(date, date)).get(date);
-  if (!needsFetch(stored, place, date)) return stored ?? null;
-
-  const filled = await fetchAndStore([date], () => place);
-  return filled.get(date) ?? stored ?? null;
 }
 
 /** 그날 지역을 정했으니 그 지역 날씨를 받아 저장해 둔다 */
@@ -203,11 +193,22 @@ export async function storeDay(date: string, place: Place): Promise<void> {
   await fetchAndStore([date], () => place);
 }
 
-/** 그날 지역 지정을 지웠으니 저장분도 버린다 (다시 기본 지역으로 본다) */
-export async function dropStoredDay(date: string): Promise<void> {
+async function dropStoredDay(date: string): Promise<void> {
   if (!isSupabaseConfigured()) return;
   const supabase = await createClient();
   const user = await getUser();
   if (!user) return;
   await supabase.from("daily_weather").delete().eq("user_id", user.id).eq("on_date", date);
+}
+
+/**
+ * 그날 지역 지정을 지웠으니 기본 지역 값으로 되돌린다.
+ *
+ * 지난 날이어도 다시 받는다. "그날 거기 없었다"고 사용자가 직접 고친 것이므로
+ * 기록을 고쳐 주는 게 맞다. 반대로 설정에서 기본 지역만 바꾼 경우에는
+ * 여기까지 오지 않는다 (needsFetch 가 지난 날을 그대로 둔다).
+ */
+export async function resetStoredDay(date: string, base: Place): Promise<void> {
+  await dropStoredDay(date);
+  await fetchAndStore([date], () => base);
 }

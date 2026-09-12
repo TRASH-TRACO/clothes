@@ -6,7 +6,8 @@ import { redirect } from "next/navigation";
 import { isValidDate, monthOf } from "@/lib/calendar";
 import { isFelt } from "@/lib/feedback";
 import { isPlace, roundPlace } from "@/lib/places";
-import { dropStoredDay, storeDay } from "@/lib/weather-store";
+import { getBasePlace } from "@/lib/data";
+import { resetStoredDay, storeDay } from "@/lib/weather-store";
 import { createClient, getUser } from "@/lib/supabase/server";
 import type { ActionState } from "@/lib/types";
 
@@ -58,6 +59,15 @@ export async function saveWearLog(_prev: ActionState, formData: FormData): Promi
     outfitId = data?.id ?? null;
   }
 
+  // 지역 지정을 지운 건지 알아야 한다. 지웠을 때만 날씨를 되돌린다.
+  const { data: before } = await supabase
+    .from("wear_logs")
+    .select("place_name")
+    .eq("user_id", user.id)
+    .eq("worn_on", date)
+    .maybeSingle();
+  const hadPlace = Boolean(before?.place_name);
+
   const { data: log, error } = await supabase
     .from("wear_logs")
     .upsert(
@@ -90,9 +100,12 @@ export async function saveWearLog(_prev: ActionState, formData: FormData): Promi
     if (itemsError) return fail(itemsError.message);
   }
 
-  // 지역을 정한 날은 그 지역 날씨를 받아 저장해 두고, 지운 날은 저장분도 버린다
-  // (지우면 다시 기본 지역으로 본다)
-  await (place ? storeDay(date, place) : dropStoredDay(date));
+  // 지역을 정했으면 그 지역 날씨를 받아 저장한다.
+  // 정해 뒀던 걸 지웠으면 기본 지역 값으로 되돌린다.
+  // 처음부터 안 정한 날은 건드리지 않는다 — 지난 날씨는 기록이라,
+  // 저장해 둔 값이 지금 와서 달라지면 안 된다.
+  if (place) await storeDay(date, place);
+  else if (hadPlace) await resetStoredDay(date, await getBasePlace());
 
   // 옷·코디·기록은 홈, 옷장, 코디 만들기, 캘린더에 걸쳐 나온다.
   // 경로를 하나씩 적으면 빠뜨리는 곳이 생기고, 이동 캐시 때문에 옛 값이 남는다.
@@ -109,10 +122,19 @@ export async function deleteWearLog(formData: FormData) {
   const user = await getUser();
   if (!user) return;
 
+  // 지역을 적어 둔 날이었는지 먼저 본다. 지우고 나면 알 수 없다.
+  const { data: before } = await supabase
+    .from("wear_logs")
+    .select("place_name")
+    .eq("user_id", user.id)
+    .eq("worn_on", date)
+    .maybeSingle();
+
   await supabase.from("wear_logs").delete().eq("user_id", user.id).eq("worn_on", date);
 
-  // 지역 기록도 같이 사라지므로 저장분을 버리고 기본 지역으로 되돌린다
-  await dropStoredDay(date);
+  // 지역 기록도 같이 사라졌으니 기본 지역 값으로 되돌린다.
+  // 지역을 안 적었던 날이면 날씨는 그대로 둔다 (지난 날씨는 기록이다).
+  if (before?.place_name) await resetStoredDay(date, await getBasePlace());
 
   // 옷·코디·기록은 홈, 옷장, 코디 만들기, 캘린더에 걸쳐 나온다.
   // 경로를 하나씩 적으면 빠뜨리는 곳이 생기고, 이동 캐시 때문에 옛 값이 남는다.
