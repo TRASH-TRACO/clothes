@@ -7,32 +7,47 @@
  */
 import { FORECAST_STALE_MS, needsFetch, type Freshness } from "../lib/weather-freshness.ts";
 
-const base: Freshness = { stored: true, samePlace: true, age: 0, past: true, pinned: false };
+const past: Freshness =
+  { stored: true, samePlace: true, age: 0, past: true, pinned: false, recorded: false };
+const today: Freshness = { ...past, past: false };
 const cases: [string, Freshness, boolean][] = [
-  ["저장분이 없으면 받는다", { ...base, stored: false }, true],
+  ["저장분이 없으면 받는다", { ...past, stored: false }, true],
 
-  // 이번에 고친 것
-  [
-    "지난 날: 기본 지역을 바꿔도 적어 둔 값 그대로",
-    { ...base, samePlace: false, pinned: false },
-    false,
-  ],
+  // 지난 날 — 지역도 값도 굳었다
+  ["지난 날: 기본 지역을 바꿔도 적어 둔 값 그대로", { ...past, samePlace: false }, false],
   [
     "지난 날: 그날 지역을 직접 고쳐 적었으면 다시 받는다",
-    { ...base, samePlace: false, pinned: true },
+    { ...past, samePlace: false, pinned: true },
     true,
   ],
-  ["지난 날: 지역이 같으면 아무리 오래돼도 안 받는다", { ...base, age: 1e12 }, false],
+  ["지난 날: 지역이 같으면 아무리 오래돼도 안 받는다", { ...past, age: 1e12 }, false],
   [
     "지난 날: 적어 둔 지역과 같으면 지정한 날도 안 받는다",
-    { ...base, pinned: true, age: 1e12 },
+    { ...past, pinned: true, age: 1e12 },
     false,
   ],
 
-  // 오늘·앞으로는 예보
-  ["오늘: 받아 둔 지 얼마 안 됐으면 그대로", { ...base, past: false, age: 60_000 }, false],
-  ["오늘: 오래됐으면 다시 받는다", { ...base, past: false, age: FORECAST_STALE_MS + 1 }, true],
-  ["앞으로: 지역이 바뀌면 바로 받는다", { ...base, past: false, samePlace: false }, true],
+  // 기록을 남긴 날 — 아직 안 지났어도 지역은 굳는다
+  [
+    "오늘, 기록함: 기본 지역을 바꿔도 안 따라간다",
+    { ...today, recorded: true, samePlace: false },
+    false,
+  ],
+  [
+    "오늘, 기록함: 그날 지역을 직접 고쳐 적었으면 다시 받는다",
+    { ...today, recorded: true, samePlace: false, pinned: true },
+    true,
+  ],
+  [
+    "오늘, 기록함: 같은 지역이면 예보는 계속 갱신한다",
+    { ...today, recorded: true, age: FORECAST_STALE_MS + 1 },
+    true,
+  ],
+
+  // 기록이 없는 오늘·앞으로는 예보일 뿐이다
+  ["오늘: 받아 둔 지 얼마 안 됐으면 그대로", { ...today, age: 60_000 }, false],
+  ["오늘: 오래됐으면 다시 받는다", { ...today, age: FORECAST_STALE_MS + 1 }, true],
+  ["앞으로: 기록이 없으면 지역을 바꾼 대로 따라간다", { ...today, samePlace: false }, true],
 ];
 
 let failed = 0;

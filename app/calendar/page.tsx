@@ -36,8 +36,12 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
     if (place) placeByDate.set(log.worn_on, place);
   }
 
-  // 지난 날짜는 저장해 둔 값, 오늘부터는 예보. 실패해도 빈 Map이라 달력은 그대로 뜬다
-  const weather = await getCalendarWeather(base, placeByDate, weeks.flat());
+  // 기록을 남긴 날은 아직 안 지난 날이어도 지역이 굳는다.
+  // 나중에 기본 지역을 바꿔도 그날 날씨가 따라 바뀌면 기록이 아니게 된다.
+  const recorded = new Set(logs.map((log) => log.worn_on));
+
+  // 한 번 본 날은 저장해 두고 그대로 쓴다. 실패해도 빈 Map이라 달력은 그대로 뜬다
+  const weather = await getCalendarWeather(base, placeByDate, recorded, weeks.flat());
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-12 lg:px-10">

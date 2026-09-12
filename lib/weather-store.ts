@@ -74,8 +74,12 @@ async function readRows(from: string, to: string): Promise<Map<string, StoredDay
     .gte("on_date", from)
     .lte("on_date", to);
 
-  // 아직 마이그레이션을 안 돌렸으면 저장된 게 없는 것처럼 군다
-  if (error || !data) return result;
+  // 아직 마이그레이션을 안 돌렸으면 저장된 게 없는 것처럼 군다.
+  // 다만 조용히 넘어가면 "저장이 안 되는데 이유를 모르는" 상태가 되므로 남긴다.
+  if (error || !data) {
+    if (error) console.error("[weather] daily_weather 읽기 실패:", error.message);
+    return result;
+  }
 
   for (const row of data as Row[]) {
     const stored = toStored(row);
@@ -130,7 +134,12 @@ async function fetchAndStore(
 
   if (rows.length > 0) {
     const supabase = await createClient();
-    await supabase.from("daily_weather").upsert(rows, { onConflict: "user_id,on_date" });
+    const { error } = await supabase
+      .from("daily_weather")
+      .upsert(rows, { onConflict: "user_id,on_date" });
+    // 저장이 안 되면 날씨가 기록으로 굳지 않는다 (볼 때마다 지금 지역으로 다시 받는다).
+    // 화면은 그대로 뜨므로 로그에라도 남겨야 알 수 있다.
+    if (error) console.error("[weather] daily_weather 저장 실패:", error.message);
   }
   return filled;
 }
@@ -141,6 +150,7 @@ function freshness(
   want: Place,
   date: string,
   pinned: boolean,
+  recorded: boolean,
 ): Freshness {
   return {
     stored: Boolean(stored),
@@ -148,6 +158,7 @@ function freshness(
     age: stored ? Date.now() - stored.fetchedAt : 0,
     past: date < seoulToday(),
     pinned,
+    recorded,
   };
 }
 
@@ -155,14 +166,15 @@ function freshness(
  * 달력 한 판의 날씨.
  *
  * 한 번 받은 날은 지역과 함께 DB에 남긴다. 그래서 다시 열어도 같은 값이 뜨고,
- * 나중에 기본 지역을 바꿔도 지난 날 기록은 그대로다.
+ * 나중에 기본 지역을 바꿔도 지난 날과 기록을 남긴 날은 그대로다.
  *
- * 다시 받는 건 아직 안 지난 날(예보라 값이 바뀐다)과,
- * 그날 지역을 새로 적어 둔 날뿐이다.
+ * recorded 는 그날 뭘 입었는지 적어 둔 날짜들. 아직 안 지난 날이어도
+ * 기록을 남겼으면 지역이 굳는다 (규칙은 lib/weather-freshness.ts).
  */
 export async function getCalendarWeather(
   base: Place,
   placeByDate: Map<string, Place>,
+  recorded: Set<string>,
   dates: string[],
 ): Promise<Map<string, DayWeather>> {
   const merged = new Map<string, DayWeather>();
@@ -175,7 +187,9 @@ export async function getCalendarWeather(
   // 여행 간 날은 그 지역, 나머지는 기본 지역
   const placeOf = (date: string) => placeByDate.get(date) ?? base;
   const stale = sorted.filter((date) =>
-    needsFetch(freshness(stored.get(date), placeOf(date), date, placeByDate.has(date))),
+    needsFetch(
+      freshness(stored.get(date), placeOf(date), date, placeByDate.has(date), recorded.has(date)),
+    ),
   );
 
   // 달력 전체 범위로 부른다. 다시 열 때도 같은 주소라 응답을 그대로 쓴다.
@@ -190,6 +204,18 @@ export async function getCalendarWeather(
 
 /** 그날 지역을 정했으니 그 지역 날씨를 받아 저장해 둔다 */
 export async function storeDay(date: string, place: Place): Promise<void> {
+  await fetchAndStore([date], () => place);
+}
+
+/**
+ * 기록을 남긴 날의 날씨를 지금 지역으로 굳힌다.
+ *
+ * 달력을 열 때도 저장하지만, 저장을 누른 그 자리에서 굳혀 두면
+ * 달력을 안 열고 지역부터 바꿔도 기록이 흔들리지 않는다.
+ * 이미 저장된 날은 건드리지 않는다 (그게 곧 기록이다).
+ */
+export async function freezeDay(date: string, place: Place): Promise<void> {
+  if ((await readRows(date, date)).has(date)) return;
   await fetchAndStore([date], () => place);
 }
 

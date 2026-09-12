@@ -7,7 +7,7 @@ import { isValidDate, monthOf } from "@/lib/calendar";
 import { isFelt } from "@/lib/feedback";
 import { isPlace, roundPlace } from "@/lib/places";
 import { getBasePlace } from "@/lib/data";
-import { resetStoredDay, storeDay } from "@/lib/weather-store";
+import { freezeDay, resetStoredDay, storeDay } from "@/lib/weather-store";
 import { createClient, getUser } from "@/lib/supabase/server";
 import type { ActionState } from "@/lib/types";
 
@@ -102,10 +102,11 @@ export async function saveWearLog(_prev: ActionState, formData: FormData): Promi
 
   // 지역을 정했으면 그 지역 날씨를 받아 저장한다.
   // 정해 뒀던 걸 지웠으면 기본 지역 값으로 되돌린다.
-  // 처음부터 안 정한 날은 건드리지 않는다 — 지난 날씨는 기록이라,
-  // 저장해 둔 값이 지금 와서 달라지면 안 된다.
+  // 둘 다 아니면 지금 기본 지역으로 굳혀만 둔다 — 기록을 남긴 날이므로
+  // 나중에 기본 지역을 바꿔도 이 날 날씨는 따라 바뀌면 안 된다.
   if (place) await storeDay(date, place);
   else if (hadPlace) await resetStoredDay(date, await getBasePlace());
+  else await freezeDay(date, await getBasePlace());
 
   // 옷·코디·기록은 홈, 옷장, 코디 만들기, 캘린더에 걸쳐 나온다.
   // 경로를 하나씩 적으면 빠뜨리는 곳이 생기고, 이동 캐시 때문에 옛 값이 남는다.
