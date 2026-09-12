@@ -174,7 +174,7 @@ export function ClosetBrowser({ items }: Props) {
             id="sort"
             value={sort}
             onChange={(event) => apply({ sort: event.target.value })}
-            className="rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-ink"
+            className="rounded-lg border border-line bg-paper px-3 py-2 text-base outline-none focus:border-ink"
           >
             <option value="recent">최근 등록순</option>
             <option value="name">이름순</option>

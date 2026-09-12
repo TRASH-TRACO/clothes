@@ -31,6 +31,16 @@ html {
   }
 }
 
+/* iOS 는 글자가 16px 보다 작은 칸에 커서를 넣으면 화면을 확대한다.
+   확대된 채로 남아서 다음 칸을 누르기 어렵고, 고정 요소가 화면 밖으로 밀린다.
+   viewport 에 maximum-scale=1 을 박으면 막히지만 손가락으로 옷 사진을 키워 볼 수도
+   없게 된다. 그래서 확대할 이유 자체를 없앤다: 입력 칸 글자를 16px 아래로 안 쓴다. */
+input,
+select,
+textarea {
+  font-size: max(16px, 1em);
+}
+
 body {
   background: var(--color-paper);
   color: var(--color-ink);
@@ -84,8 +94,9 @@ body {
     @apply btn text-ink underline underline-offset-4 hover:text-muted;
   }
 
+  /* 글자는 16px 아래로 내리지 않는다 — 아래 base 규칙의 주석 참고 */
   .field {
-    @apply w-full rounded-lg border border-line bg-paper px-4 py-3 text-sm text-ink
+    @apply w-full rounded-lg border border-line bg-paper px-4 py-3 text-base text-ink
       outline-none transition-colors placeholder:text-muted focus:border-ink;
   }
 
