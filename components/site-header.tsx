@@ -9,14 +9,10 @@ import { getUser } from "@/lib/supabase/server";
 export async function SiteHeader() {
   const user = isSupabaseConfigured() ? await getUser() : null;
 
+  // 맨 위 여백은 상태바가 겹치는 기기를 위한 것. inset 이 오면 그만큼 내려가고,
+  // 안 오면 0이라 데스크톱에서는 아무 일도 없다.
   return (
-    <header className="sticky top-0 z-40 bg-paper">
-      {/* 상태바가 겹치는 기기를 위한 여백. 안드로이드 등에서 inset 이 오면 그만큼 내려간다
-          (iOS 는 statusBarStyle: black 이라 상태바 아래에서 시작한다) */}
-      <div className="bg-ink px-6 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] text-center text-[11px] font-medium uppercase tracking-[0.18em] text-paper">
-        오늘 뭐 입지 — 옷장에서 바로 조합해보세요
-      </div>
-
+    <header className="sticky top-0 z-40 bg-paper pt-[env(safe-area-inset-top)]">
       <div className="flex h-16 items-center justify-between gap-6 border-b border-line px-4 sm:px-6 lg:px-10">
         <Link href="/" className="display text-2xl leading-none">
           Closet

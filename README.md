@@ -66,19 +66,22 @@ http://localhost:3000 → 회원가입 → 옷 등록.
 `localhost`가 아니라 Vercel 주소로 접속해야 합니다.
 
 > `black-translucent`(상태바 뒤까지 화면을 채우는 설정)는 쓰지 않습니다. iOS 전체화면에서
-> `env(safe-area-inset-top)`이 0으로 와서 밀어줄 수가 없고, 그러면 상단 검은 띠가 상태바에 가립니다.
+> `env(safe-area-inset-top)`이 0으로 와서 밀어줄 수가 없고, 그러면 헤더가 상태바에 가립니다.
+>
+> iOS는 이 설정을 **홈 화면에 추가한 시점에 저장**합니다. 값을 바꿨는데 그대로라면
+> 아이콘을 지우고 다시 추가해야 합니다.
 
 - **iOS (사파리)**: 공유 버튼 → **홈 화면에 추가**
 - **안드로이드 (크롬)**: 주소창 메뉴 → **앱 설치** (조건이 맞으면 설치 배너가 뜹니다)
 
-설치하면 상태바까지 검정으로 덮인 전체화면으로 뜨고, 안드로이드에서는 아이콘을 길게 눌러
+설치하면 주소창 없는 전체화면으로 뜨고, 안드로이드에서는 아이콘을 길게 눌러
 `옷 등록 / 코디 만들기 / 옷장` 바로가기를 쓸 수 있습니다.
 
 | 파일 | 하는 일 |
 |---|---|
 | `app/manifest.ts` | 이름·아이콘·시작 URL·바로가기 (`/manifest.webmanifest`로 나감) |
 | `app/layout.tsx` | `viewport`(테마색·`viewport-fit=cover`)와 애플 전용 메타 |
-| 상태바 | iOS는 `statusBarStyle: "black"`. 검은 상태바 아래에서 화면이 시작해 상단 검은 띠와 이어집니다 |
+| 상태바 | iOS는 `statusBarStyle: "default"`. 상태바 아래에서 화면이 시작하고, 헤더 위 여백은 `env(safe-area-inset-top)`으로 잡습니다 (`components/site-header.tsx`) |
 | `app/apple-icon.png` | iOS 홈 화면 아이콘 180px |
 | `public/icon-*.png` | 매니페스트 아이콘 192·512, 안드로이드용 maskable 512 |
 
