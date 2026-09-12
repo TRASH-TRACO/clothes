@@ -106,23 +106,26 @@ body {
   display: none;
 }
 
-/* iOS 전체화면(black-translucent)은 상태바 뒤까지 화면을 채운다.
-   그 높이만큼 검은 띠를 깔아야 헤더가 안 가리고, 흰 상태바 글씨도 읽힌다.
-   브라우저에서 열면 inset 이 0이라 띠가 아예 안 보인다. */
+/* 헤더 맨 위, 상태바 자리를 메우는 띠.
+   기본은 inset 만큼. 브라우저에서는 0이라 아예 안 보인다. */
 .status-band {
   height: env(safe-area-inset-top);
-  background: var(--color-ink);
+  background: var(--color-paper);
 }
 
-/* 그런데 iOS 전체화면에서는 inset 이 0으로 오는 경우가 있다(실제로 그랬다).
-   그때는 상태바 높이를 직접 준다. -webkit-touch-callout 은 사파리에서만 참이라
-   안드로이드 설치형에는 안 걸린다 (거기선 상태바가 화면을 안 덮는다). */
-@supports (-webkit-touch-callout: none) {
-  @media (display-mode: standalone) {
-    .status-band {
-      height: max(env(safe-area-inset-top), 48px);
-    }
+/* 설치해서 전체화면으로 쓸 때는 상태바에 딱 붙으면 답답하니 조금 띄운다 */
+@media (display-mode: standalone) {
+  .status-band {
+    height: max(env(safe-area-inset-top), 12px);
   }
+}
+
+/* 화면이 상태바 뒤까지 차는 경우 (app/layout.tsx 가 재서 표시해 준다).
+   그 모드의 상태바 글씨는 흰색이라 띠도 검정이어야 읽힌다.
+   inset 이 0으로 올 때가 있어 최소 높이를 직접 준다. */
+[data-status-overlay] .status-band {
+  height: max(env(safe-area-inset-top), 52px);
+  background: var(--color-ink);
 }
 
 /* viewport-fit=cover 라 가로 모드에선 노치가 좌우를 파고든다.

@@ -74,6 +74,17 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${inter.variable} ${anton.variable} ${blackHanSans.variable} h-full`}
     >
       <body className="flex min-h-full flex-col bg-paper text-ink">
+        {/* 상태바가 화면을 덮는지 그릴 때 바로 판정한다.
+            iOS 전체화면에서 env(safe-area-inset-top) 이 0으로 오는 경우가 있어
+            CSS 만으로는 알 수 없었다. 덮는 모드에서는 화면 높이가 기기 높이와
+            같고, 안 덮으면 상태바만큼 작다. 첫 페인트 전에 돌아야 하므로 인라인. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'try{if(navigator.standalone===true&&window.innerHeight>=screen.height-2)' +
+              'document.documentElement.setAttribute("data-status-overlay","")}catch(e){}',
+          }}
+        />
         <SiteHeader />
         <main className="flex-1">{isSupabaseConfigured() ? children : <SetupNotice />}</main>
         <SiteFooter />

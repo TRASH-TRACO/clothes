@@ -38,7 +38,9 @@ export function ClosetRing({ items }: { items: Item[] }) {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute left-1/2 top-1/2 aspect-square w-[min(88vw,24rem)] -translate-x-1/2 -translate-y-1/2 sm:hidden"
+      /* 히어로 한가운데에 두면 아래쪽 날씨 카드가 고리를 거의 다 덮는다.
+         헤드라인 높이에 맞춰 위로 올려서 빈 자리에 통째로 들어가게 한다. */
+      className="pointer-events-none absolute left-1/2 top-[11rem] aspect-square w-[min(84vw,22rem)] -translate-x-1/2 -translate-y-1/2 sm:hidden"
     >
       {/* 무지개 번짐. 옷 색이 죄다 검정·회색이어도 화면이 심심하지 않게 깔아 둔다.
           가운데는 mask 로 뚫어 글자 뒤가 맑게 남는다. */}
