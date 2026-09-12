@@ -67,7 +67,16 @@ export default async function ItemPage({ params }: PageProps<"/closet/[id]">) {
           </dl>
 
           <section className="mt-8 border-t border-line pt-8">
-            <h2 className="eyebrow mb-4">실측</h2>
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <h2 className="eyebrow">실측</h2>
+              {/* 살까 말까 할 때 가지고 있는 옷과 견줘 본다 */}
+              <Link
+                href={`/compare?a=${item.id}`}
+                className="text-sm underline underline-offset-4 hover:text-muted"
+              >
+                다른 옷과 비교 →
+              </Link>
+            </div>
             {fields.length === 0 ? (
               <p className="text-sm text-muted">기록된 실측값이 없습니다.</p>
             ) : (

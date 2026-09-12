@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 
 import { ClosetBrowser } from "@/components/closet-browser";
@@ -12,9 +13,14 @@ export default async function ClosetPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-12 lg:px-10">
-      <div className="mb-8">
-        <p className="eyebrow">My closet</p>
-        <h1 className="display mt-2 text-5xl sm:text-6xl">옷장</h1>
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="eyebrow">My closet</p>
+          <h1 className="display mt-2 text-5xl sm:text-6xl">옷장</h1>
+        </div>
+        <Link href="/compare" className="text-sm underline underline-offset-4 hover:text-muted">
+          실측 비교 →
+        </Link>
       </div>
 
       <Suspense fallback={<div className="h-32" />}>
