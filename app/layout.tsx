@@ -61,8 +61,14 @@ export const viewport: Viewport = {
 export const dynamic = "force-dynamic";
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
+  // globals.css 의 scroll-behavior: smooth 를 Next가 화면 이동 때만 잠깐 끄게 하는 표시.
+  // Next 16부터는 이게 없으면 안 꺼줘서, 부드럽게 올라가다 중간에 멈춘다.
   return (
-    <html lang="ko" className={`${inter.variable} ${anton.variable} ${blackHanSans.variable} h-full`}>
+    <html
+      lang="ko"
+      data-scroll-behavior="smooth"
+      className={`${inter.variable} ${anton.variable} ${blackHanSans.variable} h-full`}
+    >
       <body className="flex min-h-full flex-col bg-paper text-ink">
         <SiteHeader />
         <main className="flex-1">{isSupabaseConfigured() ? children : <SetupNotice />}</main>

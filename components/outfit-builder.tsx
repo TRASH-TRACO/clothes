@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useRef, useState } from "react";
 
 import { saveOutfit } from "@/app/actions/outfits";
 import { ColorDot } from "@/components/color-dot";
@@ -30,6 +30,8 @@ type Props = {
 };
 
 export function OutfitBuilder({ items, userId, initialSelection = {}, outfit }: Props) {
+  const pickerRef = useRef<HTMLElement>(null);
+
   const [state, formAction, pending] = useActionState<ActionState, FormData>(saveOutfit, null);
   const [selection, setSelection] = useState<Selection>(initialSelection);
   const [activeSlot, setActiveSlot] = useState<Category>(SLOT_ORDER[0]);
@@ -85,7 +87,7 @@ export function OutfitBuilder({ items, userId, initialSelection = {}, outfit }: 
       )}
 
       {/* 코디 보드 */}
-      <section>
+      <section className="lg:col-start-1 lg:row-start-1">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="eyebrow">Look</h2>
           <button
@@ -105,6 +107,18 @@ export function OutfitBuilder({ items, userId, initialSelection = {}, outfit }: 
                 onClick={() => {
                   setActiveSlot(slot);
                   if (item) clearSlot(slot);
+                  // 좁은 화면에서는 옷 고르기가 아래에 있어 한참 내려가야 한다.
+                  // 넓은 화면은 옆에 붙어 있으므로 그냥 둔다.
+                  if (!window.matchMedia("(min-width: 1024px)").matches) {
+                    // 다시 그려진 뒤에, 상단 고정 헤더 높이만큼 빼고 옮긴다.
+                    // scrollIntoView 는 누른 버튼에 포커스가 남아 중간에 멈춘다.
+                    requestAnimationFrame(() => {
+                      const picker = pickerRef.current;
+                      if (!picker) return;
+                      const top = picker.getBoundingClientRect().top + window.scrollY - 140;
+                      window.scrollTo({ top, behavior: "instant" });
+                    });
+                  }
                 }}
                 className={`group relative block aspect-square w-full overflow-hidden rounded-xl transition-colors ${
                   item ? "bg-paper" : "border-2 border-dashed border-line bg-paper/50"
@@ -145,6 +159,66 @@ export function OutfitBuilder({ items, userId, initialSelection = {}, outfit }: 
           ))}
         </div>
 
+      </section>
+
+      {/* 옷 고르기 */}
+      <aside
+        ref={pickerRef}
+        className="scroll-mt-36 lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:sticky lg:top-32 lg:max-h-[calc(100vh-9rem)] lg:self-start lg:overflow-y-auto">
+        <h2 className="eyebrow mb-4">옷 고르기</h2>
+
+        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+          {SLOT_ORDER.map((slot) => (
+            <button
+              key={slot}
+              type="button"
+              onClick={() => setActiveSlot(slot)}
+              className={`chip ${activeSlot === slot ? "chip-active" : ""}`}
+            >
+              {CATEGORY_META[slot].label}
+            </button>
+          ))}
+        </div>
+
+        {candidates.length === 0 ? (
+          <div className="mt-6 rounded-xl bg-mist px-6 py-12 text-center text-sm text-muted">
+            등록된 {CATEGORY_META[activeSlot].label}이(가) 없습니다.
+            <Link href="/closet/new" className="mt-3 block underline underline-offset-4">
+              지금 등록하기
+            </Link>
+          </div>
+        ) : (
+          <div className="mt-4 grid grid-cols-3 gap-3 lg:grid-cols-2">
+            {candidates.map((item) => {
+              const active = selection[item.category] === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => toggle(item.category, item.id)}
+                  className="group text-left"
+                >
+                  <ItemPhoto
+                    path={item.photo_path}
+                    alt={item.name}
+                    category={item.category}
+                    className={`aspect-square rounded-lg ${active ? "ring-2 ring-ink ring-offset-2" : ""}`}
+                    sizes="180px"
+                  />
+                  <p className="mt-2 truncate text-xs font-medium">{item.name}</p>
+                  <p className="flex items-center gap-1.5 truncate text-xs text-muted">
+                    <ColorDot hex={item.color_hex} size={10} />
+                    {item.color_name}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </aside>
+
+      {/* 사진·이름·메모는 옷을 고른 뒤에 채우므로 옷 고르기 아래에 둔다 */}
+      <section className="lg:col-start-1 lg:row-start-2">
         <div className="mt-8 space-y-6 border-t border-line pt-6">
           <div>
             <p className="label mb-2">착장 사진 (선택)</p>
@@ -214,60 +288,6 @@ export function OutfitBuilder({ items, userId, initialSelection = {}, outfit }: 
           </div>
         </div>
       </section>
-
-      {/* 옷 고르기 */}
-      <aside className="lg:sticky lg:top-32 lg:max-h-[calc(100vh-9rem)] lg:self-start lg:overflow-y-auto">
-        <h2 className="eyebrow mb-4">옷 고르기</h2>
-
-        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-          {SLOT_ORDER.map((slot) => (
-            <button
-              key={slot}
-              type="button"
-              onClick={() => setActiveSlot(slot)}
-              className={`chip ${activeSlot === slot ? "chip-active" : ""}`}
-            >
-              {CATEGORY_META[slot].label}
-            </button>
-          ))}
-        </div>
-
-        {candidates.length === 0 ? (
-          <div className="mt-6 rounded-xl bg-mist px-6 py-12 text-center text-sm text-muted">
-            등록된 {CATEGORY_META[activeSlot].label}이(가) 없습니다.
-            <Link href="/closet/new" className="mt-3 block underline underline-offset-4">
-              지금 등록하기
-            </Link>
-          </div>
-        ) : (
-          <div className="mt-4 grid grid-cols-3 gap-3 lg:grid-cols-2">
-            {candidates.map((item) => {
-              const active = selection[item.category] === item.id;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => toggle(item.category, item.id)}
-                  className="group text-left"
-                >
-                  <ItemPhoto
-                    path={item.photo_path}
-                    alt={item.name}
-                    category={item.category}
-                    className={`aspect-square rounded-lg ${active ? "ring-2 ring-ink ring-offset-2" : ""}`}
-                    sizes="180px"
-                  />
-                  <p className="mt-2 truncate text-xs font-medium">{item.name}</p>
-                  <p className="flex items-center gap-1.5 truncate text-xs text-muted">
-                    <ColorDot hex={item.color_hex} size={10} />
-                    {item.color_name}
-                  </p>
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </aside>
     </form>
   );
 }
