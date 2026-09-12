@@ -125,8 +125,8 @@ export default async function HomePage() {
             </Link>
           </p>
         ) : (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {outfits.slice(0, 3).map((outfit) => (
+          <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+            {outfits.slice(0, 5).map((outfit) => (
               <OutfitCard key={outfit.id} outfit={outfit} />
             ))}
           </div>

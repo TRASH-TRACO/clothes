@@ -21,6 +21,7 @@ type ItemValues = {
   color_hex: string;
   size_label: string | null;
   photo_path: string | null;
+  photo_paths: string[];
   notes: string | null;
   measurements: Record<string, number>;
 };
@@ -50,6 +51,10 @@ function parseItem(formData: FormData): ParseResult {
     measurements[field.key] = value;
   }
 
+  const photos = [
+    ...new Set(formData.getAll("photo_paths").map(String).map((v) => v.trim()).filter(Boolean)),
+  ];
+
   const optional = (key: string) => {
     const value = String(formData.get(key) ?? "").trim();
     return value.length > 0 ? value : null;
@@ -68,7 +73,9 @@ function parseItem(formData: FormData): ParseResult {
       color_name: colorName,
       color_hex: String(formData.get("color_hex") ?? "#000000"),
       size_label: optional("size_label"),
-      photo_path: optional("photo_path"),
+      // 첫 장이 대표 사진. 목록·카드는 photo_path 만 보므로 같이 채운다.
+      photo_path: photos[0] ?? null,
+      photo_paths: photos,
       notes: optional("notes"),
       measurements,
     },
@@ -167,15 +174,19 @@ export async function deleteItem(formData: FormData) {
 
   const { data: item } = await supabase
     .from("items")
-    .select("photo_path")
+    .select("photo_path, photo_paths")
     .eq("id", id)
     .eq("user_id", user.id)
     .maybeSingle();
 
   await supabase.from("items").delete().eq("id", id).eq("user_id", user.id);
 
-  if (item?.photo_path) {
-    await supabase.storage.from(PHOTO_BUCKET).remove([item.photo_path]);
+  // 여러 장 올렸으면 다 지운다 (대표 사진만 지우면 나머지가 남는다)
+  const files = [...new Set([...(item?.photo_paths ?? []), item?.photo_path])].filter(
+    (path): path is string => Boolean(path),
+  );
+  if (files.length > 0) {
+    await supabase.storage.from(PHOTO_BUCKET).remove(files);
   }
 
   // 옷·코디·기록은 홈, 옷장, 코디 만들기, 캘린더에 걸쳐 나온다.

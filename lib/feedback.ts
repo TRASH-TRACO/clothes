@@ -18,6 +18,13 @@ export const RATING_LABELS: Record<Rating, string> = {
   good: "맘에 들었다",
 };
 
+/** 좁은 화면에서는 이모지 대신 색으로만 표시한다 */
+export const FELT_COLORS: Record<Felt, string> = {
+  cold: "#3b82f6",
+  ok: "#a3a3a3",
+  hot: "#fa5400",
+};
+
 export function isFelt(value: unknown): value is Felt {
   return typeof value === "string" && FELT_VALUES.includes(value as Felt);
 }

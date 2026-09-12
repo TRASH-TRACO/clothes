@@ -12,7 +12,10 @@ export type Item = {
   color_name: string;
   color_hex: string;
   size_label: string | null;
+  /** 대표 사진. photo_paths 의 첫 장과 같다 */
   photo_path: string | null;
+  /** 올린 사진 전부 (대표 포함) */
+  photo_paths: string[];
   measurements: Record<string, number>;
   notes: string | null;
   created_at: string;

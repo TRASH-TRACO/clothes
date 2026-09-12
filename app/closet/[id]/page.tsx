@@ -4,9 +4,11 @@ import { notFound } from "next/navigation";
 
 import { deleteItem } from "@/app/actions/items";
 import { ColorDot } from "@/components/color-dot";
-import { ItemPhoto } from "@/components/item-photo";
+import { PhotoCarousel } from "@/components/photo-carousel";
 import { CATEGORY_META, measurementFields } from "@/lib/categories";
-import { getItem } from "@/lib/data";
+import { OutfitCard } from "@/components/outfit-card";
+import { getItem, getOutfitsWithItem } from "@/lib/data";
+import { itemPhotos } from "@/lib/photos";
 
 export async function generateMetadata({ params }: PageProps<"/closet/[id]">): Promise<Metadata> {
   const { id } = await params;
@@ -19,6 +21,8 @@ export default async function ItemPage({ params }: PageProps<"/closet/[id]">) {
   const item = await getItem(id);
   if (!item) notFound();
 
+  const outfits = await getOutfitsWithItem(item.id);
+
   const fields = measurementFields(item.category).filter(
     (field) => typeof item.measurements?.[field.key] === "number",
   );
@@ -30,14 +34,7 @@ export default async function ItemPage({ params }: PageProps<"/closet/[id]">) {
       </Link>
 
       <div className="mt-6 grid gap-12 lg:grid-cols-2">
-        <ItemPhoto
-          path={item.photo_path}
-          alt={item.name}
-          category={item.category}
-          priority
-          className="aspect-square rounded-2xl"
-          sizes="(max-width: 1024px) 100vw, 50vw"
-        />
+        <PhotoCarousel paths={itemPhotos(item)} alt={item.name} category={item.category} />
 
         <div>
           <p className="eyebrow">
@@ -111,6 +108,20 @@ export default async function ItemPage({ params }: PageProps<"/closet/[id]">) {
           </div>
         </div>
       </div>
+
+      {outfits.length > 0 ? (
+        <section className="mt-16 border-t border-line pt-10">
+          <div className="mb-6 flex items-end justify-between gap-4">
+            <h2 className="display text-3xl sm:text-4xl">이 옷이 들어간 코디</h2>
+            <p className="shrink-0 text-sm text-muted">{outfits.length}개</p>
+          </div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+            {outfits.map((outfit) => (
+              <OutfitCard key={outfit.id} outfit={outfit} />
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

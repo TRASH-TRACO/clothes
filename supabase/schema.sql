@@ -203,6 +203,11 @@ create policy "daily weather is private" on public.daily_weather
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
+-- 5-4-1. 옷 사진 여러 장 ---------------------------------------------
+-- photo_path 는 대표 사진으로 계속 쓰고(목록·카드에서 이것만 본다),
+-- 전체 목록을 photo_paths 에 같이 담는다. 첫 장이 곧 대표 사진이다.
+alter table public.items add column if not exists photo_paths text[] not null default '{}';
+
 -- 5-4. 옷 세분류 ----------------------------------------------------
 -- 상의 안의 "반팔 티셔츠", 신발 안의 "운동화" 처럼. 고르지 않아도 된다.
 -- 목록이 길고 앞으로 늘어날 값이라 DB는 글자만 받고, 검사는 lib/categories.ts 에서 한다.

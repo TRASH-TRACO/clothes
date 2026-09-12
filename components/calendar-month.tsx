@@ -3,7 +3,9 @@
 
 import { ItemPhoto } from "@/components/item-photo";
 import { OutfitPhoto } from "@/components/outfit-photo";
+import { FeltGlyph } from "@/components/feedback-glyph";
 import { WEEKDAYS, monthOf } from "@/lib/calendar";
+import { FELT_COLORS, FELT_LABELS } from "@/lib/feedback";
 import type { WearLogWithItems } from "@/lib/types";
 import type { DayWeather } from "@/lib/weather-codes";
 
@@ -131,16 +133,34 @@ export function CalendarMonth({ onPick, month, weeks, logs, weather, today }: Pr
               }`}
             >
               <div className="flex items-start justify-between gap-1">
-                <span
-                  className={`text-[11px] font-semibold leading-none sm:text-xs ${
-                    isToday
-                      ? "-m-0.5 rounded-full bg-ink px-1.5 py-1 text-paper"
-                      : outside
-                        ? "text-muted"
-                        : ""
-                  }`}
-                >
-                  {Number(date.slice(8))}
+                <span className="flex min-w-0 items-center gap-1">
+                  <span
+                    className={`text-[11px] font-semibold leading-none sm:text-xs ${
+                      isToday
+                        ? "-m-0.5 rounded-full bg-ink px-1.5 py-1 text-paper"
+                        : outside
+                          ? "text-muted"
+                          : ""
+                    }`}
+                  >
+                    {Number(date.slice(8))}
+                  </span>
+
+                  {/* 그날 체감. 좁은 화면은 자리가 없어 색으로만 */}
+                  {log?.felt ? (
+                    <>
+                      <span
+                        className="h-2 w-2 shrink-0 rounded-sm sm:hidden"
+                        style={{ backgroundColor: FELT_COLORS[log.felt] }}
+                        title={FELT_LABELS[log.felt]}
+                        aria-label={FELT_LABELS[log.felt]}
+                      />
+                      <span className="hidden sm:inline" title={FELT_LABELS[log.felt]}>
+                        <FeltGlyph value={log.felt} className="text-xs" />
+                        <span className="sr-only">{FELT_LABELS[log.felt]}</span>
+                      </span>
+                    </>
+                  ) : null}
                 </span>
                 {day && day.rainAmount !== null && day.rainAmount >= 0.5 && (
                   <RainDrop amount={day.rainAmount} />

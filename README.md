@@ -154,7 +154,8 @@ maskable 쪽은 안드로이드가 원형으로 잘라내는 걸 감안해 글�
   채워지고, 거기서 하나씩 빼거나 더할 수 있습니다. 메모도 남길 수 있습니다.
 - 지역은 여행처럼 기본 지역과 달랐던 날만 적으면 됩니다. 옷을 안 골라도 지역만 남길 수 있습니다
   ("이 날은 부산에 있었다"). 여행 가기 전에 미리 적어둬도 됩니다.
-- **그날 체감**(🥶 추웠다 / 😊 적당했다 / 🥵 더웠다)을 골라둘 수 있습니다. 기온만으로는 안 남는 것이라,
+- **그날 체감**(🥶 추웠다 / 😊 적당했다 / 🥵 더웠다)을 골라둘 수 있습니다.
+  달력에도 표시되는데, 좁은 화면에서는 자리가 없어 **색 점으로만** 보이고 태블릿부터 이모지가 나옵니다. 기온만으로는 안 남는 것이라,
   다음에 비슷한 날씨일 때 참고가 됩니다. 안 고르면 비워둡니다 (고른 걸 다시 누르면 풀립니다).
 - 달력 칸에는 그날 입은 옷을 **최대 4장까지 2×2로** 보여줍니다 (착장 사진이 있으면 그게 우선).
 - 날짜를 누르면 **달력 위에 패널로 열립니다.** 서버를 부르지 않습니다 — 달력이 이미 그 달의
@@ -264,6 +265,12 @@ app/outfits/[id]/loading.tsx         코디 상세
 날씨도 마찬가지로 **달력과 같은 범위**로 부릅니다 (`gridRange()`). 하루치만 부르면 날짜마다
 새 요청이 되지만, 판 전체를 부르면 달력에서 이미 받아둔 응답을 그대로 씁니다.
 
+### 옷장 거르기는 화면에서
+
+옷은 한 번에 다 받아두고, 전체 → 아우터 같은 거르기는 화면에서 합니다
+(`components/closet-browser.tsx`). 칩을 누를 때마다 서버를 다녀오면 느립니다.
+고른 조건은 `history.pushState`로 주소에 담으므로 새로고침하거나 링크를 복사해도 그대로입니다.
+
 ### 이동 캐시
 
 화면을 옮길 때마다 서버에서 다시 받아오면 느립니다. Next의 클라이언트 라우터 캐시는
@@ -296,7 +303,8 @@ app/outfits/[id]/loading.tsx         코디 상세
 
 ```
 items         id, user_id, name, brand, category, subcategory, color_name, color_hex,
-              size_label, photo_path, measurements(jsonb), notes, created_at
+              size_label, photo_path, photo_paths(text[]), measurements(jsonb),
+              notes, created_at
 outfits       id, user_id, name, memo, rating, created_at
               -- rating: bad | ok | good (입어보니 어땠나)
 outfit_items  outfit_id, item_id, slot   -- (outfit_id, slot) unique
@@ -323,7 +331,8 @@ daily_weather  user_id, on_date, place_*, code, temp_high, temp_low, rain_amount
 - 목록은 `lib/categories.ts`의 `kinds`에 있습니다. 여기만 고치면 등록 폼이 따라옵니다.
 - 카테고리를 바꾸면 세분류 선택은 지워집니다 (상의 세분류가 신발에 남으면 안 되니까요).
   서버에서도 그 카테고리 목록에 있는 값만 받습니다.
-- 옷장 검색(`q`)이 이름·브랜드와 함께 세분류도 찾습니다. "쪼리"로 검색하면 나옵니다.
+- 옷장 검색이 이름·브랜드와 함께 세분류도 찾습니다. "쪼리"로 검색하면 나옵니다.
+- 옷장에서 카테고리를 고르면 **그 안에 실제로 있는 세분류만** 칩으로 나옵니다.
 
 - 상의·아우터: 어깨, 가슴, 총장, 소매
 - 하의: 허리, 엉덩이, 허벅지, 밑위, 총장, 밑단
@@ -336,8 +345,14 @@ daily_weather  user_id, on_date, place_*, code, temp_high, temp_low, rain_amount
 
 ## 사진 업로드
 
-파일은 서버 액션 본문 대신 **브라우저에서 Supabase Storage로 직접** 올립니다
-(`components/photo-input.tsx`). 업로드 전에 캔버스로 긴 변 1600px / JPEG 85%로 압축하고,
+한 옷에 **최대 8장**까지 올립니다 (`components/photo-list-input.tsx`).
+**첫 장이 대표 사진**이고 목록·카드·달력에는 그것만 보입니다. `대표로`를 눌러 순서를 바꿉니다.
+상세 화면에서는 옆으로 밀어 넘겨 봅니다 (`components/photo-carousel.tsx`).
+
+DB에는 전체 목록을 `photo_paths`에, 대표 한 장을 `photo_path`에 함께 담습니다. 목록 화면이
+대표 사진만 보면 되기 때문이고, 예전에 한 장만 올린 옷도 그대로 읽힙니다 (`lib/photos.ts`).
+
+파일은 서버 액션 본문 대신 **브라우저에서 Supabase Storage로 직접** 올립니다. 업로드 전에 캔버스로 긴 변 1600px / JPEG 85%로 압축하고,
 경로는 `clothes/<user_id>/<uuid>.jpg` 형태라 Storage 정책으로 본인 폴더만 쓰게 막혀 있습니다.
 
 ## 스크립트

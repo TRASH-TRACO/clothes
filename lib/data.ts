@@ -182,6 +182,12 @@ export const getWearLog = cache(async (date: string): Promise<WearLogWithItems |
   return data ? toWearLog(data as WearLogRow) : null;
 });
 
+/** 이 옷이 들어간 코디. 코디 수가 많지 않아 한 번 받아온 목록에서 골라낸다 */
+export const getOutfitsWithItem = cache(async (itemId: string): Promise<OutfitWithItems[]> => {
+  const outfits = await getOutfits();
+  return outfits.filter((outfit) => outfit.items.some((entry) => entry.item?.id === itemId));
+});
+
 /** 환경변수로 박아둔 기본 지역 (설정 화면을 아직 안 쓴 경우의 대비책) */
 function envPlace(): Place | null {
   const place = {

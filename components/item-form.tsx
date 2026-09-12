@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 
 import { BrandInput, type BrandOption } from "@/components/brand-input";
-import { PhotoInput } from "@/components/photo-input";
+import { PhotoListInput } from "@/components/photo-list-input";
 import {
   CATEGORIES,
   CATEGORY_META,
@@ -13,6 +13,7 @@ import {
   type Category,
 } from "@/lib/categories";
 import { COLOR_PRESETS, isLight } from "@/lib/colors";
+import { itemPhotos } from "@/lib/photos";
 import type { ActionState, Item } from "@/lib/types";
 
 type Props = {
@@ -50,7 +51,7 @@ export function ItemForm({ userId, item, brands, action }: Props) {
       <input type="hidden" name="color_hex" value={color.hex} />
 
       <div className="lg:sticky lg:top-32 lg:self-start">
-        <PhotoInput userId={userId} defaultPath={item?.photo_path ?? null} />
+        <PhotoListInput userId={userId} defaultPaths={itemPhotos(item ?? { photo_path: null, photo_paths: [] })} />
       </div>
 
       <div className="space-y-10">
