@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { deleteItem } from "@/app/actions/items";
+import { archiveItem, deleteItem, unarchiveItem } from "@/app/actions/items";
 import { ColorDot } from "@/components/color-dot";
 import { PhotoCarousel } from "@/components/photo-carousel";
 import { CATEGORY_META, measurementFields } from "@/lib/categories";
@@ -43,6 +43,11 @@ export default async function ItemPage({ params }: PageProps<"/closet/[id]">) {
             {item.subcategory ? ` · ${item.subcategory}` : ""}
           </p>
           <h1 className="display mt-3 text-5xl">{item.name}</h1>
+          {item.archived_at ? (
+            <p className="mt-4 inline-block rounded-full bg-mist px-4 py-2 text-sm">
+              보관함에 있습니다 · 옷장과 코디에는 안 나옵니다
+            </p>
+          ) : null}
           {item.brand ? <p className="mt-3 text-lg text-muted">{item.brand}</p> : null}
 
           <dl className="mt-8 space-y-3 border-t border-line pt-8 text-sm">
@@ -110,9 +115,29 @@ export default async function ItemPage({ params }: PageProps<"/closet/[id]">) {
             <Link href={`/closet/${item.id}/edit`} className="btn-dark">
               수정하기
             </Link>
-            <Link href={`/studio?${item.category}=${item.id}`} className="btn-light">
-              이 옷으로 코디하기
-            </Link>
+            {item.archived_at ? (
+              <form action={unarchiveItem}>
+                <input type="hidden" name="id" value={item.id} />
+                <button type="submit" className="btn-light">
+                  옷장으로 되돌리기
+                </button>
+              </form>
+            ) : (
+              <Link href={`/studio?${item.category}=${item.id}`} className="btn-light">
+                이 옷으로 코디하기
+              </Link>
+            )}
+
+            {/* 버리기 전에 한 단계 둔다. 다음에 옷 살 때 참고할 실측이 남아 있다 */}
+            {item.archived_at ? null : (
+              <form action={archiveItem}>
+                <input type="hidden" name="id" value={item.id} />
+                <button type="submit" className="btn-ghost">
+                  보관함에 넣기
+                </button>
+              </form>
+            )}
+
             <form action={deleteItem} className="ml-auto">
               <input type="hidden" name="id" value={item.id} />
               <button type="submit" className="text-sm text-muted underline underline-offset-4 hover:text-accent">

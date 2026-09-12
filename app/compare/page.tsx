@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "실측 비교" };
 
 export default async function ComparePage({ searchParams }: PageProps<"/compare">) {
   const params = await searchParams;
-  const [user, items] = await Promise.all([getUser(), getItems({ sort: "recent" })]);
+  const [user, items] = await Promise.all([getUser(), getItems({ sort: "recent", include: "all" })]);
   if (!user) redirect("/login?next=/compare");
 
   const pick = (key: string) => (typeof params[key] === "string" ? params[key] : null);
@@ -21,6 +21,7 @@ export default async function ComparePage({ searchParams }: PageProps<"/compare"
       <h1 className="display mt-2 text-5xl sm:text-6xl">실측 비교</h1>
       <p className="mt-6 text-muted">
         가지고 있는 옷과 견줘 보고 사이즈를 고르세요. 기장이 몇 cm 차이 나는지 바로 나옵니다.
+        <span className="block">보관함에 넣은 옷도 여기서는 고를 수 있습니다.</span>
       </p>
 
       <div className="mt-10">

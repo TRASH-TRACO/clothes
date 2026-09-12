@@ -16,13 +16,14 @@ export function ItemCard({ item, priority }: { item: Item; priority?: boolean })
         alt={item.name}
         category={item.category}
         priority={priority}
-        className="aspect-square rounded-xl"
+        className={`aspect-square rounded-xl ${item.archived_at ? "opacity-55" : ""}`}
         sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
       />
       <div className="mt-3 space-y-1">
         <p className="text-xs uppercase tracking-[0.12em] text-muted">
           {CATEGORY_META[item.category].label}
           {item.subcategory ? ` · ${item.subcategory}` : ""}
+          {item.archived_at ? " · 보관" : ""}
         </p>
         <p className="text-sm font-semibold group-hover:underline">{item.name}</p>
         {item.brand ? <p className="text-sm text-muted">{item.brand}</p> : null}

@@ -14,12 +14,20 @@ export type ItemQuery = {
   color?: string;
   q?: string;
   sort?: "recent" | "name";
+  /**
+   * 보관함을 어떻게 다룰지. 기본은 지금 입는 옷만.
+   * 코디·추천·기록에서 안 입는 옷이 끼면 방해만 된다.
+   */
+  include?: "active" | "archived" | "all";
 };
 
 export const getItems = cache(async (query: ItemQuery = {}): Promise<Item[]> => {
   if (!isSupabaseConfigured()) return [];
   const supabase = await createClient();
   let builder = supabase.from("items").select("*");
+
+  if (query.include === "archived") builder = builder.not("archived_at", "is", null);
+  else if (query.include !== "all") builder = builder.is("archived_at", null);
 
   if (query.category) builder = builder.eq("category", query.category);
   if (query.color) builder = builder.eq("color_name", query.color);
@@ -64,7 +72,8 @@ export async function getColorFacets() {
 
 /** 이미 등록된 브랜드 목록 (많이 쓴 순). 오타로 중복이 늘지 않게 고르는 용도 */
 export async function getBrands() {
-  const items = await getItems();
+  // 보관함까지 센다. 그 브랜드 옷을 다 보관했다고 이름이 사라지면 또 오타가 난다.
+  const items = await getItems({ include: "all" });
   const map = new Map<string, { name: string; count: number }>();
   for (const item of items) {
     const brand = item.brand?.trim();

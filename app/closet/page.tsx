@@ -9,7 +9,8 @@ export const metadata: Metadata = { title: "옷장" };
 
 export default async function ClosetPage() {
   // 거르기는 화면에서 한다 (components/closet-browser.tsx). 여기서는 통째로 넘긴다.
-  const items = await getItems({ sort: "recent" });
+  // 보관함은 화면에서 가른다 (칩 하나로 바로 오가게)
+  const items = await getItems({ sort: "recent", include: "all" });
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-12 lg:px-10">

@@ -27,6 +27,8 @@ export function ClosetBrowser({ items }: Props) {
   const color = params.get("color");
   const q = params.get("q") ?? "";
   const sort = params.get("sort") === "name" ? "name" : "recent";
+  /** 보관함만 볼지. 기본은 지금 입는 옷만 본다 */
+  const archived = params.get("archived") === "1";
 
   /** 주소만 바꾼다. 서버는 부르지 않는다 */
   const apply = useCallback(
@@ -42,38 +44,48 @@ export function ClosetBrowser({ items }: Props) {
     [params],
   );
 
+  /** 옷장과 보관함은 아예 다른 목록으로 다룬다. 개수도 칩도 보고 있는 쪽만 센다 */
+  const pool = useMemo(
+    () => items.filter((item) => Boolean(item.archived_at) === archived),
+    [items, archived],
+  );
+  const archivedCount = useMemo(
+    () => items.filter((item) => item.archived_at).length,
+    [items],
+  );
+
   const counts = useMemo(() => {
     const map = new Map<string, number>();
-    for (const item of items) map.set(item.category, (map.get(item.category) ?? 0) + 1);
+    for (const item of pool) map.set(item.category, (map.get(item.category) ?? 0) + 1);
     return map;
-  }, [items]);
+  }, [pool]);
 
   /** 고른 카테고리 안에 실제로 있는 세분류만 (있지도 않은 걸 고를 일은 없다) */
   const kinds = useMemo(() => {
     if (!category) return [];
     const found = new Map<string, number>();
-    for (const item of items) {
+    for (const item of pool) {
       if (item.category !== category || !item.subcategory) continue;
       found.set(item.subcategory, (found.get(item.subcategory) ?? 0) + 1);
     }
     return kindsOf(category)
       .filter((value) => found.has(value))
       .map((value) => ({ value, count: found.get(value)! }));
-  }, [items, category]);
+  }, [pool, category]);
 
   const colors = useMemo(() => {
     const map = new Map<string, { name: string; hex: string; count: number }>();
-    for (const item of items) {
+    for (const item of pool) {
       const found = map.get(item.color_name);
       if (found) found.count += 1;
       else map.set(item.color_name, { name: item.color_name, hex: item.color_hex, count: 1 });
     }
     return [...map.values()].sort((a, b) => b.count - a.count);
-  }, [items]);
+  }, [pool]);
 
   const shown = useMemo(() => {
     const term = q.trim().toLowerCase();
-    const list = items.filter((item) => {
+    const list = pool.filter((item) => {
       if (category && item.category !== category) return false;
       if (kind && item.subcategory !== kind) return false;
       if (color && item.color_name !== color) return false;
@@ -86,14 +98,19 @@ export function ClosetBrowser({ items }: Props) {
     return sort === "name"
       ? [...list].sort((a, b) => a.name.localeCompare(b.name))
       : [...list].sort((a, b) => b.created_at.localeCompare(a.created_at));
-  }, [items, category, kind, color, q, sort]);
+  }, [pool, category, kind, color, q, sort]);
 
   return (
     <>
-      <p className="-mt-6 mb-8 text-right text-sm text-muted">{shown.length}개</p>
+      <div className="-mt-6 mb-8 flex items-baseline justify-between gap-4">
+        <p className="text-sm text-muted">
+          {archived ? "이제 안 입지만 다음 구매 때 참고하려고 남겨둔 옷입니다." : ""}
+        </p>
+        <p className="shrink-0 text-sm text-muted">{shown.length}개</p>
+      </div>
 
       <div className="space-y-4">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <input
             type="search"
             value={q}
@@ -102,6 +119,24 @@ export function ClosetBrowser({ items }: Props) {
             className="field max-w-sm"
             aria-label="옷 검색"
           />
+          {/* 보관함으로 오갈 때는 고르던 조건을 지운다. 다른 목록이라 남겨봐야 안 맞는다 */}
+          {archivedCount > 0 || archived ? (
+            <button
+              type="button"
+              aria-pressed={archived}
+              onClick={() =>
+                apply({
+                  archived: archived ? null : "1",
+                  category: null,
+                  kind: null,
+                  color: null,
+                })
+              }
+              className={`chip shrink-0 ${archived ? "chip-active" : ""}`}
+            >
+              보관함 {archivedCount}
+            </button>
+          ) : null}
         </div>
 
         <div className="no-scrollbar flex items-center gap-2 overflow-x-auto pb-1">
@@ -187,11 +222,17 @@ export function ClosetBrowser({ items }: Props) {
           <div className="rounded-xl bg-mist px-6 py-20 text-center">
             <p className="display text-3xl text-line">Empty</p>
             <p className="mt-4 text-muted">
-              {items.length === 0 ? "아직 등록한 옷이 없습니다." : "조건에 맞는 옷이 없습니다."}
+              {archived
+                ? "보관함이 비어 있습니다."
+                : items.length === 0
+                  ? "아직 등록한 옷이 없습니다."
+                  : "조건에 맞는 옷이 없습니다."}
             </p>
-            <Link href="/closet/new" className="btn-dark mt-6">
-              옷 등록하기
-            </Link>
+            {archived ? null : (
+              <Link href="/closet/new" className="btn-dark mt-6">
+                옷 등록하기
+              </Link>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">

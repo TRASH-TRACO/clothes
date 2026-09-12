@@ -19,6 +19,8 @@ export type Item = {
   /** 올린 사진 전부 (대표 포함) */
   photo_paths: string[];
   measurements: Record<string, number>;
+  /** 보관함으로 보낸 시각. null 이면 지금 입는 옷 */
+  archived_at: string | null;
   notes: string | null;
   created_at: string;
 };

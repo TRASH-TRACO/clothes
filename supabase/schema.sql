@@ -279,3 +279,10 @@ alter table public.user_settings alter column place_lon drop not null;
 -- 가운데 둘은 입을 만한 것이고 양끝은 안 맞는 것이다.
 alter table public.items
   add column if not exists fit text check (fit in ('small', 'regular', 'over', 'big'));
+
+-- 9. 보관함 --------------------------------------------------------
+-- 이제 안 입지만 버리기는 아까운 옷. 지우는 대신 여기로 보낸다.
+-- 옷장·코디·AI 추천에서는 빠지고, 실측 비교에서는 그대로 보인다
+-- ("그 브랜드 M 은 작았지" 를 다음 구매 때 참고하는 게 목적이다).
+-- 지난 착용 기록은 건드리지 않는다. 기록은 기록이다.
+alter table public.items add column if not exists archived_at timestamptz;

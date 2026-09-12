@@ -199,3 +199,36 @@ export async function deleteItem(formData: FormData) {
   revalidatePath("/", "layout");
   redirect("/closet");
 }
+
+/**
+ * 이제 안 입는 옷을 보관함으로 보낸다.
+ *
+ * 지우지 않는 이유: 다음에 옷 살 때 "그 브랜드 M 은 작았지" 를 보려는 것이다.
+ * 지난 착용 기록도 그대로 남는다 — 기록은 기록이다.
+ */
+export async function archiveItem(formData: FormData) {
+  await setArchived(formData, new Date().toISOString());
+}
+
+/** 다시 입기로 했다. 옷장으로 되돌린다 */
+export async function unarchiveItem(formData: FormData) {
+  await setArchived(formData, null);
+}
+
+async function setArchived(formData: FormData, value: string | null) {
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const supabase = await createClient();
+  const user = await getUser();
+  if (!user) return;
+
+  await supabase
+    .from("items")
+    .update({ archived_at: value })
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  revalidatePath("/", "layout");
+  redirect(`/closet/${id}`);
+}
