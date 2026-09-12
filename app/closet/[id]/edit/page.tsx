@@ -17,9 +17,9 @@ export default async function EditItemPage({ params }: PageProps<"/closet/[id]/e
   if (!item) notFound();
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-12 lg:px-10">
+    <div className="mx-auto max-w-xl px-6 py-12 lg:px-10">
       <p className="eyebrow">Edit item</p>
-      <h1 className="display mt-2 mb-10 text-5xl sm:text-6xl">{item.name}</h1>
+      <h1 className="display mt-2 mb-10 text-4xl sm:text-5xl">{item.name}</h1>
       <ItemForm userId={user.id} item={item} brands={brands} action={updateItem} />
     </div>
   );

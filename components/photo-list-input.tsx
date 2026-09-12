@@ -12,6 +12,8 @@ type Props = {
   defaultPaths?: string[];
   /** 미리보기·자르기 비율 */
   aspect?: number;
+  /** 장수가 바뀔 때. 단계별 등록에서 "사진 올렸는지"를 알아야 한다 */
+  onChange?: (paths: string[]) => void;
 };
 
 /** 한 옷에 올릴 수 있는 사진 수. 너무 많으면 고르기도 보기도 번거롭다 */
@@ -21,12 +23,17 @@ const MAX = 8;
  * 옷 사진 여러 장.
  * 첫 장이 대표 사진이고, 목록·카드에는 그것만 보인다.
  */
-export function PhotoListInput({ userId, defaultPaths = [], aspect = 1 }: Props) {
+export function PhotoListInput({ userId, defaultPaths = [], aspect = 1, onChange }: Props) {
   const [paths, setPaths] = useState<string[]>(defaultPaths);
   const [pending, setPending] = useState<File | null>(null);
   const [status, setStatus] = useState<"idle" | "uploading" | "error">("idle");
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  function update(next: string[]) {
+    setPaths(next);
+    onChange?.(next);
+  }
 
   async function upload(blob: Blob) {
     setPending(null);
@@ -41,7 +48,8 @@ export function PhotoListInput({ userId, defaultPaths = [], aspect = 1 }: Props)
         .upload(key, blob, { contentType: "image/jpeg", upsert: false });
       if (uploadError) throw new Error(uploadError.message);
 
-      setPaths((prev) => [...prev, key].slice(0, MAX));
+      // 올리는 동안 버튼이 잠겨 있어 paths 가 밀릴 일은 없다
+      update([...paths, key].slice(0, MAX));
       setStatus("idle");
     } catch (cause) {
       setStatus("error");
@@ -50,11 +58,11 @@ export function PhotoListInput({ userId, defaultPaths = [], aspect = 1 }: Props)
   }
 
   function makeCover(path: string) {
-    setPaths((prev) => [path, ...prev.filter((value) => value !== path)]);
+    update([path, ...paths.filter((value) => value !== path)]);
   }
 
   function remove(path: string) {
-    setPaths((prev) => prev.filter((value) => value !== path));
+    update(paths.filter((value) => value !== path));
   }
 
   if (pending) {
