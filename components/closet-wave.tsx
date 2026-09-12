@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 
 import { ItemPhoto } from "@/components/item-photo";
 import { seoulToday } from "@/lib/calendar";
+import { hash, rng, shuffled } from "@/lib/seeded";
 import type { Item } from "@/lib/types";
 
 /** 물결에 띄울 자리 수 */
@@ -16,35 +17,8 @@ const MAX_PHOTOS = 10;
 /** 한 번 일렁이는 데 걸리는 시간. 느긋하게. */
 const PERIOD = 12;
 
-function hash(text: string) {
-  let h = 2166136261;
-  for (let i = 0; i < text.length; i += 1) {
-    h ^= text.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
-/** 선형 합동 난수. 한 번 그리는 동안 값이 흔들리지 않게 시드를 받는다 */
-function rng(seed: number) {
-  let s = seed >>> 0;
-  return () => {
-    s = (s * 1664525 + 1013904223) >>> 0;
-    return s / 4294967296;
-  };
-}
-
-function shuffled<T>(list: T[], next: () => number) {
-  const copy = [...list];
-  for (let i = copy.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(next() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
-
 /**
- * 옷장에서 아무 옷이나 뽑아 헤드라인 뒤에 물결처럼 흘린다.
+ * 옷장에서 아무 옷이나 뽑아 헤드라인 뒤에 물결처럼 흘린다 (sm 이상).
  * 글자를 가리면 안 되므로 흐리고 작게, 클릭도 안 되게 둔다.
  *
  * 뽑기는 날짜를 시드로 쓴다. 새로고침할 때마다 배치가 튀지 않고,
@@ -79,8 +53,6 @@ export function ClosetWave({ items }: { items: Item[] }) {
       size: 18 + hug * 32 + next() * 8,
       tilt: (next() - 0.5) * 30,
       opacity: 0.1 + hug * 0.22,
-      // 좁은 화면에서는 절반만 띄운다 (글자와 겹쳐 지저분해지지 않게)
-      onlyWide: i % 2 === 1,
       // 오른쪽으로 갈수록 늦게 시작해 파도가 지나가는 것처럼 보인다.
       // 음수 delay라 첫 화면부터 이미 흐르는 중이다.
       delay: -(t * PERIOD * 1.5 + next() * 0.6),
@@ -90,18 +62,17 @@ export function ClosetWave({ items }: { items: Item[] }) {
   });
 
   return (
-    // --wave 로 좁은 화면에서 사진을 한꺼번에 줄인다 (히어로가 낮아 크면 물결로 안 읽힌다)
+    // 좁은 화면은 물결 대신 ClosetRing 이 돈다. 여기선 sm 부터만 그린다.
+    // --wave 로 폭에 따라 사진을 한꺼번에 줄인다
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-0 overflow-hidden [--wave:0.6] sm:[--wave:0.85] lg:[--wave:1]"
+      className="pointer-events-none absolute inset-0 hidden overflow-hidden sm:block sm:[--wave:0.85] lg:[--wave:1]"
     >
       {drops.map((drop, i) => (
         // 바깥은 자리만 잡고, 안쪽에서 일렁인다 (transform이 서로 부딪히지 않게)
         <div
           key={i}
-          className={`absolute -translate-x-1/2 -translate-y-1/2 ${
-            drop.onlyWide ? "hidden sm:block" : ""
-          }`}
+          className="absolute -translate-x-1/2 -translate-y-1/2"
           style={{
             left: `${drop.x}%`,
             top: `${drop.y}%`,

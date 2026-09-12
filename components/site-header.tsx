@@ -9,10 +9,11 @@ import { getUser } from "@/lib/supabase/server";
 export async function SiteHeader() {
   const user = isSupabaseConfigured() ? await getUser() : null;
 
-  // 맨 위 여백은 상태바가 겹치는 기기를 위한 것. inset 이 오면 그만큼 내려가고,
-  // 안 오면 0이라 데스크톱에서는 아무 일도 없다.
   return (
-    <header className="sticky top-0 z-40 bg-paper pt-[env(safe-area-inset-top)]">
+    <header className="sticky top-0 z-40 bg-paper">
+      {/* 상태바가 덮는 자리를 검게 메운다. 높이 규칙은 globals.css 의 .status-band */}
+      <div className="status-band" />
+
       <div className="flex h-16 items-center justify-between gap-6 border-b border-line px-4 sm:px-6 lg:px-10">
         <Link href="/" className="display text-2xl leading-none">
           Closet

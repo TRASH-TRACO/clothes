@@ -65,11 +65,12 @@ http://localhost:3000 → 회원가입 → 옷 등록.
 배포한 주소를 폰에서 열면 주소창 없는 앱처럼 쓸 수 있습니다. **HTTPS에서만** 동작하므로
 `localhost`가 아니라 Vercel 주소로 접속해야 합니다.
 
-> `black-translucent`(상태바 뒤까지 화면을 채우는 설정)는 쓰지 않습니다. iOS 전체화면에서
-> `env(safe-area-inset-top)`이 0으로 와서 밀어줄 수가 없고, 그러면 헤더가 상태바에 가립니다.
->
-> iOS는 이 설정을 **홈 화면에 추가한 시점에 저장**합니다. 값을 바꿨는데 그대로라면
-> 아이콘을 지우고 다시 추가해야 합니다.
+> iOS는 `apple-mobile-web-app-status-bar-style`을 **홈 화면에 추가한 시점에 저장**합니다.
+> 값을 바꿔도 이미 깔린 아이콘에는 반영되지 않으므로, 바꾸는 대신 `black-translucent`
+> (상태바 뒤까지 화면을 채우는 설정)를 전제로 두고 상태바 자리를 직접 메웁니다.
+> `components/site-header.tsx`의 `.status-band`가 그 띠이고, 높이 규칙은 `app/globals.css`에
+> 있습니다. iOS 전체화면에서 `env(safe-area-inset-top)`이 0으로 오는 경우가 있어
+> `max(env(...), 48px)`로 최소 높이를 둡니다.
 
 - **iOS (사파리)**: 공유 버튼 → **홈 화면에 추가**
 - **안드로이드 (크롬)**: 주소창 메뉴 → **앱 설치** (조건이 맞으면 설치 배너가 뜹니다)
@@ -81,7 +82,7 @@ http://localhost:3000 → 회원가입 → 옷 등록.
 |---|---|
 | `app/manifest.ts` | 이름·아이콘·시작 URL·바로가기 (`/manifest.webmanifest`로 나감) |
 | `app/layout.tsx` | `viewport`(테마색·`viewport-fit=cover`)와 애플 전용 메타 |
-| 상태바 | iOS는 `statusBarStyle: "default"`. 상태바 아래에서 화면이 시작하고, 헤더 위 여백은 `env(safe-area-inset-top)`으로 잡습니다 (`components/site-header.tsx`) |
+| 상태바 | iOS는 `statusBarStyle: "black-translucent"`. 상태바가 화면을 덮으므로 헤더 맨 위 `.status-band`가 그 자리를 검게 메웁니다 |
 | `app/apple-icon.png` | iOS 홈 화면 아이콘 180px |
 | `public/icon-*.png` | 매니페스트 아이콘 192·512, 안드로이드용 maskable 512 |
 
