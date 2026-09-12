@@ -5,6 +5,7 @@ import { isPlace, placeKey, roundPlace, type Place } from "./places";
 import { isSupabaseConfigured } from "./supabase/env";
 import { createClient, getUser } from "./supabase/server";
 import { needsFetch, type Freshness } from "./weather-freshness";
+import type { RecordedDay } from "./weather-codes";
 import { getDailyRange, type DayWeather } from "./weather";
 
 /** 예보 API가 주는 구간. 이 밖은 받아올 방법이 없으니 부르지도 않는다 */
@@ -176,8 +177,8 @@ export async function getCalendarWeather(
   placeByDate: Map<string, Place>,
   recorded: Set<string>,
   dates: string[],
-): Promise<Map<string, DayWeather>> {
-  const merged = new Map<string, DayWeather>();
+): Promise<Map<string, RecordedDay>> {
+  const merged = new Map<string, RecordedDay>();
   if (dates.length === 0) return merged;
 
   const sorted = [...dates].sort();
@@ -237,4 +238,26 @@ async function dropStoredDay(date: string): Promise<void> {
 export async function resetStoredDay(date: string, base: Place): Promise<void> {
   await dropStoredDay(date);
   await fetchAndStore([date], () => base);
+}
+
+/**
+ * 날씨를 기록으로 남길 수 있는 상태인지.
+ *
+ * daily_weather 에 못 쓰면 지난 날씨가 굳지 않고 볼 때마다 **지금** 기본 지역으로
+ * 다시 받는다. 화면은 멀쩡히 떠서 알아채기 어려우므로 설정 화면에서 보여준다.
+ */
+export async function weatherStoreStatus(): Promise<{
+  ok: boolean;
+  days: number;
+  detail: string;
+}> {
+  if (!isSupabaseConfigured()) return { ok: false, days: 0, detail: "Supabase 설정이 없습니다." };
+
+  const supabase = await createClient();
+  const { count, error } = await supabase
+    .from("daily_weather")
+    .select("on_date", { count: "exact", head: true });
+
+  if (error) return { ok: false, days: 0, detail: error.message };
+  return { ok: true, days: count ?? 0, detail: "" };
 }

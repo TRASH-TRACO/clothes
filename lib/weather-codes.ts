@@ -3,6 +3,8 @@
  * 화면에서도 써야 해서 서버 전용인 weather.ts 와 따로 둔다.
  */
 
+import type { Place } from "./places";
+
 export type DayWeather = {
   code: number;
   high: number | null;
@@ -10,6 +12,15 @@ export type DayWeather = {
   /** mm */
   rainAmount: number | null;
 };
+
+/**
+ * 어느 지역 기준으로 적어 둔 값인지까지 들고 다니는 하루치.
+ *
+ * 기록을 남긴 날과 지나간 날은 지역이 굳으므로, 나중에 기본 지역을 바꾸면
+ * 화면에 뜬 지역과 실제로 적어 둔 지역이 달라진다. 지금 기본 지역을 그대로
+ * 보여주면 거짓말이 되므로 값과 함께 들고 다닌다.
+ */
+export type RecordedDay = DayWeather & { place: Place };
 
 /** WMO 날씨 코드 → 한국어. 코드는 open-meteo 문서 기준 */
 export function weatherLabel(code: number) {

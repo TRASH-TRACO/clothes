@@ -8,13 +8,13 @@ import { DayPanel } from "@/components/day-panel";
 import { isValidDate } from "@/lib/calendar";
 import type { Place } from "@/lib/places";
 import type { WearLogWithItems } from "@/lib/types";
-import type { DayWeather } from "@/lib/weather-codes";
+import type { RecordedDay } from "@/lib/weather-codes";
 
 type Props = {
   month: string;
   weeks: string[][];
   logs: Map<string, WearLogWithItems>;
-  weather: Map<string, DayWeather>;
+  weather: Map<string, RecordedDay>;
   today: string;
   basePlace: Place;
 };

@@ -2,11 +2,16 @@ import type { Metadata } from "next";
 
 import { BasePlaceForm } from "@/components/base-place-form";
 import { getBasePlace, hasBasePlace } from "@/lib/data";
+import { weatherStoreStatus } from "@/lib/weather-store";
 
 export const metadata: Metadata = { title: "설정" };
 
 export default async function SettingsPage() {
-  const [place, chosen] = await Promise.all([getBasePlace(), hasBasePlace()]);
+  const [place, chosen, store] = await Promise.all([
+    getBasePlace(),
+    hasBasePlace(),
+    weatherStoreStatus(),
+  ]);
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-12 lg:px-10">
@@ -28,6 +33,38 @@ export default async function SettingsPage() {
       ) : null}
 
       <BasePlaceForm current={place} />
+
+      {/* 기본 지역을 바꿔도 지난 날씨는 그대로여야 한다. 그게 되려면 저장이 돼야 하는데,
+          안 돼도 화면은 멀쩡히 뜨므로 여기서 상태를 보여준다. */}
+      <section className="mt-16 border-t border-line pt-8">
+        <h2 className="eyebrow mb-3">날씨 기록</h2>
+        {store.ok ? (
+          <p className="text-sm text-muted">
+            {store.days > 0 ? (
+              <>
+                <span className="font-semibold text-ink">{store.days}일치</span>를 저장해 뒀습니다.
+                지나간 날과 기록을 남긴 날은 그때 지역으로 굳어 있어, 여기서 기본 지역을 바꿔도
+                따라 바뀌지 않습니다.
+              </>
+            ) : (
+              <>
+                아직 저장된 날이 없습니다. 캘린더를 한 번 열면 보이는 날짜들이 저장됩니다.
+              </>
+            )}
+          </p>
+        ) : (
+          <div className="rounded-xl bg-mist px-5 py-4 text-sm">
+            <p className="font-semibold text-accent">날씨를 기록하지 못하고 있습니다.</p>
+            <p className="mt-2 text-muted">
+              그래서 날짜를 볼 때마다 <span className="font-semibold">지금</span> 기본 지역으로 다시
+              받습니다. 지역을 바꾸면 지난 날씨까지 따라 바뀌는 건 이 때문입니다.
+              <code className="mx-1 rounded bg-paper px-1.5 py-0.5">supabase/schema.sql</code>을 다시
+              실행해 주세요 (여러 번 돌려도 안전합니다).
+            </p>
+            <p className="mt-2 break-all text-xs text-muted">{store.detail}</p>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { FeltGlyph } from "@/components/feedback-glyph";
 import { WEEKDAYS, monthOf } from "@/lib/calendar";
 import { FELT_COLORS, FELT_LABELS } from "@/lib/feedback";
 import type { WearLogWithItems } from "@/lib/types";
-import type { DayWeather } from "@/lib/weather-codes";
+import type { RecordedDay } from "@/lib/weather-codes";
 
 type Props = {
   /** 날짜를 눌렀을 때. 막으면 화면을 옮기지 않고 패널로 연다 */
@@ -15,7 +15,7 @@ type Props = {
   month: string;
   weeks: string[][];
   logs: Map<string, WearLogWithItems>;
-  weather: Map<string, DayWeather>;
+  weather: Map<string, RecordedDay>;
   today: string;
 };
 
@@ -36,7 +36,7 @@ function RainDrop({ amount }: { amount: number }) {
   );
 }
 
-function Temps({ day }: { day: DayWeather }) {
+function Temps({ day }: { day: RecordedDay }) {
   if (day.high === null && day.low === null) return null;
   return (
     <p className="text-[10px] leading-tight sm:text-[11px]">

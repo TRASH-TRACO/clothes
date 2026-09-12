@@ -11,15 +11,15 @@ import { saveWearLog } from "@/app/actions/wear";
 import { CATEGORY_META } from "@/lib/categories";
 import { dayLabel, seoulToday } from "@/lib/calendar";
 import { FELT_LABELS } from "@/lib/feedback";
-import { isPlace, roundPlace, type Place } from "@/lib/places";
+import { isPlace, placeKey, roundPlace, type Place } from "@/lib/places";
 import type { WearLogWithItems } from "@/lib/types";
-import { weatherKind, weatherLabel, type DayWeather } from "@/lib/weather-codes";
+import { weatherKind, weatherLabel, type RecordedDay } from "@/lib/weather-codes";
 import { WeatherGlyph } from "@/components/weather-glyph";
 
 type Props = {
   date: string;
   log: WearLogWithItems | null;
-  day: DayWeather | null;
+  day: RecordedDay | null;
   basePlace: Place;
   /** 바로 수정 화면으로 열지 */
   startInEdit?: boolean;
@@ -41,7 +41,6 @@ function logPlaceOf(log: WearLogWithItems | null): Place | null {
 export function DayPanel({ date, log, day, basePlace, startInEdit = false, onClose }: Props) {
   const [editing, setEditing] = useState(startInEdit || !log);
   const pinned = logPlaceOf(log);
-  const place = pinned ?? basePlace;
   const today = seoulToday();
 
   useEffect(() => {
@@ -83,8 +82,14 @@ export function DayPanel({ date, log, day, basePlace, startInEdit = false, onClo
                 <WeatherGlyph kind={weatherKind(day.code)} className="h-4 w-4 shrink-0" />
                 {day.high === null ? "―" : `${Math.round(day.high)}°`}
                 {day.low === null ? "" : ` / ${Math.round(day.low)}°`} · {weatherLabel(day.code)} ·{" "}
-                {place.name}
-                {pinned ? "" : " (기본)"}
+                {day.place.name}
+                {/* 적어 둔 지역이 지금 기본 지역과 다를 수 있다 (기록은 그때 지역으로 굳는다).
+                    지금 기본 지역을 그대로 붙이면 거짓말이 되므로 나눠서 적는다 */}
+                {pinned
+                  ? ""
+                  : placeKey(day.place) === placeKey(basePlace)
+                    ? " (기본)"
+                    : " (기록)"}
               </p>
             ) : (
               <p className="mt-2 text-sm text-muted">이 날짜의 날씨는 남아 있지 않습니다.</p>
