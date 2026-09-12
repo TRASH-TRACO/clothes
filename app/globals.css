@@ -116,7 +116,7 @@ body {
 /* 설치해서 전체화면으로 쓸 때는 상태바에 딱 붙으면 답답하니 조금 띄운다 */
 @media (display-mode: standalone) {
   .status-band {
-    height: max(env(safe-area-inset-top), 14px);
+    height: max(env(safe-area-inset-top), 24px);
   }
 }
 
@@ -124,7 +124,7 @@ body {
    그 모드의 상태바 글씨는 흰색이라 띠도 검정이어야 읽힌다.
    inset 이 0으로 올 때가 있어 최소 높이를 직접 준다. */
 [data-status-overlay] .status-band {
-  height: max(env(safe-area-inset-top), 54px);
+  height: max(env(safe-area-inset-top), 64px);
   background: var(--color-ink);
 }
 
