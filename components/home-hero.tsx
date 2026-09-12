@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { ClosetRing } from "@/components/closet-ring";
+import { ClosetRail } from "@/components/closet-rail";
 import { ClosetWave } from "@/components/closet-wave";
 import type { Item } from "@/lib/types";
 
@@ -16,9 +16,9 @@ type Props = {
 export function HomeHero({ signedIn, aside, waveItems = [] }: Props) {
   return (
     <section className="relative overflow-hidden bg-mist">
-      {/* 넓은 화면은 물결, 좁은 화면은 도는 고리 */}
+      {/* 넓은 화면은 물결, 좁은 화면은 옷걸이 */}
       <ClosetWave items={waveItems} />
-      <ClosetRing items={waveItems} />
+      <ClosetRail items={waveItems} />
 
       {/* 날씨가 붙으면 헤드라인 옆에 세우고 위아래를 줄인다 (스크롤 없이 보이게) */}
       <div

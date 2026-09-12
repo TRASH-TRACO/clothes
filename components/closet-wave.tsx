@@ -62,7 +62,7 @@ export function ClosetWave({ items }: { items: Item[] }) {
   });
 
   return (
-    // 좁은 화면은 물결 대신 ClosetRing 이 돈다. 여기선 sm 부터만 그린다.
+    // 좁은 화면은 물결 대신 ClosetRail 이 걸린다. 여기선 sm 부터만 그린다.
     // --wave 로 폭에 따라 사진을 한꺼번에 줄인다
     <div
       aria-hidden

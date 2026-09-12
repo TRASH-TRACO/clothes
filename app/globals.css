@@ -137,23 +137,28 @@ body {
   }
 }
 
-/* 헤드라인 뒤 옷 고리 (좁은 화면). 고리를 통째로 돌린다.
+/* 헤드라인 뒤 옷걸이 (좁은 화면). 봉에 매달린 옷이 저마다 다른 속도로 흔들린다.
    transform 대신 rotate 속성이라 자리 잡는 translate 와 안 부딪힌다. */
-@keyframes ring-spin {
-  to {
-    rotate: 360deg;
+@keyframes rail-sway {
+  0%,
+  100% {
+    rotate: calc(var(--swing) * -1);
+  }
+  50% {
+    rotate: var(--swing);
   }
 }
 
-.ring-spin,
-.ring-spin-rev {
-  animation: ring-spin var(--dur, 80s) linear infinite;
+.rail-hang {
+  /* 봉에 걸린 지점을 축으로 흔들린다 */
+  transform-origin: top center;
+  animation: rail-sway var(--dur) ease-in-out infinite;
+  animation-delay: var(--delay);
 }
 
-/* 반대로 도는 고리. 사진을 똑바로 세울 때도 쓴다
-   (도는 고리 안에서 같은 시간으로 거꾸로 돌면 제자리에 선다) */
-.ring-spin-rev {
-  animation-direction: reverse;
+/* 아래로 갈수록 흐려져서 헤드라인·날씨 카드와 안 부딪힌다 */
+.rail-fade {
+  mask-image: linear-gradient(to bottom, #000 52%, transparent 100%);
 }
 
 /* 헤드라인 뒤 옷 물결. 자리마다 시작 시점을 어긋나게 줘서
@@ -177,8 +182,7 @@ body {
 /* 움직임을 줄여달라는 설정이면 가만히 둔다 */
 @media (prefers-reduced-motion: reduce) {
   .wave-drift,
-  .ring-spin,
-  .ring-spin-rev {
+  .rail-hang {
     animation: none;
   }
 }
