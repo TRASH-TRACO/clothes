@@ -318,9 +318,12 @@ export function ItemForm({ userId, item, brands, action }: Props) {
               <div className="grid gap-4 sm:grid-cols-2">
                 {fields.map((field) => (
                   <div key={field.key}>
-                    <label className="label" htmlFor={`m_${field.key}`}>
-                      {field.label} ({field.unit})
+                    {/* 라벨에 괄호가 있는 칸이 있어 단위는 괄호 없이 붙인다 (소매 (어깨선) (CM) 방지) */}
+                    <label className="label mb-1" htmlFor={`m_${field.key}`}>
+                      {field.label} <span className="text-muted">{field.unit}</span>
                     </label>
+                    {/* 소매처럼 재는 곳이 헷갈리는 칸만 한 줄 붙는다 */}
+                    {field.hint && <p className="mb-2 text-xs text-muted">{field.hint}</p>}
                     <input
                       id={`m_${field.key}`}
                       name={`m_${field.key}`}

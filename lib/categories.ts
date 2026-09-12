@@ -7,6 +7,8 @@ export type MeasurementField = {
   label: string;
   unit: "cm" | "mm";
   placeholder?: string;
+  /** 어디서 어디까지 재는지. 헷갈리는 칸에만 적는다 */
+  hint?: string;
 };
 
 type CategoryMeta = {
@@ -19,12 +21,27 @@ type CategoryMeta = {
   kinds: readonly string[];
 };
 
-const cm = (key: string, label: string, placeholder?: string): MeasurementField => ({
+const cm = (
+  key: string,
+  label: string,
+  placeholder?: string,
+  hint?: string,
+): MeasurementField => ({
   key,
   label,
   unit: "cm",
   placeholder,
+  hint,
 });
+
+/**
+ * 소매는 재는 곳이 둘이다. 브랜드 실측표도 보통 둘 다 준다.
+ * 하나만 적어 두면 나중에 다른 옷과 견줄 때 어느 쪽이었는지 알 수 없다.
+ */
+const sleeveOuter = (placeholder: string) =>
+  cm("sleeve", "소매 (어깨선)", placeholder, "어깨 끝에서 소매 끝까지");
+const sleeveInner = (placeholder: string) =>
+  cm("sleeve_inner", "소매 (겨드랑이)", placeholder, "겨드랑이에서 소매 끝까지");
 
 export const CATEGORY_META: Record<Category, CategoryMeta> = {
   hat: {
@@ -46,7 +63,8 @@ export const CATEGORY_META: Record<Category, CategoryMeta> = {
       cm("shoulder", "어깨", "48"),
       cm("chest", "가슴", "56"),
       cm("length", "총장", "70"),
-      cm("sleeve", "소매", "62"),
+      sleeveOuter("62"),
+      sleeveInner("48"),
     ],
     kinds: ["코트", "패딩", "자켓", "블레이저", "가디건", "바람막이", "후드집업", "무스탕", "조끼"],
   },
@@ -58,7 +76,8 @@ export const CATEGORY_META: Record<Category, CategoryMeta> = {
       cm("shoulder", "어깨", "45"),
       cm("chest", "가슴", "52"),
       cm("length", "총장", "68"),
-      cm("sleeve", "소매", "22"),
+      sleeveOuter("22"),
+      sleeveInner("12"),
     ],
     kinds: ["반팔 티셔츠", "긴팔 티셔츠", "민소매", "셔츠", "블라우스", "맨투맨", "후드티", "니트", "폴로", "카라티"],
   },
