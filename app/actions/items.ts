@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { isCategory, isKindOf, measurementFields, type Category } from "@/lib/categories";
+import { isFit, type Fit } from "@/lib/feedback";
 import { PHOTO_BUCKET } from "@/lib/supabase/env";
 import { createClient, getUser } from "@/lib/supabase/server";
 import type { ActionState } from "@/lib/types";
@@ -20,6 +21,7 @@ type ItemValues = {
   color_name: string;
   color_hex: string;
   size_label: string | null;
+  fit: Fit | null;
   photo_path: string | null;
   photo_paths: string[];
   notes: string | null;
@@ -73,6 +75,8 @@ function parseItem(formData: FormData): ParseResult {
       color_name: colorName,
       color_hex: String(formData.get("color_hex") ?? "#000000"),
       size_label: optional("size_label"),
+      // 목록에 있는 값만 받는다 (DB 쪽에도 같은 검사가 걸려 있다)
+      fit: isFit(formData.get("fit")) ? (formData.get("fit") as Fit) : null,
       // 첫 장이 대표 사진. 목록·카드는 photo_path 만 보므로 같이 채운다.
       photo_path: photos[0] ?? null,
       photo_paths: photos,

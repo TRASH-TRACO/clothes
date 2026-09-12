@@ -3,6 +3,7 @@ import { WarmLink } from "@/components/warm-link";
 import { ColorDot } from "@/components/color-dot";
 import { ItemPhoto } from "@/components/item-photo";
 import { CATEGORY_META, formatMeasurements } from "@/lib/categories";
+import { FIT_SHORT } from "@/lib/feedback";
 import type { Item } from "@/lib/types";
 
 export function ItemCard({ item, priority }: { item: Item; priority?: boolean }) {
@@ -30,6 +31,8 @@ export function ItemCard({ item, priority }: { item: Item; priority?: boolean })
           {item.color_name}
           {item.size_label ? <span className="text-line">|</span> : null}
           {item.size_label}
+          {item.fit ? <span className="text-line">|</span> : null}
+          {item.fit ? FIT_SHORT[item.fit] : null}
         </p>
         {measurements ? (
           <p className="truncate text-xs text-muted" title={measurements}>

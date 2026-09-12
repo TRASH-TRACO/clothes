@@ -14,9 +14,9 @@ import {
 } from "../lib/recommend-prompt.ts";
 
 const items: PromptItem[] = [
-  { id: "a1", name: "오버핏 반팔", category: "상의", subcategory: "반팔 티셔츠", color_name: "블랙", brand: "Supreme", notes: null },
-  { id: "b2", name: "와이드 슬랙스", category: "하의", subcategory: "슬랙스", color_name: "차콜", brand: null, notes: "여름엔 더움" },
-  { id: "c3", name: "호파라", category: "신발", subcategory: "샌들", color_name: "블랙", brand: "HOKA", notes: null },
+  { id: "a1", name: "오버핏 반팔", category: "상의", subcategory: "반팔 티셔츠", color_name: "블랙", fit: "오버핏", brand: "Supreme", notes: null },
+  { id: "b2", name: "와이드 슬랙스", category: "하의", subcategory: "슬랙스", color_name: "차콜", fit: null, brand: null, notes: "여름엔 더움" },
+  { id: "c3", name: "호파라", category: "신발", subcategory: "샌들", color_name: "블랙", fit: "작다", brand: "HOKA", notes: null },
 ];
 
 const history: PromptHistory[] = [
@@ -48,6 +48,9 @@ const checks: [string, boolean][] = [
   ["전날 비교 문구가 붙는다", message.includes("어제와 비슷해요")],
   ["최근 기록과 체감이 붙는다", message.includes("2026-09-11") && message.includes("더웠다")],
   ["추가 요청이 붙는다", message.includes("많이 걸을 예정")],
+  ["적어 둔 품이 붙는다", message.includes("품: 오버핏") && message.includes("품: 작다")],
+  ["안 적은 품은 안 붙는다", message.split("\n").some((l) => l.startsWith("- b2") && !l.includes("품:"))],
+  ["작은 옷은 피하라는 지시가 있다", SYSTEM_PROMPT.includes("'작다'고 적힌 옷은 되도록 피한다")],
   ["지시는 시스템 쪽에만 있다", !message.includes("스타일리스트") && SYSTEM_PROMPT.includes("스타일리스트")],
   ["id 만 쓰라는 지시가 있다", SYSTEM_PROMPT.includes("id 만 쓴다")],
 ];

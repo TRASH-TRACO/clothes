@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 
 import { BrandInput, type BrandOption } from "@/components/brand-input";
+import { FitPicker } from "@/components/fit-picker";
 import { PhotoListInput } from "@/components/photo-list-input";
 import {
   CATEGORIES,
@@ -282,6 +283,13 @@ export function ItemForm({ userId, item, brands, action }: Props) {
               className="field"
             />
           </div>
+        </div>
+
+        {/* 표기 사이즈(M, 100)와 실제로 입어본 느낌은 다르다. 그래서 따로 받는다 */}
+        <div className="mt-8">
+          <p className="label mb-1">입어보니 품이 (선택)</p>
+          <p className="mb-3 text-xs text-muted">왼쪽으로 갈수록 작고 오른쪽으로 갈수록 넉넉합니다.</p>
+          <FitPicker defaultValue={item?.fit ?? null} />
         </div>
       </div>
 

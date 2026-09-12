@@ -6,6 +6,7 @@ import { deleteItem } from "@/app/actions/items";
 import { ColorDot } from "@/components/color-dot";
 import { PhotoCarousel } from "@/components/photo-carousel";
 import { CATEGORY_META, measurementFields } from "@/lib/categories";
+import { FIT_LABELS } from "@/lib/feedback";
 import { OutfitCard } from "@/components/outfit-card";
 import { getItem, getOutfitsWithItem } from "@/lib/data";
 import { itemPhotos } from "@/lib/photos";
@@ -52,10 +53,14 @@ export default async function ItemPage({ params }: PageProps<"/closet/[id]">) {
                 {item.color_name}
               </dd>
             </div>
-            {item.size_label ? (
+            {item.size_label || item.fit ? (
               <div className="flex gap-4">
                 <dt className="w-24 shrink-0 text-muted">사이즈</dt>
-                <dd className="font-medium">{item.size_label}</dd>
+                <dd className="font-medium">
+                  {item.size_label}
+                  {item.size_label && item.fit ? " · " : ""}
+                  {item.fit ? `입어보니 ${FIT_LABELS[item.fit]}` : ""}
+                </dd>
               </div>
             ) : null}
             <div className="flex gap-4">

@@ -6,6 +6,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { CATEGORY_META, SLOT_ORDER, type Category } from "@/lib/categories";
 import { addDays, seoulToday } from "@/lib/calendar";
 import { claude, claudeKey, RECOMMEND_MODEL } from "@/lib/claude";
+import { FIT_LABELS } from "@/lib/feedback";
 import { getBasePlace, getItems, getWearLogs } from "@/lib/data";
 import {
   buildUserMessage,
@@ -71,6 +72,7 @@ export async function recommendOutfits(
     category: CATEGORY_META[item.category].label,
     subcategory: item.subcategory,
     color_name: item.color_name,
+    fit: item.fit ? FIT_LABELS[item.fit] : null,
     brand: item.brand,
     notes: item.notes,
   }));

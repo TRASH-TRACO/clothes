@@ -12,6 +12,8 @@ export type PromptItem = {
   category: string;
   subcategory: string | null;
   color_name: string;
+  /** 입어본 품 ("작다" 등). 안 적었으면 null */
+  fit: string | null;
   brand: string | null;
   notes: string | null;
 };
@@ -49,6 +51,7 @@ export const SYSTEM_PROMPT = [
   "- 서로 다른 성격의 조합을 2~3개 준다. 같은 옷만 바꿔 낀 조합은 하나로 친다.",
   "- 최근에 입은 조합과 겹치지 않게 한다. 옷장이 작아 어쩔 수 없으면 겹쳐도 된다.",
   "- 날씨를 먼저 본다. 추우면 겹쳐 입히고, 비가 오면 젖어서 곤란한 신발은 뺀다.",
+  "- 품이 '작다'고 적힌 옷은 되도록 피한다. 안 맞아서 안 입는 옷이다.",
   "- 그날 '추웠다/더웠다'고 적어 둔 기록이 있으면 다음 추천에 반영한다.",
   "",
   "이름은 그날 상황이 떠오르게 짧게 짓는다 (예: 비 오는 날 출근룩).",
@@ -63,6 +66,7 @@ function line(item: PromptItem) {
     item.color_name,
     item.name,
   ];
+  if (item.fit) parts.push(`품: ${item.fit}`);
   if (item.brand) parts.push(item.brand);
   if (item.notes) parts.push(`메모: ${item.notes.slice(0, 60)}`);
   return `- ${parts.join(" | ")}`;
@@ -103,7 +107,7 @@ export function buildUserMessage(
   const blocks = [
     weatherBlock(weather),
     "",
-    `옷장 (id | 분류 | 색 | 이름 | 브랜드 | 메모), 총 ${items.length}벌:`,
+    `옷장 (id | 분류 | 색 | 이름 | 품 | 브랜드 | 메모), 총 ${items.length}벌:`,
     ...items.map(line),
     "",
     historyBlock(history),

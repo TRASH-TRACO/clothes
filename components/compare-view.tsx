@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { ItemPhoto } from "@/components/item-photo";
 import { compareRows, diffLabel } from "@/lib/compare";
 import { CATEGORY_META, SLOT_ORDER, measurementFields } from "@/lib/categories";
+import { FIT_LABELS } from "@/lib/feedback";
 import type { Item } from "@/lib/types";
 
 /**
@@ -119,6 +120,12 @@ export function CompareView({ items, initialA, initialB }: {
                       {item.subcategory ? ` · ${item.subcategory}` : ""}
                       {item.size_label ? ` · ${item.size_label}` : ""}
                     </p>
+                    {/* 숫자(실측) 옆에 몸으로 느낀 것도 같이 봐야 판단이 된다 */}
+                    {item.fit ? (
+                      <p className="mt-1 inline-block rounded-full bg-mist px-2.5 py-1 text-xs">
+                        입어보니 {FIT_LABELS[item.fit]}
+                      </p>
+                    ) : null}
                   </Link>
                 ) : (
                   <div className="aspect-square rounded-xl border-2 border-dashed border-line" />

@@ -273,3 +273,9 @@ alter table public.user_settings add column if not exists anthropic_key_hint tex
 alter table public.user_settings alter column place_name drop not null;
 alter table public.user_settings alter column place_lat drop not null;
 alter table public.user_settings alter column place_lon drop not null;
+
+-- 8. 옷 사이즈감 ----------------------------------------------------
+-- 입어보니 품이 어땠는지. 작다 → 레귤러 → 오버핏 → 크다 순으로 넉넉해진다.
+-- 가운데 둘은 입을 만한 것이고 양끝은 안 맞는 것이다.
+alter table public.items
+  add column if not exists fit text check (fit in ('small', 'regular', 'over', 'big'));
