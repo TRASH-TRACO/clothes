@@ -292,3 +292,36 @@ alter table public.items add column if not exists archived_at timestamptz;
 -- 실측 항목 key 를 그대로 써서 { "shoulder": "big", "length": "long" } 처럼 담는다.
 -- 값 검사는 lib/feedback.ts 에서 한다 (항목이 앞으로 늘어날 값이라 DB는 글자만 받는다).
 alter table public.items add column if not exists fit_notes jsonb not null default '{}'::jsonb;
+
+-- 11. 비교 기록 -----------------------------------------------------
+-- "뭐랑 뭐 견줬더라" 를 일주일치만 남긴다. 살지 말지 며칠 고민하는 동안 다시
+-- 열어볼 수 있으면 충분하고, 그 뒤로는 쌓아둘 이유가 없다 (저장할 때 치운다).
+--
+-- 견준 쪽은 등록된 옷일 수도 있고, 아직 안 산 옷일 수도 있다. 후자는 옷장에
+-- 없으므로 판매 페이지에서 옮겨 적은 이름·분류·실측을 여기 그대로 담는다.
+create table if not exists public.compare_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  -- 기준(왼쪽) 옷. 옷을 지우면 그 옷을 견준 기록도 같이 지운다
+  base_item_id uuid not null references public.items (id) on delete cascade,
+  -- 견준 쪽이 등록된 옷이면 여기, 새로 살 옷이면 아래 세 칸을 쓴다
+  other_item_id uuid references public.items (id) on delete cascade,
+  other_name text,
+  other_category item_category,
+  other_measurements jsonb not null default '{}'::jsonb,
+  -- 같은 비교를 또 하면 줄을 늘리지 않고 시각만 새로 쓴다 (lib/compare.ts 가 만든다)
+  signature text not null,
+  created_at timestamptz not null default now(),
+  unique (user_id, signature)
+);
+
+create index if not exists compare_logs_user_created_idx
+  on public.compare_logs (user_id, created_at desc);
+
+alter table public.compare_logs enable row level security;
+
+drop policy if exists "compare logs are private" on public.compare_logs;
+create policy "compare logs are private" on public.compare_logs
+  for all to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);

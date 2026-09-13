@@ -1,10 +1,17 @@
 import "server-only";
 
 import { CATEGORY_META, measurementFields } from "./categories";
+import { NEW_SIDE_NAME } from "./compare";
 import { addDays, seoulToday } from "./calendar";
 import { FIT_LABELS, PART_FIT_LABELS, RATING_LABELS, FELT_LABELS, readPartFits } from "./feedback";
-import { getBasePlace, getItems, getOutfits, getWearLogs, logPlace } from "./data";
-import type { ExportData, ExportItem, ExportLog, ExportOutfit } from "./export-data";
+import { getBasePlace, getCompareLogs, getItems, getOutfits, getWearLogs, logPlace } from "./data";
+import type {
+  ExportCompare,
+  ExportData,
+  ExportItem,
+  ExportLog,
+  ExportOutfit,
+} from "./export-data";
 import { weatherLabel } from "./weather-codes";
 import { getCalendarWeather } from "./weather-store";
 
@@ -22,11 +29,12 @@ export async function buildExport(): Promise<ExportData> {
   const today = seoulToday();
   const from = addDays(today, -LOG_DAYS);
 
-  const [items, outfits, logs, base] = await Promise.all([
+  const [items, outfits, logs, base, compares] = await Promise.all([
     getItems({ sort: "recent", include: "all" }),
     getOutfits(),
     getWearLogs(from, today),
     getBasePlace(),
+    getCompareLogs(),
   ]);
 
   const weather = await getCalendarWeather(
@@ -102,11 +110,33 @@ export async function buildExport(): Promise<ExportData> {
       };
     });
 
+  // 살까 말까를 물어볼 때, 요새 뭘 보고 있는지가 그대로 단서가 된다
+  const exportCompares: ExportCompare[] = compares.map((log) => {
+    const category = log.other?.category ?? log.other_category;
+    const values = log.other?.measurements ?? log.other_measurements ?? {};
+    return {
+      언제: log.created_at,
+      기준: log.base?.name ?? "지워진 옷",
+      상대: log.other?.name ?? log.other_name ?? NEW_SIDE_NAME,
+      상대구분: log.other_item_id ? "옷장" : NEW_SIDE_NAME,
+      // 옷장에 있는 옷은 위 "옷" 목록에 실측이 이미 있으므로 새 옷만 담는다
+      상대실측:
+        log.other_item_id || !category
+          ? {}
+          : Object.fromEntries(
+              measurementFields(category)
+                .filter((field) => typeof values[field.key] === "number")
+                .map((field) => [field.label, `${values[field.key]}${field.unit}`]),
+            ),
+    };
+  });
+
   return {
     내보낸시각: new Date().toISOString(),
     기본지역: base.name,
     옷: exportItems,
     코디: exportOutfits,
     착용기록: exportLogs,
+    비교기록: exportCompares,
   };
 }

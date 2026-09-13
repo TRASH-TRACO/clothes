@@ -7,7 +7,14 @@ import { DEFAULT_PLACE, isPlace, roundPlace, type Place } from "./places";
 import { decryptSecret, hasAppSecret } from "./secret";
 import { isSupabaseConfigured } from "./supabase/env";
 import { createClient } from "./supabase/server";
-import type { Item, Outfit, OutfitWithItems, WearLog, WearLogWithItems } from "./types";
+import type {
+  CompareLogWithItems,
+  Item,
+  Outfit,
+  OutfitWithItems,
+  WearLog,
+  WearLogWithItems,
+} from "./types";
 
 export type ItemQuery = {
   category?: Category;
@@ -190,6 +197,33 @@ export const getWearLog = cache(async (date: string): Promise<WearLogWithItems |
   if (isMissingTable(error)) return null;
   if (error) throw new Error(error.message);
   return data ? toWearLog(data as WearLogRow) : null;
+});
+
+/**
+ * 비교 기록을 며칠치 남길지.
+ *
+ * 살지 말지 고민하는 동안 다시 열어보는 게 목적이라 일주일이면 넉넉하다.
+ * 읽을 때 걸러내고, 저장할 때 지난 줄을 지운다 (app/actions/compare.ts).
+ */
+export const COMPARE_LOG_DAYS = 7;
+
+/** 일주일 안에 견준 것들. 최근 것이 먼저 */
+export const getCompareLogs = cache(async (): Promise<CompareLogWithItems[]> => {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = await createClient();
+  const since = new Date(Date.now() - COMPARE_LOG_DAYS * 86_400_000).toISOString();
+  // items 로 가는 길이 둘이라 (기준/상대) 어느 쪽인지 제약 이름으로 짚어 준다
+  const { data, error } = await supabase
+    .from("compare_logs")
+    .select(
+      "*, base:items!compare_logs_base_item_id_fkey(*), other:items!compare_logs_other_item_id_fkey(*)",
+    )
+    .gte("created_at", since)
+    .order("created_at", { ascending: false });
+  // 아직 스키마를 안 올린 사람에게는 비교 기능 자체는 그대로 두고 기록만 비운다
+  if (isMissingTable(error)) return [];
+  if (error) throw new Error(error.message);
+  return (data ?? []) as CompareLogWithItems[];
 });
 
 /** 이 옷이 들어간 코디. 코디 수가 많지 않아 한 번 받아온 목록에서 골라낸다 */

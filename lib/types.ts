@@ -67,6 +67,28 @@ export type WearLogWithItems = WearLog & {
   outfit: Pick<Outfit, "id" | "name" | "photo_path"> | null;
 };
 
+/**
+ * 실측 비교 한 번. 일주일치만 남는다 (supabase/schema.sql 11).
+ * 견준 쪽이 등록된 옷이면 other_item_id, 아직 안 산 옷이면 other_* 세 칸을 쓴다.
+ */
+export type CompareLog = {
+  id: string;
+  user_id: string;
+  base_item_id: string;
+  other_item_id: string | null;
+  other_name: string | null;
+  other_category: Category | null;
+  other_measurements: Record<string, number>;
+  /** 같은 비교를 또 했을 때 줄을 늘리지 않으려고 쓰는 값 (lib/compare.ts) */
+  signature: string;
+  created_at: string;
+};
+
+export type CompareLogWithItems = CompareLog & {
+  base: Item | null;
+  other: Item | null;
+};
+
 /** 서버 액션의 공통 반환 타입 (useActionState) */
 export type ActionState = {
   ok: boolean;

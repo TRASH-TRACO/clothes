@@ -36,12 +36,25 @@ export type ExportLog = {
   메모: string | null;
 };
 
+/**
+ * 최근에 견준 것. 살까 말까 물어볼 때 "요새 이런 걸 보고 있다" 가 그대로 단서다.
+ * 상대가 아직 안 산 옷이면 그 실측도 같이 담는다 (옷장에는 없는 값이라서).
+ */
+export type ExportCompare = {
+  언제: string;
+  기준: string;
+  상대: string;
+  상대구분: string;
+  상대실측: Record<string, string>;
+};
+
 export type ExportData = {
   내보낸시각: string;
   기본지역: string;
   옷: ExportItem[];
   코디: ExportOutfit[];
   착용기록: ExportLog[];
+  비교기록: ExportCompare[];
 };
 
 /** 빈 값을 걷어낸다. 넘겨 봐야 자리만 차지하고 읽는 쪽이 헷갈린다 */
@@ -64,6 +77,7 @@ export function tidyExport(data: ExportData) {
     옷: data.옷.map(tidy),
     코디: data.코디.map(tidy),
     착용기록: data.착용기록.map(tidy),
+    비교기록: data.비교기록.map(tidy),
   };
 }
 
@@ -129,6 +143,15 @@ export function toMarkdown(data: ExportData): string {
       log.메모,
     ].filter(Boolean);
     lines.push(`- ${log.날짜}: ${bits.join(" · ")}`);
+  }
+
+  if (data.비교기록.length > 0) {
+    lines.push("", "## 최근 비교 (일주일)");
+    for (const log of data.비교기록) {
+      const measured =
+        Object.keys(log.상대실측).length > 0 ? ` — 상대 실측: ${kv(log.상대실측)}` : "";
+      lines.push(`- ${log.기준} ↔ ${log.상대} (${log.상대구분})${measured}`);
+    }
   }
 
   return lines.join("\n");

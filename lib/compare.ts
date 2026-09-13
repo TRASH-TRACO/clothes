@@ -69,3 +69,55 @@ export function diffLabel(diff: number | null): string | null {
   if (diff === 0) return "같음";
   return `${diff > 0 ? "+" : "−"}${Math.abs(diff)}`;
 }
+
+/**
+ * 견줄 대상.
+ *
+ * 아직 안 산 옷은 옷장에 없다. 판매 페이지 실측표를 옮겨 적어 견주는 게
+ * 이 기능을 쓰는 가장 큰 이유라서, 등록된 옷과 같은 자리에 놓을 수 있게 한다.
+ */
+export type CompareSide =
+  | { kind: "item"; itemId: string }
+  | { kind: "new"; name: string; category: string; measurements: Record<string, number> };
+
+/** 이름을 안 지은 새 옷을 부르는 말 */
+export const NEW_SIDE_NAME = "새로 살 옷";
+
+/** 기록에서 이 옷을 뭐라고 부를지 */
+export function sideName(side: CompareSide, itemName: (id: string) => string | null): string {
+  if (side.kind === "item") return itemName(side.itemId) ?? "지워진 옷";
+  return side.name.trim() || NEW_SIDE_NAME;
+}
+
+/** 대소문자·공백 차이로 같은 옷이 두 줄이 되지 않게 */
+function normalize(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLowerCase().slice(0, 80);
+}
+
+/**
+ * 비교 하나를 한 줄로 줄인 값.
+ *
+ * 같은 비교를 또 하면 줄을 늘리지 않고 이 값으로 덮어쓴다 (시각만 새로 쓴다).
+ * 새 옷은 **실측을 빼고** 이름·분류로만 잡는다. 실측표를 보며 숫자를 고쳐 넣는
+ * 동안 줄이 계속 늘어나면 안 되기 때문이다 — 같은 옷이면 한 줄이어야 한다.
+ */
+export function compareSignature(baseItemId: string, other: CompareSide): string {
+  const right =
+    other.kind === "item" ? `item:${other.itemId}` : `new:${other.category}:${normalize(other.name)}`;
+  return `item:${baseItemId}|${right}`;
+}
+
+/**
+ * 기록 목록에 붙일 "언제" 표시.
+ *
+ * 일주일치만 남기므로 날짜를 다 적을 필요가 없다. "3일 전" 이면 충분하다.
+ * @param now 지금 (테스트에서 고정하려고 받는다)
+ */
+export function agoLabel(iso: string, now: number = Date.now()): string {
+  const minutes = Math.floor((now - new Date(iso).getTime()) / 60_000);
+  if (!Number.isFinite(minutes) || minutes < 1) return "방금";
+  if (minutes < 60) return `${minutes}분 전`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}시간 전`;
+  return `${Math.floor(hours / 24)}일 전`;
+}
