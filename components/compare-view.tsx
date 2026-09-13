@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { removeCompare, saveCompare } from "@/app/actions/compare";
 import { ItemPhoto } from "@/components/item-photo";
+import { Picker, type PickerOption } from "@/components/picker";
 import {
   agoLabel,
   compareRows,
@@ -62,13 +63,15 @@ export function CompareView({ items, initialA, initialB, history }: {
   const usingNew = mode === "new";
   const itemB = usingNew ? null : (byId.get(b) ?? null);
 
-  // 기준 옷 목록만 분류별로 묶는다 (오른쪽은 한 분류뿐이라 묶을 게 없다)
-  const groups = useMemo(
+  // 기준 목록은 분류 순서대로 편다. 같은 묶음이 이어져 있어야 머리글이 한 번만 붙는다.
+  // (오른쪽은 한 분류뿐이라 묶을 게 없다)
+  const baseOptions = useMemo(
     () =>
-      SLOT_ORDER.map((slot) => ({
-        slot,
-        items: items.filter((item) => item.category === slot),
-      })).filter((group) => group.items.length > 0),
+      SLOT_ORDER.flatMap((slot) =>
+        items
+          .filter((item) => item.category === slot)
+          .map((item) => toOption(item, CATEGORY_META[slot].label)),
+      ),
     [items],
   );
 
@@ -176,24 +179,14 @@ export function CompareView({ items, initialA, initialB, history }: {
           <label className="label" htmlFor="pick-a">
             기준 (가진 옷)
           </label>
-          <select
+          <Picker
             id="pick-a"
+            title="기준이 될 옷"
             value={a}
-            onChange={(event) => pickBase(event.target.value)}
-            className="field"
-          >
-            <option value="">고르기</option>
-            {groups.map((group) => (
-              <optgroup key={group.slot} label={CATEGORY_META[group.slot].label}>
-                {group.items.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.name}
-                    {option.brand ? ` · ${option.brand}` : ""}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+            options={baseOptions}
+            onChange={pickBase}
+            placeholder="고르기"
+          />
 
         </div>
 
@@ -228,27 +221,21 @@ export function CompareView({ items, initialA, initialB, history }: {
               {itemA ? "아래에 실측을 적으세요" : "먼저 기준이 될 옷을 고르세요"}
             </p>
           ) : (
-            <select
+            <Picker
               id="pick-b"
+              title={itemA ? `견줄 ${CATEGORY_META[itemA.category].label} 고르기` : "견줄 옷"}
               value={b}
-              onChange={(event) => pickPeer(event.target.value)}
+              options={peers.map((item) => toOption(item))}
+              onChange={pickPeer}
               disabled={!itemA || peers.length === 0}
-              className="field disabled:text-muted"
-            >
-              <option value="">
-                {!itemA
+              placeholder={
+                !itemA
                   ? "기준을 먼저 고르세요"
                   : peers.length === 0
                     ? `다른 ${CATEGORY_META[itemA.category].label}가 없습니다`
-                    : "고르기"}
-              </option>
-              {peers.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.name}
-                  {option.brand ? ` · ${option.brand}` : ""}
-                </option>
-              ))}
-            </select>
+                    : "고르기"
+              }
+            />
           )}
 
         </div>
@@ -483,6 +470,25 @@ function useSaveCompare(
     // key 가 곧 side 를 값으로 줄인 것이다. 객체는 매번 새로 만들어져 deps 에 못 쓴다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
+}
+
+/**
+ * 옷 하나를 고르기 목록의 한 줄로.
+ *
+ * 이름 아래에 분류·세분류·표기 사이즈를 붙인다. 같은 이름의 옷이 둘일 때
+ * 어느 쪽인지 가릴 수 있어야 한다. 브랜드는 안 보여도 검색에는 걸리게 둔다.
+ */
+function toOption(item: Item, group?: string): PickerOption {
+  return {
+    value: item.id,
+    label: item.name,
+    hint:
+      [item.brand, item.subcategory, item.size_label].filter(Boolean).join(" · ") || undefined,
+    keywords: [item.brand, item.subcategory, CATEGORY_META[item.category].label]
+      .filter(Boolean)
+      .join(" "),
+    group,
+  };
 }
 
 function ItemCard({ item }: { item: Item }) {
