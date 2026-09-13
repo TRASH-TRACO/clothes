@@ -137,20 +137,17 @@ body {
 
 /* 헤더 맨 위, 상태바 자리를 메우는 띠.
    기본은 inset 만큼. 브라우저에서는 0이라 아예 안 보인다. */
+/* 보통은 높이가 0 이다. 상태바 자리는 iOS 가 잡아 주고 (statusBarStyle: default)
+   흰 바탕에 검은 글씨로 그려지므로, 앱이 따로 메울 게 없다. */
 .status-band {
   height: env(safe-area-inset-top);
   background: var(--color-paper);
 }
 
-/* 설치해서 전체화면으로 쓸 때는 상태바에 딱 붙으면 답답하니 조금 띄운다 */
-@media (display-mode: standalone) {
-  .status-band {
-    height: max(env(safe-area-inset-top), 24px);
-  }
-}
-
-/* 화면이 상태바 뒤까지 차는 경우 (app/layout.tsx 가 재서 표시해 준다).
-   그 모드의 상태바 글씨는 흰색이라 띠도 검정이어야 읽힌다.
+/* 화면이 상태바 뒤까지 차는 경우에만 띠를 깐다 (app/layout.tsx 가 재서 표시해 준다).
+   그 모드의 상태바 글씨는 흰색이라 띠가 검어야 시계가 보인다.
+   지금은 default 로 담기지만, 예전에 black-translucent 로 담아 둔 아이콘은 지웠다
+   다시 담기 전까지 그 모드로 뜬다. 그 아이콘을 위한 자리다.
    inset 이 0으로 올 때가 있어 최소 높이를 직접 준다. */
 [data-status-overlay] .status-band {
   height: max(env(safe-area-inset-top), 64px);

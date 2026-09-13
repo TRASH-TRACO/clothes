@@ -36,14 +36,21 @@ export const metadata: Metadata = {
   applicationName: "CLOSET",
   // 홈 화면에 추가하면 주소창 없이 뜬다.
   //
-  // black-translucent 는 상태바 뒤까지 화면을 채운다. 이미 홈 화면에 추가된
-  // 아이콘이 이 값을 저장해 두고 있어서, 바꿔도 재설치 전에는 안 바뀐다.
-  // 그래서 되돌리는 대신 이 동작을 전제로 두고, 상태바 자리는 헤더 맨 위의
-  // .status-band 로 메운다 (globals.css). 상태바 글씨는 흰색이라 띠도 검정이다.
+  // 상태바 자리를 iOS 에 맡긴다 (default). 화면은 상태바 아래에서 시작하고
+  // 그 자리는 본문 배경색(흰색)에 검은 글씨로 그려진다 — 위에 띠가 안 생긴다.
+  //
+  // black-translucent 는 반대로 상태바 뒤까지 화면을 채우는데, 그 모드의 상태바
+  // 글씨는 무조건 흰색이라 흰 배경에서는 시계가 안 보인다. 그래서 헤더 맨 위에
+  // 검은 띠(.status-band)를 깔아야 했다. 그 띠가 보기 싫어서 default 로 옮긴다.
+  //
+  // **이 값은 홈 화면에 아이콘을 담을 때 저장된다.** 이미 담아 둔 아이콘은 지웠다
+  // 다시 담기 전까지 예전 값(black-translucent)으로 뜬다. 그래서 띠를 지우는 게
+  // 아니라, 화면이 상태바를 덮는지 앱이 직접 재서 (아래 인라인 스크립트) 덮을
+  // 때만 띠를 깐다. 다시 담고 나면 저절로 안 깔린다.
   appleWebApp: {
     capable: true,
     title: "CLOSET",
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     /**
      * 켤 때 뜨는 화면.
      *
@@ -54,10 +61,10 @@ export const metadata: Metadata = {
      * 그래서 아이폰 세로 크기를 다 적어 둔다. "확대 보기"를 켜면 같은 기기가 다른
      * 크기를 말하므로 그 크기도 넣는다. 그림은 bin/make-splash.mjs 로 만든다.
      *
-     * 그림에는 흰 바탕과 위 검은 띠만 있고 로고가 없다. 크기가 안 맞으면 iOS 가
-     * 왼쪽 위에 맞춰 까는데, 화면보다 큰 그림이면 한가운데 있던 로고가 오른쪽
-     * 아래로 밀렸다가 아래 #boot 가 뜰 때 가운데로 툭 튄다. 띠는 위에 붙어 있어
-     * 안 밀리므로 그대로 두고, 로고는 #boot 한 곳에서만 그린다.
+     * 그림은 흰 바탕뿐이고 로고가 없다. 크기가 안 맞으면 iOS 가 왼쪽 위에 맞춰
+     * 까는데, 화면보다 큰 그림이면 한가운데 있던 로고가 오른쪽 아래로 밀렸다가
+     * 아래 #boot 가 뜰 때 가운데로 툭 튄다. 그래서 로고는 화면 크기를 알고 그리는
+     * #boot 한 곳에서만 띄운다.
      */
     startupImage: [
       // 16 Pro Max, 17 Pro Max
@@ -104,7 +111,9 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#111111",
+  // 안드로이드 상태바 색. 앱 위쪽이 흰색이라 상태바도 흰색으로 맞춘다
+  // (크롬이 밝기를 보고 아이콘을 검게 그려 준다).
+  themeColor: "#ffffff",
   colorScheme: "light",
   width: "device-width",
   initialScale: 1,

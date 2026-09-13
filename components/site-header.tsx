@@ -11,7 +11,8 @@ export async function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-40 bg-paper">
-      {/* 상태바가 덮는 자리를 검게 메운다. 높이 규칙은 globals.css 의 .status-band */}
+      {/* 보통은 높이 0 이다. 화면이 상태바를 덮는 예전 아이콘에서만 검게 메운다.
+          높이 규칙은 globals.css 의 .status-band */}
       <div className="status-band" />
 
       <div className="flex h-16 items-center justify-between gap-6 border-b border-line px-4 sm:px-6 lg:px-10">

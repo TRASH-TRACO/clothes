@@ -16,8 +16,8 @@ export default function manifest(): MetadataRoute.Manifest {
     display: "standalone",
     orientation: "portrait",
     background_color: "#ffffff",
-    // 상단 띠가 검정이라 안드로이드 상태바도 같은 색으로 맞춘다
-    theme_color: "#111111",
+    // 앱 위쪽이 흰색이라 안드로이드 상태바도 흰색으로 맞춘다
+    theme_color: "#ffffff",
     categories: ["lifestyle", "shopping"],
     icons: [
       { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },

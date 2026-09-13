@@ -6,11 +6,11 @@
  * 빈 화면(까만 화면)이 뜬다. 그래서 아이폰 세로 크기를 다 만들어 둔다.
  * 크기를 더할 때는 여기와 app/layout.tsx 의 startupImage 를 같이 고친다.
  *
- * **그림에 로고를 그리지 않는다.** 크기가 안 맞는 기기에서 iOS 가 그림을 왼쪽 위에
- * 맞춰 까는데, 화면보다 큰 그림이면 한가운데 있던 로고가 오른쪽 아래로 밀린다.
- * 그 상태에서 앱 안의 시작 화면(#boot)이 뜨면 로고가 가운데로 툭 튄다.
- * 그래서 여기서는 위 검은 띠까지만 그리고 (띠는 위에 붙어 있어 안 밀린다),
- * 로고는 크기를 알고 그리는 #boot 한 곳에서만 띄운다.
+ * **그림에 아무것도 그리지 않는다 — 흰 바탕뿐이다.** 크기가 안 맞는 기기에서 iOS 가
+ * 그림을 왼쪽 위에 맞춰 까는데, 화면보다 큰 그림이면 한가운데 있던 로고가 오른쪽
+ * 아래로 밀린다. 그 상태에서 앱 안의 시작 화면(#boot)이 뜨면 로고가 가운데로 툭 튄다.
+ * 고르게 흰 바탕이면 어떻게 깔리든 똑같아서 그럴 일이 없다.
+ * 로고는 화면 크기를 알고 그리는 #boot 한 곳에서만 띄운다.
  *
  * playwright 가 필요하다 (devDependency 아님 — 그림은 한 번 만들어 커밋한다).
  */
@@ -48,15 +48,10 @@ const b = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || u
 const made = [];
 for (const [w, h, dpr] of DEVICES) {
   const p = await b.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: dpr });
-  // 맨 위 검은 띠는 앱의 .status-band 와 같은 높이·색이다 (globals.css).
-  // 상태바 글씨가 흰색이라 이게 없으면 흰 바탕에 흰 시계가 돼서 안 보이고,
-  // 앱이 뜨는 순간 띠가 생기면서 화면이 덜컥 움직인다.
+  // 앱 배경색 그대로. 상태바 자리는 iOS 가 잡아 주므로 (statusBarStyle: default)
+  // 위에 띠를 그리지 않는다 — 그렸다가는 앱이 뜰 때 띠가 사라지며 덜컥 움직인다.
   await p.setContent(`<!doctype html><meta charset="utf-8">
-    <style>
-      html,body{margin:0;height:100%;background:#ffffff}
-      .band{position:fixed;top:0;left:0;right:0;height:64px;background:#111111}
-    </style>
-    <div class="band"></div>`);
+    <style>html,body{margin:0;height:100%;background:#ffffff}</style>`);
   await p.waitForTimeout(120);
   const name = `public/splash/${w * dpr}x${h * dpr}.png`;
   await p.screenshot({ path: name });
