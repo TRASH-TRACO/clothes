@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "check": "node --experimental-strip-types bin/check-weather-freshness.ts && node --experimental-strip-types bin/check-recommend-prompt.ts && node --experimental-strip-types bin/check-secret.ts && node --experimental-strip-types bin/check-compare.ts && node --experimental-strip-types bin/check-size-prompt.ts && node --experimental-strip-types bin/check-export.ts"
+    "check": "node --experimental-strip-types bin/check-weather-freshness.ts && node --experimental-strip-types bin/check-recommend-prompt.ts && node --experimental-strip-types bin/check-secret.ts && node --experimental-strip-types bin/check-compare.ts && node --experimental-strip-types bin/check-size-prompt.ts && node --experimental-strip-types bin/check-export.ts && node --experimental-strip-types bin/check-push-message.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",
@@ -17,6 +17,7 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "server-only": "^0.0.1",
+    "web-push": "^3.6.7",
     "zod": "^4.6.2"
   },
   "devDependencies": {
@@ -24,6 +25,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/web-push": "^3.6.4",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "tailwindcss": "^4",

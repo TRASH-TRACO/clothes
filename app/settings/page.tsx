@@ -2,16 +2,19 @@ import type { Metadata } from "next";
 
 import { AiKeyForm } from "@/components/ai-key-form";
 import { ExportPanel } from "@/components/export-panel";
+import { PushToggle } from "@/components/push-toggle";
 import { BasePlaceForm } from "@/components/base-place-form";
 import { getBasePlace, getClaudeKeyHint, hasBasePlace } from "@/lib/data";
 import { buildExport } from "@/lib/export-build";
 import { toMarkdown } from "@/lib/export-data";
+import { pushPublicKey } from "@/lib/push";
 import { hasAppSecret } from "@/lib/secret";
 import { weatherStoreStatus } from "@/lib/weather-store";
 
 export const metadata: Metadata = { title: "설정" };
 
 export default async function SettingsPage() {
+  const pushKey = pushPublicKey();
   const [place, chosen, store, keyHint, exported] = await Promise.all([
     getBasePlace(),
     hasBasePlace(),
@@ -40,6 +43,29 @@ export default async function SettingsPage() {
       ) : null}
 
       <BasePlaceForm current={place} />
+
+      <section className="mt-16 border-t border-line pt-8">
+        <h2 className="eyebrow mb-3">저녁 알림</h2>
+        <p className="mb-6 max-w-xl text-sm text-muted">
+          매일 <span className="font-semibold text-ink">저녁 6시</span>에{" "}
+          <span className="font-semibold text-ink">&ldquo;내일은 뭐 입을까요?&rdquo;</span> 를 내일
+          날씨와 함께 보냅니다. 앱은 오후 5시부터 내일 예보를 보여주므로, 눌러서 들어가면 알림에
+          적힌 그 날씨가 그대로 떠 있습니다.
+          <span className="mt-2 block">
+            알림 허락은 기기마다 따로입니다. 폰에서 켰다고 노트북에도 오지는 않습니다.
+          </span>
+        </p>
+
+        {pushKey ? (
+          <PushToggle publicKey={pushKey} />
+        ) : (
+          <p className="rounded-xl bg-mist px-5 py-4 text-sm text-muted">
+            서버에 알림 키(<code className="font-mono text-xs">VAPID_PUBLIC_KEY</code>,{" "}
+            <code className="font-mono text-xs">VAPID_PRIVATE_KEY</code>)가 아직 없습니다.
+            README의 <span className="font-medium text-ink">저녁 알림</span> 항목을 참고하세요.
+          </p>
+        )}
+      </section>
 
       <section className="mt-16 border-t border-line pt-8">
         <h2 className="eyebrow mb-3">AI 코디 추천</h2>

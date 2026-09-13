@@ -325,3 +325,31 @@ create policy "compare logs are private" on public.compare_logs
   for all to authenticated
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- 12. 알림 구독 -----------------------------------------------------
+-- 저녁 6시에 "내일은 뭐 입을까요?" 를 보내려면 누구에게 보낼지 알아야 한다.
+-- 브라우저가 주는 구독 정보를 그대로 담는다 (endpoint + 키 두 개).
+--
+-- 구독은 **기기마다** 하나다. 같은 사람이 폰과 노트북에서 각각 켜면 두 줄이 된다.
+-- endpoint 가 그 기기의 주소라서 그걸 키로 쓴다.
+--
+-- 보내는 쪽(app/api/push/daily)은 로그인한 사람이 없다. 정해진 시각에 서버 혼자
+-- 도는 일이라 service_role 키로 읽는다 (RLS 를 지나간다).
+create table if not exists public.push_subscriptions (
+  endpoint text primary key,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  p256dh text not null,
+  auth text not null,
+  created_at timestamptz not null default now(),
+  last_sent_at timestamptz
+);
+
+create index if not exists push_subscriptions_user_idx on public.push_subscriptions (user_id);
+
+alter table public.push_subscriptions enable row level security;
+
+drop policy if exists "push subscriptions are private" on public.push_subscriptions;
+create policy "push subscriptions are private" on public.push_subscriptions
+  for all to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);

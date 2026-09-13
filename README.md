@@ -48,6 +48,16 @@ APP_SECRET=...
 
 # (선택) 서버 공용 키. 회원이 자기 키를 안 넣었을 때만 씁니다.
 ANTHROPIC_API_KEY=sk-ant-...
+
+# (선택) 저녁 알림. 넷 다 있어야 켜집니다 — 하나라도 없으면 기능이 숨습니다.
+#   npx web-push generate-vapid-keys   ← 공개/개인 키 한 쌍
+VAPID_PUBLIC_KEY=B...
+VAPID_PRIVATE_KEY=...
+VAPID_SUBJECT=mailto:you@example.com
+# 정해진 시각에 서버 혼자 돌면서 모두의 구독을 읽습니다 (Supabase > Project Settings > API)
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOi...
+# 알림 보내는 주소를 아무나 못 부르게 막습니다. Vercel 이 이 값으로 인증해 부릅니다.
+CRON_SECRET=...
 ```
 
 ### 3. 실행
@@ -62,7 +72,10 @@ http://localhost:3000 → 회원가입 → 옷 등록.
 ### 4. Vercel 배포
 
 1. GitHub 저장소를 Vercel에 Import (프레임워크 자동 감지)
-2. **Environment Variables**에 위 값을 등록 (`APP_SECRET`은 AI 추천을 쓸 때만)
+2. **Environment Variables**에 위 값을 등록 (`APP_SECRET`은 AI 추천을, `VAPID_*`·
+   `SUPABASE_SERVICE_ROLE_KEY`·`CRON_SECRET`은 저녁 알림을 쓸 때만).
+   `APP_SECRET` / `VAPID_PRIVATE_KEY` / `SUPABASE_SERVICE_ROLE_KEY` / `CRON_SECRET` 은
+   **Sensitive** 로 표시하세요
 3. Deploy
 
 `next.config.ts`가 `NEXT_PUBLIC_SUPABASE_URL` 호스트를 이미지 도메인으로 자동 등록하므로 별도 설정이 필요 없습니다.
@@ -284,7 +297,7 @@ npm run check
 > `wear_logs` / `wear_log_items` / `user_settings` / `daily_weather` 테이블과 RLS 정책,
 > 그리고 `wear_logs`의 지역 칼럼(`place_name`, `place_lat`, `place_lon`),
 > 한 줄 평가 칼럼(`wear_logs.felt`, `outfits.rating`), 세분류 칼럼(`items.subcategory`),
-> 그리고 비교 기록 테이블(`compare_logs`)이 새로 추가됐습니다.
+> 비교 기록 테이블(`compare_logs`), 알림 구독 테이블(`push_subscriptions`)이 새로 추가됐습니다.
 > 실행 전에는 비교는 그대로 되고 **아래 `최근 비교` 목록만 안 남습니다.**
 > 여러 번 실행해도 안전합니다. 실행 전에는 캘린더가 날씨만 보여주고 기록은 저장되지 않습니다.
 
@@ -355,6 +368,43 @@ npm run check
 
 > 원래는 "어디가 큰지"(어깨/기장/소매)까지 받으려 했습니다. 실측 항목이 곧 부위라 목록을
 > 그대로 쓸 수 있는데, 일단 한 축으로 두고 써보기로 했습니다. 나중에 붙일 자리는 남아 있습니다.
+
+## 저녁 알림
+
+매일 **저녁 6시**에 `내일은 뭐 입을까요?` 를 내일 날씨와 함께 보냅니다.
+앱이 **오후 5시부터** 내일 예보를 보여주므로(`TOMORROW_AFTER_HOUR`), 알림을 눌러 들어가면
+거기 적힌 그 날씨가 그대로 홈에 떠 있습니다.
+
+> **아이폰은 홈 화면에 추가한 뒤에야 알림을 쓸 수 있습니다** (iOS 16.4 이상).
+> 사파리 탭에서는 `PushManager` 자체가 없어서 설정 화면의 버튼이 안내문으로 바뀝니다.
+
+켜는 건 **설정 탭 > 저녁 알림**입니다. 허락은 **기기마다** 따로라, 폰에서 켰다고
+노트북에도 오지 않습니다 (구독 한 줄 = 기기 하나).
+
+| 조각 | 하는 일 |
+|---|---|
+| `public/sw.js` | 알림을 받아 띄우고, 눌렀을 때 창을 엽니다 |
+| `components/push-toggle.tsx` | 허락을 묻고 구독합니다 (이 기기가 켜져 있는지는 브라우저에 물어봅니다) |
+| `app/actions/push.ts` | 구독을 `push_subscriptions` 에 담고 뺍니다 |
+| `app/api/push/daily/route.ts` | 정해진 시각에 모두에게 보냅니다 |
+| `lib/push-message.ts` | 문구 (아무것도 안 뭅니다 — `npm run check`) |
+| `vercel.json` | `0 9 * * *` — Vercel 은 UTC 로 읽습니다. UTC 9시 = 한국 18시 |
+
+몇 가지는 일부러 그렇게 했습니다.
+
+- **서비스 워커가 `fetch` 를 안 받습니다.** 받는 순간 모든 요청 사이에 끼어들고, 화면이
+  안 바뀌거나 옛 화면이 뜨는 문제를 거기서 쫓게 됩니다. 지금 필요한 건 알림뿐입니다.
+- **`CRON_SECRET` 이 없으면 아무도 못 부릅니다.** 열어 두는 쪽으로 기울면 주소만 알아도
+  남의 폰을 울릴 수 있습니다. 비교는 `timingSafeEqual` 로 합니다.
+- 보내는 쪽은 **로그인한 사람이 없습니다.** 정해진 시각에 서버 혼자 도는 일이라
+  대신 인증해 줄 세션이 없어서 `SUPABASE_SERVICE_ROLE_KEY` 로 읽습니다
+  (`lib/supabase/admin.ts` — `server-only` 라 브라우저 코드에서는 부를 수 없습니다).
+- **404/410 로 돌아온 구독은 지웁니다.** 앱을 지웠거나 알림을 끈 기기라, 들고 있어 봐야
+  매일 같은 실패를 되풀이합니다.
+- 알림 `tag` 에 날짜를 넣어 **하루치가 여러 개 쌓이지 않게** 합니다.
+- 서버가 구독을 못 받으면 이 기기의 구독도 되돌립니다. 안 그러면 켜진 척만 합니다.
+- 키(`VAPID_*`)가 없으면 설정 화면에서 기능 자체를 숨깁니다. **키 쌍을 바꾸면 이미 켜 둔
+  구독이 전부 무효가 되므로** 한 번 정하면 안 바꾸는 게 좋습니다.
 
 ## 실측 비교
 
