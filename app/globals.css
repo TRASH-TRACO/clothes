@@ -255,15 +255,34 @@ body {
 
 /* public/splash/*.png 와 같은 배치 — 짧은 쪽의 28%, 모서리 22%.
    기기가 만든 시작 그림에서 이 화면으로 넘어올 때 아이콘이 안 움직인다. */
+/* 로고는 여기서만 띄운다.
+   기기가 띄우는 그림(public/splash/*.png)에는 일부러 안 그렸다. 크기가 안 맞는
+   기기에서 iOS 가 그림을 왼쪽 위에 맞춰 깔면 그림 한가운데 있던 로고가 화면에서는
+   오른쪽 아래로 밀리는데, 그 상태에서 이 화면이 뜨면 로고가 가운데로 툭 튄다.
+   한 곳에서만 그리면 어느 기기에서든 처음부터 가운데다. */
 #boot img {
   width: 28vmin;
   height: auto;
   border-radius: 22%;
+  /* 그림이 늦게 와도 튀어나오지 않고 떠오른다 */
+  animation: boot-mark 0.25s ease both;
 }
 
 @keyframes boot-out {
   to {
     opacity: 0;
     visibility: hidden;
+  }
+}
+
+@keyframes boot-mark {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #boot img {
+    animation: none;
   }
 }
