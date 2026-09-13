@@ -488,6 +488,17 @@ function toOption(item: Item, group?: string): PickerOption {
       .filter(Boolean)
       .join(" "),
     group,
+    // 이름이 비슷한 옷이 여럿이면 글자만 보고는 못 고른다. 사진이 제일 빠르다.
+    preview: (
+      <ItemPhoto
+        path={item.photo_path}
+        alt=""
+        category={item.category}
+        className="size-11 rounded-lg"
+        sizes="44px"
+        compact
+      />
+    ),
   };
 }
 

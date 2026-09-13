@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { matchesQuery } from "@/lib/search";
 
@@ -13,6 +13,14 @@ export type PickerOption = {
   keywords?: string;
   /** 묶음 이름. 같은 값끼리 붙어 있으면 머리글이 한 번 붙는다 */
   group?: string;
+  /**
+   * 이름 왼쪽에 붙는 그림.
+   *
+   * 옷은 이름보다 생김새로 기억한다 — "그 검은 반팔" 이 두 벌이면 이름만으로는
+   * 어느 쪽인지 모른다. 무엇을 그릴지는 부르는 쪽이 정한다 (이 칸은 옷 말고
+   * 다른 것도 고를 수 있어야 하므로).
+   */
+  preview?: ReactNode;
 };
 
 type Props = {
@@ -42,6 +50,7 @@ const AUTOFOCUS_FROM = 8;
  * 반쪽(폰에서 170px 남짓)이라, 거기 매달면 이름이 다 잘린다.
  *
  * 검색은 이름·브랜드·분류를 같이 보고 **첫소리로도 걸린다** (`lib/search.ts`).
+ * 줄마다 그림을 붙일 수 있다 (`preview`). 옷은 이름보다 생김새로 기억한다.
  */
 export function Picker({
   id,
@@ -197,9 +206,12 @@ export function Picker({
                         aria-selected={option.value === value}
                         onClick={() => pick(option.value)}
                         onMouseEnter={() => setActive(index)}
-                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left
+                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left
                           ${index === active ? "bg-mist" : ""}`}
                       >
+                        {option.preview ? (
+                          <span className="shrink-0">{option.preview}</span>
+                        ) : null}
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-medium">{option.label}</span>
                           {option.hint ? (
