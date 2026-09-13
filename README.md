@@ -90,7 +90,7 @@ http://localhost:3000 → 회원가입 → 옷 등록.
 | `app/manifest.ts` | 이름·아이콘·시작 URL·바로가기 (`/manifest.webmanifest`로 나감) |
 | `app/layout.tsx` | `viewport`(테마색·`viewport-fit=cover`)와 애플 전용 메타 |
 | 상태바 | 덮는지 재서 `data-status-overlay`를 달고, 그때만 헤더 맨 위 `.status-band`가 검게 메웁니다 |
-| `public/splash/` | 켤 때 뜨는 화면. `bin/make-splash.mjs`로 만듭니다 |
+| `public/splash/` | 기기가 켤 때 띄우는 화면. `bin/make-splash.mjs`로 만듭니다 |
 | `app/apple-icon.png` | iOS 홈 화면 아이콘 180px |
 | `public/icon-*.png` | 매니페스트 아이콘 192·512, 안드로이드용 maskable 512 |
 
@@ -99,18 +99,36 @@ maskable 쪽은 안드로이드가 원형으로 잘라내는 걸 감안해 글�
 
 ### 켤 때 뜨는 화면
 
-iOS 는 `apple-touch-startup-image` 가 없으면 앱이 뜰 때까지 **빈 화면**을 보여줍니다 (까맣게 보입니다).
-안드로이드는 매니페스트의 `background_color` 로 알아서 만들어 주는데 iOS 는 안 해 줍니다.
+iOS 는 `apple-touch-startup-image` 가 없으면 앱이 뜰 때까지 **빈 화면**을 보여줍니다.
+기기가 어두운 모드면 그 빈 화면이 까맣습니다. 안드로이드는 매니페스트의 `background_color` 로
+알아서 만들어 주는데 iOS 는 안 해 줍니다.
 
-**기기 크기가 정확히 맞아야 씁니다.** 하나라도 어긋나면 그 기기에서는 그냥 빈 화면입니다.
-그래서 아이폰 세로 크기를 11가지 다 만들어 `app/layout.tsx` 의 `appleWebApp.startupImage` 에
-`media` 쿼리와 함께 적어 뒀습니다.
+시작 화면을 **두 겹**으로 둡니다.
+
+1. **기기가 띄우는 그림** — `public/splash/*.png`.
+   **기기 크기가 정확히 맞아야 씁니다.** 하나라도 어긋나면 그 기기에서는 그냥 빈 화면입니다.
+   그래서 아이폰 세로 크기를 17가지(설정 > 디스플레이의 "확대 보기" 크기 포함) 만들어
+   `app/layout.tsx` 의 `appleWebApp.startupImage` 에 `media` 쿼리와 함께 적어 뒀습니다.
+
+   **이 그림은 홈 화면에 아이콘을 담을 때 한 번 읽고 보관됩니다.** 나중에 그림을 바꾸거나
+   더해도, 이미 담아 둔 아이콘에는 지웠다 다시 담기 전까지 반영되지 않습니다.
+
+2. **앱 안에 있는 화면** — `app/layout.tsx` 의 `#boot` + `app/globals.css`.
+   같은 그림을 HTML 로 한 벌 더 그립니다. 1번이 안 먹는 기기·재설치 전 아이콘에서도
+   보이고, HTML 이 도착한 뒤 화면이 채워질 때까지의 빈 틈도 이게 덮습니다.
+   전체화면(`data-standalone`)일 때만 뜨고, 0.6초 뒤 0.4초에 걸쳐 사라집니다.
+   **걷어내는 걸 CSS 애니메이션에 맡긴 게 중요합니다.** 자바스크립트로 지우면 스크립트가
+   늦거나 죽었을 때 화면이 덮인 채로 남아 앱을 못 씁니다.
+
+두 겹 다 위쪽 64px 이 검은 띠입니다. 헤더의 `.status-band` 와 같은 높이·색이라,
+흰 상태바 글씨가 계속 보이고 앱으로 넘어갈 때 화면이 덜컥 움직이지 않습니다.
 
 ```bash
 node bin/make-splash.mjs   # public/splash/*.png 를 다시 만든다
 ```
 
 새 기종이 나오면 `bin/make-splash.mjs` 의 `DEVICES` 와 `app/layout.tsx` 를 같이 고칩니다.
+크롬이 기본 자리에 없으면 `CHROMIUM_PATH` 로 알려 줍니다.
 
 ### 새로고침
 

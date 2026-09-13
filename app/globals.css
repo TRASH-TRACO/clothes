@@ -215,3 +215,55 @@ body {
     animation: none;
   }
 }
+
+/* ── 켤 때 잠깐 덮는 화면 ─────────────────────────────────────────────
+   홈 화면 아이콘으로 켜면 iOS 는 앱이 그려질 때까지 빈 화면을 보여준다.
+   기기가 어두운 모드면 그 빈 화면이 까맣다. startupImage 로 메울 수 있지만
+   그 그림은 아이콘을 만들 때 한 번 읽고 보관해서, 이미 홈 화면에 있는
+   아이콘에는 나중에 넣은 그림이 안 들어간다.
+   그래서 같은 그림을 앱 안에도 둔다 (app/layout.tsx 의 #boot).
+   HTML 에 들어 있으니 첫 페인트에 바로 뜨고, 재설치와 상관없이 보인다.
+
+   걷어내는 걸 CSS 애니메이션에 맡긴 게 중요하다. 자바스크립트로 지우면
+   스크립트가 늦거나 죽었을 때 화면이 덮인 채로 남아 앱을 못 쓴다. */
+#boot {
+  display: none;
+}
+
+/* 주소창이 있는 보통 브라우저에서는 안 띄운다. 새로 고칠 때마다 깜빡이면 거슬린다. */
+[data-standalone] #boot {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: var(--color-paper);
+  animation: boot-out 0.4s ease 0.6s forwards;
+}
+
+/* 상태바가 화면을 덮는 모드에서는 그 자리가 검어야 흰 시계가 보인다.
+   헤더의 .status-band 와 높이·색이 같아서, 이 화면이 걷혀도 띠가 그 자리에 남는다. */
+[data-status-overlay] #boot::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: max(env(safe-area-inset-top), 64px);
+  background: var(--color-ink);
+}
+
+/* public/splash/*.png 와 같은 배치 — 짧은 쪽의 28%, 모서리 22%.
+   기기가 만든 시작 그림에서 이 화면으로 넘어올 때 아이콘이 안 움직인다. */
+#boot img {
+  width: 28vmin;
+  height: auto;
+  border-radius: 22%;
+}
+
+@keyframes boot-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
