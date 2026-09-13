@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useActionState, useRef, useState } from "react";
 
 import { compareSize, type SizeState } from "@/app/actions/size";
-import { CATEGORY_META, SLOT_ORDER, type Category } from "@/lib/categories";
+import { CATEGORY_META, SLOT_ORDER, kindsOf, type Category } from "@/lib/categories";
 import { shrinkForReading, toBase64 } from "@/lib/image";
 import type { Item } from "@/lib/types";
 
@@ -26,10 +26,16 @@ export function SizeCompare({ items }: { items: Item[] }) {
   const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // 같은 분류만 견줄 만하다. 부위가 안 맞으면 비교가 안 된다.
-  const candidates = items.filter((item) => item.category === category);
-  const [ref, setRef] = useState("");
-  const refValue = candidates.some((item) => item.id === ref) ? ref : "";
+  const [kind, setKind] = useState<string | null>(null);
+
+  /**
+   * 견줄 옷은 안 고르게 한다. 같은 분류를 통째로 넘기고 AI 가 고른다 —
+   * 어느 옷이 견줄 만한지는 실측과 사이즈감을 다 보고 있는 쪽이 더 잘 안다.
+   * 여기서는 몇 벌이 넘어가는지만 알려준다.
+   */
+  const ready = items.filter(
+    (item) => item.category === category && Object.keys(item.measurements ?? {}).length > 0,
+  ).length;
 
   async function addFiles(files: File[]) {
     setBusy(true);
@@ -65,6 +71,7 @@ export function SizeCompare({ items }: { items: Item[] }) {
     <div>
       <form action={formAction} className="space-y-8">
         <input type="hidden" name="category" value={category} />
+        {kind ? <input type="hidden" name="kind" value={kind} /> : null}
         {shots.map((shot) => (
           <input key={shot.id} type="hidden" name="images" value={shot.data} />
         ))}
@@ -79,11 +86,26 @@ export function SizeCompare({ items }: { items: Item[] }) {
                 aria-pressed={category === slot}
                 onClick={() => {
                   setCategory(slot);
-                  setRef("");
+                  setKind(null);
                 }}
                 className={`chip ${category === slot ? "chip-active" : ""}`}
               >
                 {CATEGORY_META[slot].label}
+              </button>
+            ))}
+          </div>
+
+          {/* 세분류는 안 골라도 된다. 고르면 비슷한 옷을 먼저 견준다 */}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {kindsOf(category).map((value) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={kind === value}
+                onClick={() => setKind(kind === value ? null : value)}
+                className={`chip ${kind === value ? "chip-active" : ""}`}
+              >
+                {value}
               </button>
             ))}
           </div>
@@ -150,35 +172,22 @@ export function SizeCompare({ items }: { items: Item[] }) {
           {error ? <p className="mt-2 text-sm text-accent">{error}</p> : null}
         </section>
 
-        <section>
-          <label className="label" htmlFor="ref">
-            무엇과 견줄까요
-          </label>
-          {candidates.length === 0 ? (
-            <p className="mt-2 text-sm text-muted">
-              등록된 {CATEGORY_META[category].label}이(가) 없어 견줄 옷이 없습니다. 사진에서 읽은
-              값만 알려드립니다.
+        <section className="rounded-xl bg-mist px-5 py-4 text-sm">
+          {ready === 0 ? (
+            <p className="text-muted">
+              {CATEGORY_META[category].label} 중 실측을 적어 둔 옷이 없어 견줄 게 없습니다. 사진에서
+              읽은 값만 알려드립니다.
             </p>
           ) : (
-            <select
-              id="ref"
-              name="ref"
-              value={refValue}
-              onChange={(event) => setRef(event.target.value)}
-              className="field"
-            >
-              <option value="">고르지 않음 (읽기만)</option>
-              {candidates.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                  {item.size_label ? ` · ${item.size_label}` : ""}
-                </option>
-              ))}
-            </select>
+            <p className="text-muted">
+              가지고 있는{" "}
+              <span className="font-semibold text-ink">
+                {CATEGORY_META[category].label} {ready}개
+              </span>
+              와 견줍니다. 그중 어느 옷이 기준으로 알맞은지는 AI가 고릅니다 — 사이즈감을 적어 둔 옷을
+              먼저 봅니다.
+            </p>
           )}
-          <p className="mt-2 text-xs text-muted">
-            실측과 사이즈감을 적어 둔 옷을 고를수록 답이 정확해집니다.
-          </p>
         </section>
 
         <section>
@@ -222,6 +231,12 @@ function Answer({ answer }: { answer: NonNullable<Extract<SizeState, { ok: true 
   return (
     <div className="mt-10 border-t border-line pt-8">
       <p className="text-xl font-semibold leading-snug">{answer.verdict}</p>
+      {/* 무엇과 견줬는지 밝혀야 답을 믿을지 말지 판단할 수 있다 */}
+      {answer.basedOn ? (
+        <p className="mt-2 text-sm text-muted">
+          <span className="font-medium text-ink">{answer.basedOn}</span> 기준
+        </p>
+      ) : null}
 
       {answer.diffs.length > 0 ? (
         <table className="mt-6 w-full table-fixed border-collapse text-sm">

@@ -3,14 +3,19 @@
 import { z } from "zod";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 
-import { CATEGORY_META, isCategory, measurementFields } from "@/lib/categories";
+import { CATEGORY_META, isCategory, isKindOf, measurementFields } from "@/lib/categories";
 import { claude, claudeKey, RECOMMEND_MODEL } from "@/lib/claude";
 import { FIT_LABELS, PART_FIT_LABELS, readPartFits } from "@/lib/feedback";
-import { getItem } from "@/lib/data";
+import { getItems } from "@/lib/data";
 import { buildSizeMessage, SIZE_SYSTEM_PROMPT, type SizeRefItem } from "@/lib/size-prompt";
 
 /** 한 번에 읽을 사진 수. 상세 페이지 캡처 두어 장이면 충분하다 */
 const MAX_IMAGES = 3;
+/**
+ * 같이 보낼 옷 수. 옷장이 커도 프롬프트가 한없이 길어지면 안 된다.
+ * 견줄 만한 순서로 추려서 이만큼만 보낸다.
+ */
+const MAX_REFS = 8;
 /** 줄여서 보내도 장당 수백 KB 다. 본문 제한(6MB)에 여유를 둔다 */
 const MAX_BYTES = 1_500_000;
 
@@ -28,6 +33,8 @@ const Answer = z.object({
       note: z.string(),
     }),
   ),
+  /** 무엇과 견줬는지 (모델이 고른다). 견줄 게 없으면 빈 문자열 */
+  basedOn: z.string(),
   /** 한 줄 결론 */
   verdict: z.string(),
   /** 알아둘 점 (없으면 빈 배열) */
@@ -64,31 +71,61 @@ export async function compareSize(_prev: SizeState, formData: FormData): Promise
   }
 
   const note = String(formData.get("note") ?? "").slice(0, 300);
-  const refId = String(formData.get("ref") ?? "");
-  const refItem = refId ? await getItem(refId) : null;
+  const rawKind = formData.get("kind");
+  const kind = isKindOf(category, rawKind) ? String(rawKind) : null;
 
-  let ref: SizeRefItem | null = null;
-  if (refItem) {
-    const notes = readPartFits(refItem.fit_notes);
-    ref = {
-      name: refItem.name,
-      category: CATEGORY_META[refItem.category].label,
-      subcategory: refItem.subcategory,
-      brand: refItem.brand,
-      sizeLabel: refItem.size_label,
-      fit: refItem.fit ? FIT_LABELS[refItem.fit] : null,
-      fields: measurementFields(refItem.category).map((field) => ({
+  const fields = measurementFields(category);
+
+  /**
+   * 견줄 옷은 사용자한테 안 묻는다. 어느 옷이 견줄 만한지는 실측과 사이즈감을
+   * 다 보고 있는 쪽이 더 잘 안다. 같은 분류를 통째로 넘기고 모델이 고르게 한다.
+   *
+   * 다만 아무거나 다 넘기면 프롬프트만 길어지므로 쓸모 있는 순서로 추린다:
+   * 실측이 있어야 견줄 수 있고, 사이즈감이 적혀 있으면 훨씬 나은 기준이 된다.
+   */
+  const refs: SizeRefItem[] = (await getItems({ sort: "recent" }))
+    .filter((item) => item.category === category)
+    .map((item) => {
+      const notes = readPartFits(item.fit_notes);
+      const measured = fields.filter(
+        (field) => typeof item.measurements?.[field.key] === "number",
+      ).length;
+      return { item, notes, measured };
+    })
+    .filter((entry) => entry.measured > 0)
+    .sort((a, b) => {
+      // 사이즈감을 적어 둔 옷이 먼저 (숫자만으로는 "어떻게 느껴질지" 를 못 말한다)
+      const felt = (entry: typeof a) =>
+        (entry.item.fit ? 2 : 0) + (Object.keys(entry.notes).length > 0 ? 1 : 0);
+      const gap = felt(b) - felt(a);
+      if (gap !== 0) return gap;
+      // 그다음은 사려는 세분류와 같은 것, 그다음은 실측이 많이 적힌 것
+      const sameKind = (entry: typeof a) => (kind && entry.item.subcategory === kind ? 1 : 0);
+      const kindGap = sameKind(b) - sameKind(a);
+      if (kindGap !== 0) return kindGap;
+      return b.measured - a.measured;
+    })
+    .slice(0, MAX_REFS)
+    .map(({ item, notes }) => ({
+      id: item.id,
+      name: item.name,
+      category: CATEGORY_META[item.category].label,
+      subcategory: item.subcategory,
+      brand: item.brand,
+      sizeLabel: item.size_label,
+      fit: item.fit ? FIT_LABELS[item.fit] : null,
+      fields: fields.map((field) => ({
         label: field.label,
         unit: field.unit,
-        value: typeof refItem.measurements?.[field.key] === "number"
-          ? refItem.measurements[field.key]
-          : null,
+        value:
+          typeof item.measurements?.[field.key] === "number"
+            ? item.measurements[field.key]
+            : null,
         note: notes[field.key] ? PART_FIT_LABELS[notes[field.key]] : null,
       })),
-    };
-  }
+    }));
 
-  const message = buildSizeMessage(ref, CATEGORY_META[category].label, note);
+  const message = buildSizeMessage(refs, CATEGORY_META[category].label, kind, note);
 
   try {
     const response = await claude(apiKey).messages.parse({
