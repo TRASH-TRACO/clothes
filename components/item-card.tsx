@@ -35,9 +35,11 @@ export function ItemCard({ item, priority }: { item: Item; priority?: boolean })
           {item.fit ? <span className="text-line">|</span> : null}
           {item.fit ? FIT_SHORT[item.fit] : null}
         </p>
+        {/* 목록에서 숫자를 다 늘어놓아 봐야 안 읽는다. 적어 뒀다는 것만 알면
+            되고, 값은 상세나 실측 비교에서 본다 (자세한 값은 title 에 남긴다) */}
         {measurements ? (
-          <p className="truncate text-xs text-muted" title={measurements}>
-            {measurements}
+          <p className="text-xs text-muted" title={measurements}>
+            📏 실측
           </p>
         ) : null}
       </div>

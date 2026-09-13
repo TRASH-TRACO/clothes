@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { archiveItem, deleteItem, unarchiveItem } from "@/app/actions/items";
+import { ConfirmForm } from "@/components/confirm-form";
 import { ColorDot } from "@/components/color-dot";
 import { PhotoCarousel } from "@/components/photo-carousel";
 import { CATEGORY_META, measurementFields } from "@/lib/categories";
@@ -138,12 +139,17 @@ export default async function ItemPage({ params }: PageProps<"/closet/[id]">) {
               </form>
             )}
 
-            <form action={deleteItem} className="ml-auto">
-              <input type="hidden" name="id" value={item.id} />
-              <button type="submit" className="text-sm text-muted underline underline-offset-4 hover:text-accent">
-                삭제
-              </button>
-            </form>
+            <div className="ml-auto">
+              <ConfirmForm
+                action={deleteItem}
+                hidden={{ id: item.id }}
+                label="삭제"
+                triggerClassName="text-sm text-muted underline underline-offset-4 hover:text-accent"
+                title={`${item.name}, 지울까요?`}
+                body="사진과 실측, 이 옷이 들어간 코디 연결까지 사라집니다. 되돌릴 수 없습니다. 이제 안 입는 것뿐이라면 보관함에 넣어두는 편이 낫습니다."
+                confirmLabel="삭제"
+              />
+            </div>
           </div>
         </div>
       </div>

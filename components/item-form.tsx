@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { Fragment, useActionState, useState } from "react";
 
 import { BrandInput, type BrandOption } from "@/components/brand-input";
 import { FitPicker } from "@/components/fit-picker";
@@ -395,17 +395,23 @@ export function ItemForm({ userId, item, brands, action }: Props) {
 
       {/* 버튼은 늘 엄지 닿는 곳에. 화면보다 폼이 길면 바닥에 붙는다 */}
       <div className="sticky bottom-0 z-10 mt-10 flex items-center gap-3 bg-paper pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4">
+        {/* key 를 나눠서 두 버튼이 **다른 DOM 노드**가 되게 한다.
+            없으면 React 가 같은 <button> 을 재사용해 type 만 submit 으로 바꾸는데,
+            브라우저는 클릭의 기본 동작을 핸들러가 끝난 뒤에 적용한다.
+            그래서 "다음" 을 한 번 눌렀을 뿐인데 마지막 단계로 넘어가면서 그대로
+            저장까지 됐다 (마지막 화면이 스쳐 지나간 것처럼 보였다). */}
         {editing || last ? (
-          <>
+          <Fragment key="save">
             <button type="submit" disabled={pending} className="btn-dark flex-1 py-4">
               {pending ? "저장 중…" : editing ? "수정 저장" : "옷장에 추가"}
             </button>
             <Link href={item ? `/closet/${item.id}` : "/closet"} className="btn-ghost">
               취소
             </Link>
-          </>
+          </Fragment>
         ) : (
           <button
+            key="next"
             type="button"
             disabled={!canAdvance}
             onClick={() => {

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { deleteOutfit } from "@/app/actions/outfits";
+import { ConfirmForm } from "@/components/confirm-form";
 import { RatingGlyph } from "@/components/feedback-glyph";
 import { ColorDot } from "@/components/color-dot";
 import { ItemPhoto } from "@/components/item-photo";
@@ -46,15 +47,15 @@ export default async function OutfitPage({ params }: PageProps<"/outfits/[id]">)
           <Link href={`/studio?edit=${outfit.id}`} className="btn-dark">
             수정하기
           </Link>
-          <form action={deleteOutfit}>
-            <input type="hidden" name="id" value={outfit.id} />
-            <button
-              type="submit"
-              className="text-sm text-muted underline underline-offset-4 hover:text-accent"
-            >
-              삭제
-            </button>
-          </form>
+          <ConfirmForm
+            action={deleteOutfit}
+            hidden={{ id: outfit.id }}
+            label="삭제"
+            triggerClassName="text-sm text-muted underline underline-offset-4 hover:text-accent"
+            title={`${outfit.name}, 지울까요?`}
+            body="코디만 사라지고 옷은 그대로 남습니다. 이 코디로 남긴 지난 착용 기록도 그대로입니다 (기록은 옷을 복사해 두기 때문입니다)."
+            confirmLabel="삭제"
+          />
         </div>
       </div>
 

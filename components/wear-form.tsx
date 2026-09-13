@@ -8,6 +8,7 @@ import { ItemPhoto } from "@/components/item-photo";
 import { FeltPicker } from "@/components/feedback-picker";
 import { PlacePicker } from "@/components/place-picker";
 import { deleteWearLog } from "@/app/actions/wear";
+import { ConfirmForm } from "@/components/confirm-form";
 import { CATEGORIES, CATEGORY_META, type Category } from "@/lib/categories";
 import type { Place } from "@/lib/places";
 import type { ActionState, OutfitWithItems, WearLogWithItems } from "@/lib/types";
@@ -245,12 +246,17 @@ export function WearForm({ date, log, basePlace, place, action, onCancel }: Prop
 
       {log ? (
         // 저장 폼 안에 두면 폼이 중첩되므로 따로 뺀다
-        <form action={deleteWearLog} className="mt-6">
-          <input type="hidden" name="worn_on" value={date} />
-          <button type="submit" className="btn-ghost px-0 text-sm text-muted">
-            이 날 기록 지우기
-          </button>
-        </form>
+        <div className="mt-6">
+          <ConfirmForm
+            action={deleteWearLog}
+            hidden={{ worn_on: date }}
+            label="이 날 기록 지우기"
+            triggerClassName="btn-ghost px-0 text-sm text-muted"
+            title="이 날 기록을 지울까요?"
+            body="그날 입은 옷과 체감, 지역, 메모가 사라집니다. 되돌릴 수 없습니다."
+            confirmLabel="지우기"
+          />
+        </div>
       ) : null}
     </>
   );
