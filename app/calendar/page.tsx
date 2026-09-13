@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 
-import { CalendarView } from "@/components/calendar-view";
+import { CalendarBoard } from "@/components/calendar-board";
+import { CalendarGridSkeleton } from "@/components/skeleton";
 import {
   isValidMonth,
   monthGrid,
@@ -10,38 +12,32 @@ import {
   seoulToday,
   shiftMonth,
 } from "@/lib/calendar";
-import { getBasePlace, getWearLogs, logPlace } from "@/lib/data";
-import type { Place } from "@/lib/places";
-import { getCalendarWeather } from "@/lib/weather-store";
 
 export const metadata: Metadata = { title: "캘린더" };
 
+/**
+ * 달력.
+ *
+ * 이 화면은 **아무것도 기다리지 않는다.** 월 이름과 앞뒤 버튼은 주소만 보면
+ * 정해지므로 곧바로 그린다. 기록과 날씨를 받아오는 일은 Suspense 안으로 넣어
+ * 판만 스켈레톤으로 기다리게 했다.
+ *
+ * 그래서 다음 달을 누르면 제목이 먼저 바뀌고, 판은 조금 뒤에 채워진다.
+ * 예전에는 화면 전체가 스켈레톤으로 바뀌었다가 돌아와서, 눌렀는지도 모르고
+ * 한참 멈춘 것처럼 보였다.
+ *
+ * key 를 월로 주는 게 핵심이다. 이게 없으면 월을 옮겨도 경계가 다시 기다리지
+ * 않아서 옛 판이 그대로 남는다.
+ */
 export default async function CalendarPage({ searchParams }: PageProps<"/calendar">) {
   const params = await searchParams;
   const today = seoulToday();
   const month =
     typeof params.m === "string" && isValidMonth(params.m) ? params.m : monthOf(today);
 
-  const weeks = monthGrid(month);
-  const from = weeks[0][0];
-  const to = weeks[weeks.length - 1][6];
-
-  const [logs, base] = await Promise.all([getWearLogs(from, to), getBasePlace()]);
-  const logsByDate = new Map(logs.map((log) => [log.worn_on, log]));
-
-  // 여행 간 날은 그 지역으로, 나머지는 기본 지역으로 본다
-  const placeByDate = new Map<string, Place>();
-  for (const log of logs) {
-    const place = logPlace(log);
-    if (place) placeByDate.set(log.worn_on, place);
-  }
-
-  // 기록을 남긴 날은 아직 안 지난 날이어도 지역이 굳는다.
-  // 나중에 기본 지역을 바꿔도 그날 날씨가 따라 바뀌면 기록이 아니게 된다.
-  const recorded = new Set(logs.map((log) => log.worn_on));
-
-  // 한 번 본 날은 저장해 두고 그대로 쓴다. 실패해도 빈 Map이라 달력은 그대로 뜬다
-  const weather = await getCalendarWeather(base, placeByDate, recorded, weeks.flat());
+  // 주 수는 주소만으로 정해진다. 스켈레톤도 같은 높이로 만들어 두면 판이
+  // 들어올 때 화면이 안 튄다.
+  const rows = monthGrid(month).length;
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-12 lg:px-10">
@@ -64,23 +60,9 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
         </div>
       </div>
 
-      <CalendarView
-        month={month}
-        weeks={weeks}
-        logs={logsByDate}
-        weather={weather}
-        today={today}
-        basePlace={base}
-      />
-
-      <p className="mt-6 text-sm text-muted">
-        날짜를 누르면 그 자리에서 바로 열립니다. 그날 입은 옷과 있던 지역을 남길 수 있습니다. 기온과 강수량은{" "}
-        <Link href="/settings" className="underline underline-offset-4 hover:text-ink">
-          기본 지역({base.name})
-        </Link>{" "}
-        기준이고, 여행을 적어둔 날은 그 지역으로 봅니다. 지난 날씨는 한 번 받아 저장해 두므로
-        나중에 다시 열어도 그대로입니다.
-      </p>
+      <Suspense key={month} fallback={<CalendarGridSkeleton rows={rows} />}>
+        <CalendarBoard month={month} today={today} />
+      </Suspense>
     </div>
   );
 }

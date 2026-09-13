@@ -8,13 +8,17 @@ import type { Item } from "@/lib/types";
 /** 봉에 걸 옷 수. 폭 390px 기준으로 서로 살짝 겹칠 만큼 */
 const COUNT = 9;
 
-/** 봉이 히어로 위에서 내려온 거리 */
-const RAIL_TOP = "1.75rem";
+/**
+ * 옷이 걸린 높이. 0 이면 화면 맨 위에 붙어서 봉이 안 보인다.
+ * 화면 밖 어딘가에 걸려 있는 것처럼 보이는 쪽이 깔끔하다.
+ */
+const RAIL_TOP = "0";
 
 /**
  * 좁은 화면에서 헤드라인 뒤에 거는 옷걸이.
  *
- * 옷장 봉에 옷이 걸려 있고 저마다 다른 속도로 흔들린다.
+ * 화면 위 어딘가에 걸린 옷이 저마다 다른 속도로 흔들린다.
+ * 봉은 그리지 않는다 — 맨 위에 붙여 두면 선이 안 보이는 쪽이 깔끔하다.
  * 길이·크기를 어긋나게 줘서 한 줄로 늘어선 티가 안 나게 했다.
  * 아래로 갈수록 흐려지므로 헤드라인과 날씨 카드를 건드리지 않는다.
  *
@@ -48,9 +52,6 @@ export function ClosetRail({ items }: { items: Item[] }) {
       aria-hidden
       className="rail-fade pointer-events-none absolute inset-x-0 top-0 h-64 overflow-hidden sm:hidden"
     >
-      {/* 옷장 봉 */}
-      <div className="absolute inset-x-4 h-px bg-ink/25" style={{ top: RAIL_TOP }} />
-
       {hangers.map((hanger, i) => (
         <div
           key={i}
@@ -66,7 +67,7 @@ export function ClosetRail({ items }: { items: Item[] }) {
             } as CSSProperties
           }
         >
-          {/* 봉에서 옷까지 내려오는 고리 */}
+          {/* 화면 밖에서 옷까지 내려오는 고리 */}
           <div className="mx-auto w-px bg-ink/30" style={{ height: `${hanger.drop.toFixed(1)}px` }} />
           <ItemPhoto
             path={hanger.item.photo_path}

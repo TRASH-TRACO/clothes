@@ -11,9 +11,15 @@ type Props = {
   aside?: ReactNode;
   /** 헤드라인 뒤 배경에 쓸 옷들 (사진 있는 것만 쓴다) */
   waveItems?: Item[];
+  /**
+   * 지금 보여주는 예보가 오늘 것인지 내일 것인지.
+   * 오후 5시가 넘으면 내일 예보를 띄우는데, 그때 "오늘은 뭐 입어볼까요?"
+   * 라고 물으면 아래 날씨와 어긋난다.
+   */
+  target?: "today" | "tomorrow";
 };
 
-export function HomeHero({ signedIn, aside, waveItems = [] }: Props) {
+export function HomeHero({ signedIn, aside, waveItems = [], target = "today" }: Props) {
   return (
     <section className="relative overflow-hidden bg-mist">
       {/* 넓은 화면은 물결, 좁은 화면은 옷걸이 */}
@@ -32,7 +38,7 @@ export function HomeHero({ signedIn, aside, waveItems = [] }: Props) {
           <p className="eyebrow">Your closet, organized</p>
           {/* 줄바꿈을 고정하므로 글자 크기는 가장 긴 줄이 넘치지 않는 선에서 잡는다 */}
           <h1 className="display text-[2.75rem] sm:text-6xl lg:text-7xl">
-            오늘은
+            {target === "tomorrow" ? "내일은" : "오늘은"}
             <br />
             뭐 입어볼까요?
           </h1>

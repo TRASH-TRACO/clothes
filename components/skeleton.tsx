@@ -38,3 +38,23 @@ export function GridSkeleton({ count = 8, className = "" }: { count?: number; cl
     </div>
   );
 }
+
+/** 달력 한 판 자리. 월을 옮기는 동안 이 모양으로 기다린다 */
+export function CalendarGridSkeleton({ rows = 6 }: { rows?: number }) {
+  return (
+    <div>
+      <div className="grid grid-cols-7 gap-px">
+        {Array.from({ length: 7 }).map((_, i) => (
+          <Skeleton key={i} className="mx-auto mb-2 h-3 w-6" />
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-px overflow-hidden rounded-xl bg-line">
+        {Array.from({ length: rows * 7 }).map((_, i) => (
+          <div key={i} className="aspect-[3/4] bg-paper p-1.5 sm:aspect-square sm:p-2">
+            <Skeleton className="h-3 w-4" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
