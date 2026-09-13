@@ -90,11 +90,27 @@ http://localhost:3000 → 회원가입 → 옷 등록.
 | `app/manifest.ts` | 이름·아이콘·시작 URL·바로가기 (`/manifest.webmanifest`로 나감) |
 | `app/layout.tsx` | `viewport`(테마색·`viewport-fit=cover`)와 애플 전용 메타 |
 | 상태바 | 덮는지 재서 `data-status-overlay`를 달고, 그때만 헤더 맨 위 `.status-band`가 검게 메웁니다 |
+| `public/splash/` | 켤 때 뜨는 화면. `bin/make-splash.mjs`로 만듭니다 |
 | `app/apple-icon.png` | iOS 홈 화면 아이콘 180px |
 | `public/icon-*.png` | 매니페스트 아이콘 192·512, 안드로이드용 maskable 512 |
 
 아이콘은 헤드라인 폰트(Anton)의 `C`를 잉크색 바탕에 얹은 레터마크입니다.
 maskable 쪽은 안드로이드가 원형으로 잘라내는 걸 감안해 글자를 더 작게 넣었습니다.
+
+### 켤 때 뜨는 화면
+
+iOS 는 `apple-touch-startup-image` 가 없으면 앱이 뜰 때까지 **빈 화면**을 보여줍니다 (까맣게 보입니다).
+안드로이드는 매니페스트의 `background_color` 로 알아서 만들어 주는데 iOS 는 안 해 줍니다.
+
+**기기 크기가 정확히 맞아야 씁니다.** 하나라도 어긋나면 그 기기에서는 그냥 빈 화면입니다.
+그래서 아이폰 세로 크기를 11가지 다 만들어 `app/layout.tsx` 의 `appleWebApp.startupImage` 에
+`media` 쿼리와 함께 적어 뒀습니다.
+
+```bash
+node bin/make-splash.mjs   # public/splash/*.png 를 다시 만든다
+```
+
+새 기종이 나오면 `bin/make-splash.mjs` 의 `DEVICES` 와 `app/layout.tsx` 를 같이 고칩니다.
 
 ### 새로고침
 
@@ -423,6 +439,24 @@ npm run check
 ```bash
 npm run check
 ```
+
+## 데이터 내보내기
+
+`/settings` 아래쪽. 옷장·코디·착용 기록을 한 덩어리로 꺼냅니다.
+**다른 AI 에게 그대로 붙여 넣고 물어보라고** 만든 기능입니다.
+
+- **마크다운**과 **JSON** 둘 다 줍니다. 대화창에 붙여 넣을 거면 마크다운이 낫습니다 —
+  같은 내용에 토큰이 절반쯤 듭니다. JSON 은 프로그램으로 다룰 때 씁니다.
+- **복사는 화면에 이미 있는 글을 그대로 집습니다.** 눌러서 받아오고 나서 복사하면
+  사파리가 "사용자가 누른 김에 하는 일" 로 안 봐서 클립보드를 막습니다.
+- 빈 값은 아예 안 담습니다. 넘겨 봐야 자리만 차지하고 읽는 쪽이 헷갈립니다.
+- **API 키는 절대 안 담습니다.** 내보낸 파일은 다른 서비스에 붙여 넣으라고 만드는 것이고,
+  키가 섞여 나가면 그대로 남의 손에 들어갑니다. 사진도 안 담습니다 — 우리 저장소 경로라
+  다른 데서는 열리지도 않습니다.
+- 착용 기록은 최근 180일까지입니다. 그보다 옛날까지 넣으면 붙여 넣기가 너무 길어집니다.
+- `/api/export` 는 로그인해야 열립니다 (안 하면 401).
+
+모양은 `npm run check` 로 확인합니다 (14가지).
 
 ## 지우기 전에 한 번 묻습니다
 

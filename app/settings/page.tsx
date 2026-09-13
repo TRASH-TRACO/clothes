@@ -1,19 +1,23 @@
 import type { Metadata } from "next";
 
 import { AiKeyForm } from "@/components/ai-key-form";
+import { ExportPanel } from "@/components/export-panel";
 import { BasePlaceForm } from "@/components/base-place-form";
 import { getBasePlace, getClaudeKeyHint, hasBasePlace } from "@/lib/data";
+import { buildExport } from "@/lib/export-build";
+import { toMarkdown } from "@/lib/export-data";
 import { hasAppSecret } from "@/lib/secret";
 import { weatherStoreStatus } from "@/lib/weather-store";
 
 export const metadata: Metadata = { title: "설정" };
 
 export default async function SettingsPage() {
-  const [place, chosen, store, keyHint] = await Promise.all([
+  const [place, chosen, store, keyHint, exported] = await Promise.all([
     getBasePlace(),
     hasBasePlace(),
     weatherStoreStatus(),
     getClaudeKeyHint(),
+    buildExport().catch(() => null),
   ]);
 
   return (
@@ -59,6 +63,26 @@ export default async function SettingsPage() {
           <p className="rounded-xl bg-mist px-5 py-4 text-sm text-muted">
             서버에 <code className="rounded bg-paper px-1.5 py-0.5">APP_SECRET</code> 이 없어 키를
             받을 수 없습니다. 키를 잠글 때 쓰는 값이라 없으면 평문으로 두게 되므로 아예 막아 뒀습니다.
+          </p>
+        )}
+      </section>
+
+      <section className="mt-16 border-t border-line pt-8">
+        <h2 className="eyebrow mb-3">데이터 내보내기</h2>
+        <p className="mb-6 max-w-xl text-sm text-muted">
+          옷장·코디·착용 기록을 한 덩어리로 꺼냅니다. 다른 AI 에게 그대로 붙여 넣고
+          &ldquo;이 옷들로 뭘 사면 좋을까&rdquo; 같은 걸 물어보라고 만든 기능입니다.
+          <span className="mt-2 block">
+            <span className="font-semibold text-ink">API 키는 들어가지 않습니다.</span> 사진도
+            안 담습니다 — 우리 저장소 경로라 다른 데서는 열리지 않습니다.
+          </span>
+        </p>
+
+        {exported ? (
+          <ExportPanel markdown={toMarkdown(exported)} />
+        ) : (
+          <p className="rounded-xl bg-mist px-5 py-4 text-sm text-muted">
+            지금은 꺼낼 수 없습니다. 잠시 후 다시 들어와 주세요.
           </p>
         )}
       </section>

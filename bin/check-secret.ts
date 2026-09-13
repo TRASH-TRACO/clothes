@@ -33,9 +33,18 @@ const plain = "sk-ant-api03-" + "x".repeat(80) + "ab12";
 const packed = encrypt(plain);
 const other = scryptSync("another-app-secret-000000", "closet.secret.v1", 32);
 
-// 마지막 글자를 바꿔 위변조를 흉내 낸다
+/**
+ * 위변조를 흉내 낸다.
+ *
+ * base64 마지막 글자만 바꾸면 안 된다 — 바이트 수에 따라 그 글자의 아래 몇 비트는
+ * 버려지므로, 바꿔도 디코드 결과가 같아서 그대로 풀린다. (실제로 이 확인이
+ * 4번에 1번꼴로 실패했다. 암호화가 아니라 확인하는 쪽이 틀린 것이었다.)
+ * 디코드해서 바이트 하나를 뒤집고 다시 인코드한다.
+ */
 const parts = packed.split(".");
-const tampered = [parts[0], parts[1], parts[2], parts[3].slice(0, -1) + (parts[3].endsWith("A") ? "B" : "A")].join(".");
+const body = Buffer.from(parts[3], "base64url");
+body[0] ^= 0xff;
+const tampered = [parts[0], parts[1], parts[2], body.toString("base64url")].join(".");
 
 const checks: [string, boolean][] = [
   ["잠갔다 풀면 원래 값", decrypt(packed) === plain],
