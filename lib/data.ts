@@ -143,11 +143,15 @@ export const getOutfit = cache(async (id: string): Promise<OutfitWithItems | nul
 });
 
 /**
- * schema.sql 의 착장 기록 부분을 아직 안 돌렸으면 테이블이 없다.
- * 그때 캘린더 전체가 죽는 대신 빈 화면으로 두고, 저장할 때 진짜 이유를 보여준다.
+ * schema.sql 의 해당 부분을 아직 안 돌렸으면 테이블이 없다.
+ * 그때 화면 전체가 죽는 대신 빈 화면으로 두고, 저장할 때 진짜 이유를 보여준다.
+ *
+ * 코드가 둘이다. 포스트그레스가 직접 답할 때는 42P01 이고, PostgREST 가 제 스키마
+ * 목록에서 못 찾으면 PGRST205 를 준다. 후자를 빼먹으면 스키마를 안 올린 사람에게
+ * 페이지가 통째로 500 이 난다.
  */
 function isMissingTable(error: { code?: string } | null) {
-  return error?.code === "42P01";
+  return error?.code === "42P01" || error?.code === "PGRST205";
 }
 
 type WearLogRow = WearLog & {
@@ -220,9 +224,11 @@ export const getCompareLogs = cache(async (): Promise<CompareLogWithItems[]> => 
     )
     .gte("created_at", since)
     .order("created_at", { ascending: false });
-  // 아직 스키마를 안 올린 사람에게는 비교 기능 자체는 그대로 두고 기록만 비운다
-  if (isMissingTable(error)) return [];
-  if (error) throw new Error(error.message);
+  // 기록은 곁다리다. 스키마를 안 올렸든 뭐가 잘못됐든, 비교 자체는 돼야 한다.
+  if (error) {
+    if (!isMissingTable(error)) console.error("[compare] compare_logs", error.message);
+    return [];
+  }
   return (data ?? []) as CompareLogWithItems[];
 });
 
