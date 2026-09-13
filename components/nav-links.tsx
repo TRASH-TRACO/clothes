@@ -4,12 +4,15 @@ import Link from "next/link";
 import { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 
+import { LabBadge } from "@/components/lab-badge";
+
+/** AI 는 아직 다듬는 중이라 맨 끝에 두고 실험실 표시를 붙인다 */
 const LINKS = [
-  { href: "/closet", label: "옷장" },
-  { href: "/studio", label: "코디 만들기" },
-  { href: "/recommend", label: "AI 추천" },
-  { href: "/outfits", label: "저장한 코디" },
-  { href: "/calendar", label: "캘린더" },
+  { href: "/closet", label: "옷장", lab: false },
+  { href: "/studio", label: "코디 만들기", lab: false },
+  { href: "/outfits", label: "저장한 코디", lab: false },
+  { href: "/calendar", label: "캘린더", lab: false },
+  { href: "/ai", label: "AI", lab: true },
 ];
 
 /**
@@ -48,6 +51,7 @@ export function NavLinks({ className = "" }: { className?: string }) {
             }`}
           >
             {link.label}
+            {link.lab ? <LabBadge className="ml-1.5 align-middle" /> : null}
             <LinkProgress active={active} />
           </Link>
         );

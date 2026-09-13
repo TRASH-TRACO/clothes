@@ -286,3 +286,9 @@ alter table public.items
 -- ("그 브랜드 M 은 작았지" 를 다음 구매 때 참고하는 게 목적이다).
 -- 지난 착용 기록은 건드리지 않는다. 기록은 기록이다.
 alter table public.items add column if not exists archived_at timestamptz;
+
+-- 10. 부위별 사이즈감 -----------------------------------------------
+-- 전체 사이즈감(fit)이 "크다" 라고만 하면 어깨가 큰 건지 기장이 긴 건지 모른다.
+-- 실측 항목 key 를 그대로 써서 { "shoulder": "big", "length": "long" } 처럼 담는다.
+-- 값 검사는 lib/feedback.ts 에서 한다 (항목이 앞으로 늘어날 값이라 DB는 글자만 받는다).
+alter table public.items add column if not exists fit_notes jsonb not null default '{}'::jsonb;

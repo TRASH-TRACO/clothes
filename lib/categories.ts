@@ -2,6 +2,12 @@ export const CATEGORIES = ["hat", "outer", "top", "bottom", "shoes", "acc"] as c
 
 export type Category = (typeof CATEGORIES)[number];
 
+/**
+ * 그 부위가 안 맞을 때 뭐라고 하는지.
+ * 기장은 길다/짧다, 품은 크다/작다. 어깨가 "길다" 고는 안 한다.
+ */
+export type FitAxis = "length" | "girth";
+
 export type MeasurementField = {
   key: string;
   label: string;
@@ -9,6 +15,8 @@ export type MeasurementField = {
   placeholder?: string;
   /** 어디서 어디까지 재는지. 헷갈리는 칸에만 적는다 */
   hint?: string;
+  /** 기본은 품(크다/작다) */
+  axis?: FitAxis;
 };
 
 type CategoryMeta = {
@@ -26,22 +34,28 @@ const cm = (
   label: string,
   placeholder?: string,
   hint?: string,
+  axis: FitAxis = "girth",
 ): MeasurementField => ({
   key,
   label,
   unit: "cm",
   placeholder,
   hint,
+  axis,
 });
+
+/** 기장 계열 (길다/짧다) */
+const len = (key: string, label: string, placeholder?: string, hint?: string) =>
+  cm(key, label, placeholder, hint, "length");
 
 /**
  * 소매는 재는 곳이 둘이다. 브랜드 실측표도 보통 둘 다 준다.
  * 하나만 적어 두면 나중에 다른 옷과 견줄 때 어느 쪽이었는지 알 수 없다.
  */
 const sleeveOuter = (placeholder: string) =>
-  cm("sleeve", "소매 (어깨선)", placeholder, "어깨 끝에서 소매 끝까지");
+  len("sleeve", "소매 (어깨선)", placeholder, "어깨 끝에서 소매 끝까지");
 const sleeveInner = (placeholder: string) =>
-  cm("sleeve_inner", "소매 (겨드랑이)", placeholder, "겨드랑이에서 소매 끝까지");
+  len("sleeve_inner", "소매 (겨드랑이)", placeholder, "겨드랑이에서 소매 끝까지");
 
 export const CATEGORY_META: Record<Category, CategoryMeta> = {
   hat: {
@@ -50,8 +64,8 @@ export const CATEGORY_META: Record<Category, CategoryMeta> = {
     order: 0,
     measurements: [
       cm("head", "머리둘레", "58"),
-      cm("brim", "챙 길이", "7"),
-      cm("height", "높이", "12"),
+      len("brim", "챙 길이", "7"),
+      len("height", "높이", "12"),
     ],
     kinds: ["볼캡", "스냅백", "비니", "버킷햇", "페도라", "바이저", "베레모"],
   },
@@ -62,7 +76,7 @@ export const CATEGORY_META: Record<Category, CategoryMeta> = {
     measurements: [
       cm("shoulder", "어깨", "48"),
       cm("chest", "가슴", "56"),
-      cm("length", "총장", "70"),
+      len("length", "총장", "70"),
       sleeveOuter("62"),
       sleeveInner("48"),
     ],
@@ -75,7 +89,7 @@ export const CATEGORY_META: Record<Category, CategoryMeta> = {
     measurements: [
       cm("shoulder", "어깨", "45"),
       cm("chest", "가슴", "52"),
-      cm("length", "총장", "68"),
+      len("length", "총장", "68"),
       sleeveOuter("22"),
       sleeveInner("12"),
     ],
@@ -89,8 +103,8 @@ export const CATEGORY_META: Record<Category, CategoryMeta> = {
       cm("waist", "허리", "40"),
       cm("hip", "엉덩이", "54"),
       cm("thigh", "허벅지", "32"),
-      cm("rise", "밑위", "28"),
-      cm("length", "총장", "100"),
+      len("rise", "밑위", "28"),
+      len("length", "총장", "100"),
       cm("hem", "밑단", "18"),
     ],
     kinds: ["청바지", "슬랙스", "치노", "반바지", "조거", "트레이닝", "카고", "레깅스", "스커트"],
@@ -100,7 +114,7 @@ export const CATEGORY_META: Record<Category, CategoryMeta> = {
     en: "Shoes",
     order: 4,
     measurements: [
-      { key: "size", label: "사이즈", unit: "mm", placeholder: "270" },
+      { key: "size", label: "사이즈", unit: "mm", placeholder: "270", axis: "length" as const },
       cm("width", "발볼", "10"),
     ],
     kinds: ["운동화", "스니커즈", "러닝화", "구두", "로퍼", "부츠", "샌들", "슬리퍼", "쪼리"],
@@ -109,7 +123,7 @@ export const CATEGORY_META: Record<Category, CategoryMeta> = {
     label: "액세서리",
     en: "Accessories",
     order: 5,
-    measurements: [cm("length", "길이", "40"), cm("width", "너비", "3")],
+    measurements: [len("length", "길이", "40"), cm("width", "너비", "3")],
     kinds: ["가방", "벨트", "시계", "목걸이", "반지", "팔찌", "안경", "선글라스", "스카프", "머플러", "장갑", "양말"],
   },
 };
@@ -148,4 +162,9 @@ export function formatMeasurements(category: Category, values: Record<string, nu
     .filter((field) => typeof values[field.key] === "number")
     .map((field) => `${field.label} ${values[field.key]}${field.unit}`)
     .join(" · ");
+}
+
+/** 그 부위가 기장 계열인지 (길다/짧다) 품 계열인지 (크다/작다) */
+export function fitAxisOf(field: MeasurementField): FitAxis {
+  return field.axis ?? "girth";
 }

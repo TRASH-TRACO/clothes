@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { ItemPhoto } from "@/components/item-photo";
 import { compareRows, diffLabel } from "@/lib/compare";
 import { CATEGORY_META, SLOT_ORDER, measurementFields } from "@/lib/categories";
-import { FIT_LABELS } from "@/lib/feedback";
+import { FIT_LABELS, PART_FIT_LABELS, readPartFits } from "@/lib/feedback";
 import type { Item } from "@/lib/types";
 
 /**
@@ -36,6 +36,9 @@ export function CompareView({ items, initialA, initialB }: {
       })).filter((group) => group.items.length > 0),
     [items],
   );
+
+  const notesA = readPartFits(itemA?.fit_notes);
+  const notesB = readPartFits(itemB?.fit_notes);
 
   const rows =
     itemA && itemB
@@ -181,7 +184,17 @@ export function CompareView({ items, initialA, initialB }: {
                     const label = diffLabel(row.diff);
                     return (
                       <tr key={row.key} className="border-b border-line/70">
-                        <td className="py-3 pr-2 text-muted">{row.label}</td>
+                        <td className="py-3 pr-2 text-muted">
+                          {row.label}
+                          {/* 숫자 밑에 그 사람이 그 숫자를 어떻게 느꼈는지 */}
+                          {notesA[row.key] || notesB[row.key] ? (
+                            <span className="mt-0.5 block text-[11px] text-line">
+                              {notesA[row.key] ? `← ${PART_FIT_LABELS[notesA[row.key]]}` : ""}
+                              {notesA[row.key] && notesB[row.key] ? " · " : ""}
+                              {notesB[row.key] ? `${PART_FIT_LABELS[notesB[row.key]]} →` : ""}
+                            </span>
+                          ) : null}
+                        </td>
                         {/* 큰 쪽을 진하게. 숫자만 보고도 어느 게 큰지 바로 보이게 */}
                         <td
                           className={`py-3 px-2 text-right tabular-nums ${

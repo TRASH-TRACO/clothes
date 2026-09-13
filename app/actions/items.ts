@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { isCategory, isKindOf, measurementFields, type Category } from "@/lib/categories";
-import { isFit, type Fit } from "@/lib/feedback";
+import { isFit, isPartFit, type Fit, type PartFit } from "@/lib/feedback";
 import { PHOTO_BUCKET } from "@/lib/supabase/env";
 import { createClient, getUser } from "@/lib/supabase/server";
 import type { ActionState } from "@/lib/types";
@@ -22,6 +22,7 @@ type ItemValues = {
   color_hex: string;
   size_label: string | null;
   fit: Fit | null;
+  fit_notes: Record<string, PartFit>;
   photo_path: string | null;
   photo_paths: string[];
   notes: string | null;
@@ -77,6 +78,12 @@ function parseItem(formData: FormData): ParseResult {
       size_label: optional("size_label"),
       // 목록에 있는 값만 받는다 (DB 쪽에도 같은 검사가 걸려 있다)
       fit: isFit(formData.get("fit")) ? (formData.get("fit") as Fit) : null,
+      // 부위별 느낌은 "pf_<실측 key>" 로 온다. 그 분류에 있는 항목만 받는다.
+      fit_notes: Object.fromEntries(
+        measurementFields(category)
+          .map((field) => [field.key, formData.get(`pf_${field.key}`)] as const)
+          .filter((entry): entry is readonly [string, PartFit] => isPartFit(entry[1])),
+      ),
       // 첫 장이 대표 사진. 목록·카드는 photo_path 만 보므로 같이 채운다.
       photo_path: photos[0] ?? null,
       photo_paths: photos,

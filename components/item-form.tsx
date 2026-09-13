@@ -5,6 +5,7 @@ import { useActionState, useState } from "react";
 
 import { BrandInput, type BrandOption } from "@/components/brand-input";
 import { FitPicker } from "@/components/fit-picker";
+import { PartFitPicker } from "@/components/part-fit-picker";
 import { PhotoListInput } from "@/components/photo-list-input";
 import {
   CATEGORIES,
@@ -15,6 +16,7 @@ import {
 } from "@/lib/categories";
 import { COLOR_PRESETS, isLight } from "@/lib/colors";
 import { itemPhotos } from "@/lib/photos";
+import { readPartFits } from "@/lib/feedback";
 import type { ActionState, Item } from "@/lib/types";
 
 type Props = {
@@ -290,6 +292,17 @@ export function ItemForm({ userId, item, brands, action }: Props) {
           <p className="label mb-1">입어보니 품이 (선택)</p>
           <p className="mb-3 text-xs text-muted">왼쪽으로 갈수록 작고 오른쪽으로 갈수록 넉넉합니다.</p>
           <FitPicker defaultValue={item?.fit ?? null} />
+
+          {/* "크다" 만으로는 어깨가 큰 건지 기장이 긴 건지 모른다.
+              새 옷 살 때 필요한 건 그 "어디가" 쪽이다. */}
+          {fields.length > 0 ? (
+            <div className="mt-6 rounded-xl bg-mist p-4">
+              <p className="mb-1 text-sm font-medium">어디가 그런가요? (선택)</p>
+              <p className="mb-4 text-xs text-muted">딱 맞은 부위는 안 고르면 됩니다.</p>
+              <PartFitPicker fields={fields} /* DB 의 jsonb 를 그대로 믿지 않는다 */
+                defaultValues={readPartFits(item?.fit_notes)} />
+            </div>
+          ) : null}
         </div>
       </div>
 

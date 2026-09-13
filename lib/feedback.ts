@@ -60,3 +60,39 @@ export function isFelt(value: unknown): value is Felt {
 export function isRating(value: unknown): value is Rating {
   return typeof value === "string" && RATING_VALUES.includes(value as Rating);
 }
+
+/**
+ * 부위별로 어땠는지. 기장은 길다/짧다, 품은 크다/작다.
+ *
+ * 전체 사이즈감(Fit)이 "크다" 라고만 하면 어깨가 큰 건지 기장이 긴 건지 모른다.
+ * 새 옷 살 때 필요한 건 그 "어디가" 쪽이다.
+ */
+export const PART_FIT_VALUES = ["long", "short", "big", "small"] as const;
+export type PartFit = (typeof PART_FIT_VALUES)[number];
+
+export const PART_FIT_LABELS: Record<PartFit, string> = {
+  long: "길다",
+  short: "짧다",
+  big: "크다",
+  small: "작다",
+};
+
+/** 기장 계열에서 고를 수 있는 값 / 품 계열에서 고를 수 있는 값 */
+export const PART_FIT_BY_AXIS = {
+  length: ["long", "short"],
+  girth: ["big", "small"],
+} as const satisfies Record<string, readonly PartFit[]>;
+
+export function isPartFit(value: unknown): value is PartFit {
+  return typeof value === "string" && PART_FIT_VALUES.includes(value as PartFit);
+}
+
+/** DB 에서 온 jsonb 를 믿지 않고 걸러 낸다 */
+export function readPartFits(value: unknown): Record<string, PartFit> {
+  if (!value || typeof value !== "object") return {};
+  const out: Record<string, PartFit> = {};
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    if (isPartFit(entry)) out[key] = entry;
+  }
+  return out;
+}

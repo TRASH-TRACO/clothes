@@ -230,3 +230,58 @@ export async function cropToJpeg(
   if (!blob) throw new Error("이미지 변환에 실패했습니다.");
   return blob;
 }
+
+/** 실측표 사진을 모델에 보낼 때 줄이는 크기. 글씨가 읽힐 만큼은 남겨야 한다 */
+const READ_EDGE = 1400;
+
+/**
+ * 사진을 자르지 않고 줄이기만 해서 JPEG 로 만든다.
+ *
+ * 실측표 스크린샷을 모델에 보낼 때 쓴다. 잘라내면 표가 잘리므로 크롭은 안 한다.
+ * 원본을 그대로 보내면 몇 MB 씩 되어 서버 액션 본문 제한에 걸린다.
+ */
+export async function shrinkForReading(
+  file: File,
+  maxEdge = READ_EDGE,
+  quality = QUALITY,
+): Promise<{ blob: Blob; width: number; height: number }> {
+  const { image, url } = await loadImage(file);
+  try {
+    const scale = Math.min(1, maxEdge / Math.max(image.naturalWidth, image.naturalHeight));
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("이미지를 처리할 수 없습니다.");
+
+    // 투명한 자리가 검정이 되지 않게 (누끼 딴 상품 사진이 흔하다)
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, width, height);
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    context.drawImage(image, 0, 0, width, height);
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", quality),
+    );
+    if (!blob) throw new Error("이미지 변환에 실패했습니다.");
+    return { blob, width, height };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** Blob → base64 (data: 접두사 없이). 모델에 실어 보낼 모양 */
+export async function toBase64(blob: Blob): Promise<string> {
+  const buffer = await blob.arrayBuffer();
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  // 한 번에 넘기면 인자 수 제한에 걸린다
+  for (let i = 0; i < bytes.length; i += 8192) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+  }
+  return btoa(binary);
+}

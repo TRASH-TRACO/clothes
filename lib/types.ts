@@ -1,5 +1,5 @@
 import type { Category } from "./categories";
-import type { Felt, Fit, Rating } from "./feedback";
+import type { Felt, Fit, PartFit, Rating } from "./feedback";
 
 export type Item = {
   id: string;
@@ -14,6 +14,8 @@ export type Item = {
   size_label: string | null;
   /** 입어보니 품이 어땠는지. 안 적었으면 null */
   fit: Fit | null;
+  /** 부위별로 어땠는지 (실측 항목 key → 길다/짧다/크다/작다) */
+  fit_notes: Record<string, PartFit>;
   /** 대표 사진. photo_paths 의 첫 장과 같다 */
   photo_path: string | null;
   /** 올린 사진 전부 (대표 포함) */

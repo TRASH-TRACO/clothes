@@ -13,6 +13,8 @@ function supabaseHostname() {
 
 const nextConfig: NextConfig = {
   experimental: {
+    // 실측표 사진을 서버 액션 본문으로 보낸다 (줄여도 장당 수백 KB)
+    serverActions: { bodySizeLimit: "6mb" },
     /**
      * 클라이언트 라우터 캐시. dynamic 기본값이 0초라 화면을 옮길 때마다
      * 서버에서 다시 받아온다. 잠깐 사이에 왔다 갔다 하는 건 그대로 재사용한다.
