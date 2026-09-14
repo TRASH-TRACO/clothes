@@ -5,8 +5,9 @@ import { notFound } from "next/navigation";
 import { archiveItem, deleteItem, unarchiveItem } from "@/app/actions/items";
 import { ConfirmForm } from "@/components/confirm-form";
 import { ColorDot } from "@/components/color-dot";
+import { MeasurementGrid } from "@/components/measurement-grid";
 import { PhotoCarousel } from "@/components/photo-carousel";
-import { CATEGORY_META, measurementFields } from "@/lib/categories";
+import { CATEGORY_META } from "@/lib/categories";
 import { FIT_LABELS } from "@/lib/feedback";
 import { OutfitCard } from "@/components/outfit-card";
 import { getItem, getOutfitsWithItem } from "@/lib/data";
@@ -24,10 +25,6 @@ export default async function ItemPage({ params }: PageProps<"/closet/[id]">) {
   if (!item) notFound();
 
   const outfits = await getOutfitsWithItem(item.id);
-
-  const fields = measurementFields(item.category).filter(
-    (field) => typeof item.measurements?.[field.key] === "number",
-  );
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-12 lg:px-10">
@@ -88,21 +85,7 @@ export default async function ItemPage({ params }: PageProps<"/closet/[id]">) {
                 다른 옷과 비교 →
               </Link>
             </div>
-            {fields.length === 0 ? (
-              <p className="text-sm text-muted">기록된 실측값이 없습니다.</p>
-            ) : (
-              <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-line sm:grid-cols-3">
-                {fields.map((field) => (
-                  <div key={field.key} className="bg-paper px-4 py-5">
-                    <p className="text-xs uppercase tracking-[0.12em] text-muted">{field.label}</p>
-                    <p className="display mt-2 text-3xl">
-                      {item.measurements[field.key]}
-                      <span className="ml-1 text-base">{field.unit}</span>
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
+            <MeasurementGrid item={item} />
           </section>
 
           {item.notes ? (
