@@ -57,6 +57,8 @@ const checks: [string, boolean][] = [
   ["사이즈감 적힌 옷을 먼저 보라는 지시", SIZE_SYSTEM_PROMPT.includes("사이즈감을 적어 둔 것")],
   ["단위 확인 지시", SIZE_SYSTEM_PROMPT.includes("inch")],
   ["적어 둔 느낌을 반영하라는 지시", SIZE_SYSTEM_PROMPT.includes("사용자가 적어 둔 느낌을 반드시 반영한다")],
+  ["적당하다를 기준선으로 삼으라는 지시", SIZE_SYSTEM_PROMPT.includes("이 사람의 기준선")],
+  ["안 적은 부위와 구분하라는 지시", SIZE_SYSTEM_PROMPT.includes("아무 말도 없는 부위와는 다르다")],
   ["확신 없으면 말하라는 지시", SIZE_SYSTEM_PROMPT.includes("확신이 안 서면")],
 ];
 

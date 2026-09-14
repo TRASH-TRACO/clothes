@@ -62,12 +62,16 @@ export function isRating(value: unknown): value is Rating {
 }
 
 /**
- * 부위별로 어땠는지. 기장은 길다/짧다, 품은 크다/작다.
+ * 부위별로 어땠는지. 기장은 길다/짧다, 품은 크다/작다, 양쪽 다 "적당하다" 가 있다.
  *
  * 전체 사이즈감(Fit)이 "크다" 라고만 하면 어깨가 큰 건지 기장이 긴 건지 모른다.
  * 새 옷 살 때 필요한 건 그 "어디가" 쪽이다.
+ *
+ * **"적당하다" 와 "안 적었다" 는 다르다.** 안 적은 건 모르는 것이고, 적당하다고
+ * 적은 건 입어보고 괜찮았다는 기록이다. 새 옷을 견줄 때 "그 옷 어깨가 딱 맞았으니
+ * 이건 크겠다" 는 말은 앞의 것으로는 못 한다.
  */
-export const PART_FIT_VALUES = ["long", "short", "big", "small"] as const;
+export const PART_FIT_VALUES = ["long", "short", "big", "small", "good"] as const;
 export type PartFit = (typeof PART_FIT_VALUES)[number];
 
 export const PART_FIT_LABELS: Record<PartFit, string> = {
@@ -75,12 +79,25 @@ export const PART_FIT_LABELS: Record<PartFit, string> = {
   short: "짧다",
   big: "크다",
   small: "작다",
+  good: "적당하다",
 };
 
-/** 기장 계열에서 고를 수 있는 값 / 품 계열에서 고를 수 있는 값 */
+/** 옷장 목록처럼 좁은 자리에 붙이는 짧은 표시 */
+export const PART_FIT_SHORT: Record<PartFit, string> = {
+  long: "길다",
+  short: "짧다",
+  big: "크다",
+  small: "작다",
+  good: "적당",
+};
+
+/**
+ * 기장 계열에서 고를 수 있는 값 / 품 계열에서 고를 수 있는 값.
+ * 가운데가 "적당" 이라 세 칸이 그대로 눈금이 된다 (길다 – 적당 – 짧다).
+ */
 export const PART_FIT_BY_AXIS = {
-  length: ["long", "short"],
-  girth: ["big", "small"],
+  length: ["long", "good", "short"],
+  girth: ["big", "good", "small"],
 } as const satisfies Record<string, readonly PartFit[]>;
 
 export function isPartFit(value: unknown): value is PartFit {

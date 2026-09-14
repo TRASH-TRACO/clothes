@@ -50,7 +50,7 @@ export function PartFitPicker({
                     aria-pressed={active}
                     aria-label={`${field.label} ${PART_FIT_LABELS[option]}`}
                     onClick={() => toggle(field.key, option)}
-                    className={`min-w-[52px] rounded-lg border px-2 py-1.5 text-xs font-medium
+                    className={`min-w-[46px] rounded-lg border px-1.5 py-1.5 text-xs font-medium
                       transition-colors ${
                         active
                           ? "border-ink bg-ink text-paper"
