@@ -3,9 +3,8 @@
  *
  * 옷 하나를 **진자**로 본다. 걸린 자리가 축이고, 옷 무게중심이 추다.
  *
- * 손은 바람이 아니라 **물건**이다. 옷걸이 사이로 손을 훑으면 옷이 손 앞으로
- * 밀렸다가 손이 지나가면 놓여나 흔들린다 — 그 그림이다 (shove).
- * step 은 손이 안 닿을 때 스스로 흔들리는 부분이다.
+ * 손은 **진자를 당기는 손**이다. 옷을 잡아 옆으로 끌었다가 놓으면 그때부터 진자로
+ * 돈다 (angleAt → pull → release). step 은 손을 놓은 뒤 스스로 흔들리는 부분이다.
  *
  * 아무것도 안 물게 해 뒀다 (bin/check-pendulum.ts 에서 바로 돌린다).
  */
@@ -52,14 +51,6 @@ const MAX_DT = 1 / 90;
 /** 안전 한계. 여기까지 가면 속도를 죽인다 — 봉 위로 넘어가는 그림은 없다 */
 const MAX_ANGLE = 1.2;
 
-/** 손에 밀려 옷이 낼 수 있는 가로 속도 한계 (px/s). 손가락은 이보다 훨씬 빠르게도 지나간다 */
-const MAX_CARRY = 950;
-
-/**
- * 많이 기울었을 때 cos 이 0 에 가까워지면서 0 으로 나누게 된다.
- * 그 자리에서는 옷이 가로로 거의 안 움직이니 각도로 바꾸는 계산도 의미가 없다.
- */
-const MIN_COS = 0.25;
 
 /**
  * 한 걸음.
@@ -119,37 +110,50 @@ export function period(shape: Shape): number {
 }
 
 /**
- * 손가락이 옷을 밀어낸다.
+ * 손가락이 이 자리에 있을 때 옷이 놓이는 각도.
  *
- * 바람처럼 살살 미는 게 아니라 **닿아서 치우는** 것이다. 손가락이 파고든 만큼
- * 옷을 밖으로 내보내고, 미는 동안은 손 속도로 따라가게 한다. 손이 지나가면
- * 그 속도를 그대로 들고 놓여나므로 크게 한 번 넘어갔다가 되돌아온다.
+ * 줄에 매달린 것이라 길이보다 멀리는 못 간다. 손을 아무리 옆으로 빼도
+ * 90도(옆으로 누운 자리)가 끝이다.
  *
- * @param gap 옷 한가운데 − 손가락 (px, 가로). 양수면 옷이 손 오른쪽에 있다
- * @param reach 손가락 반지름 + 옷 반너비 (px). |gap| 이 이보다 작으면 닿은 것
- * @param handSpeed 손가락 가로 속도 (px/s)
+ * @param reach 손가락 − 걸린 자리 (px, 가로)
  */
-export function shove(state: Swing, shape: Shape, gap: number, reach: number, handSpeed: number): Swing {
-  // 각도 1rad 당 옷이 가로로 움직이는 거리. 각도와 px 을 오가는 환율이다.
-  const arm = shape.length * Math.max(Math.cos(state.angle), MIN_COS);
+export function angleAt(shape: Shape, reach: number): number {
+  return Math.asin(Math.max(-1, Math.min(1, reach / shape.length)));
+}
 
-  // 어느 쪽으로 치울까. 이미 치우쳐 있으면 그쪽으로, 딱 겹쳐 있으면 손이 가는 쪽으로.
-  const side = Math.abs(gap) > 1 ? Math.sign(gap) : Math.sign(handSpeed) || 1;
-  // 손가락 밖으로 나가려면 이만큼 옮겨야 한다
-  const push = side * reach - gap;
+/**
+ * 끌려가는 동안.
+ *
+ * 손이 잡고 있으니 중력은 일하지 않는다 — 손이 가는 자리로 그냥 따라간다.
+ * **속도는 실제로 움직인 만큼만** 갖는다. 손 속도를 따로 얹지 않는다 —
+ * 그러면 없던 힘이 생겨서 놓았을 때 당긴 데보다 높이 올라간다.
+ */
+export function pull(state: Swing, target: number, dt: number): Swing {
+  const angle = Math.max(-MAX_ANGLE, Math.min(MAX_ANGLE, target));
+  return { angle, speed: dt > 0 ? (angle - state.angle) / dt : 0 };
+}
 
-  const carry = Math.max(-MAX_CARRY, Math.min(MAX_CARRY, handSpeed));
-  let angle = state.angle + push / arm;
-  let speed = carry / arm;
+/**
+ * 손을 놓을 때.
+ *
+ * **당긴 데보다 높이 올라가지 않게** 속도를 깎는다. 진자가 올라갈 수 있는 높이는
+ * 가진 에너지가 정한다.
+ *
+ *   ½(Lω)² + gL(1−cosθ) = gL(1−cos θ_max)
+ *   →  ω² = 2g(cosθ − cos θ_max)/L
+ *
+ * 그래서 지금 각도 θ 에서 θ_max 까지만 올라가려면 속도가 이 값을 넘으면 안 된다.
+ * 손을 끝에서 놓으면(θ = θ_max) 0 이 되어 그 자리에서 조용히 떨어진다.
+ *
+ * @param peak 끌고 다니는 동안 가 본 가장 먼 각도 (라디안)
+ */
+export function release(state: Swing, shape: Shape, peak: number): Swing {
+  const limit = Math.min(Math.abs(peak), MAX_ANGLE);
+  const gain = Math.cos(state.angle) - Math.cos(limit);
+  if (gain <= 0) return { angle: state.angle, speed: 0 };
 
-  if (angle > MAX_ANGLE) {
-    angle = MAX_ANGLE;
-    if (speed > 0) speed = 0;
-  } else if (angle < -MAX_ANGLE) {
-    angle = -MAX_ANGLE;
-    if (speed < 0) speed = 0;
-  }
-  return { angle, speed };
+  const most = Math.sqrt((2 * GRAVITY * gain) / shape.length);
+  return { angle: state.angle, speed: Math.max(-most, Math.min(most, state.speed)) };
 }
 
 /** 옷 한가운데가 축에서 가로로 얼마나 벗어나 있는지 (px) */

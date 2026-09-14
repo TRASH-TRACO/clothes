@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 
 import { ItemPhoto } from "@/components/item-photo";
 import type { Category } from "@/lib/categories";
-import { offsetX, offsetY, shove, step, type Shape, type Swing } from "@/lib/pendulum";
+import { angleAt, offsetX, offsetY, pull, release, step, type Shape, type Swing } from "@/lib/pendulum";
 
 export type Hanger = {
   photoPath: string | null;
@@ -22,24 +22,15 @@ export type Hanger = {
   phase: number;
 };
 
-/** 손가락 굵기 (반지름, px). 여기에 옷 반너비를 더한 만큼이 닿는 범위다 */
-const FINGER = 14;
+/** 손가락 굵기 (반지름, px). 여기에 옷 반너비를 더한 만큼 안에 있으면 잡힌다 */
+const FINGER = 22;
 
 /**
- * 세로로 얼마나 어긋나도 닿은 것으로 볼지 (px).
+ * 세로로 얼마나 어긋나도 잡히는지 (px).
  *
- * 옷이 화면 위쪽 작은 영역에만 걸려 있어서, 딱 맞춰 대야만 반응하면 안 움직이는
- * 줄 안다. 조금 여유를 준다.
+ * 옷이 화면 위쪽 작은 영역에만 걸려 있어서, 딱 맞춰 대야만 잡히면 안 잡히는 줄 안다.
  */
-const SLACK = 40;
-
-/**
- * 이만큼 손이 멈춰 있으면 뗀 것으로 본다 (초).
- *
- * 폰은 손을 떼면 pointerup 이 오지만 마우스는 안 온다. 안 그러면 커서를 옷 위에
- * 둔 채 다른 일을 하는 동안 옷이 붙잡힌 채로 남는다.
- */
-const LET_GO = 0.25;
+const SLACK = 44;
 
 /**
  * 손을 안 대도 부는 산들바람 (px/s).
@@ -54,14 +45,16 @@ const BREEZE = 12;
 const MAX_FRAME = 0.1;
 
 /**
- * 봉에 걸린 옷을 손으로 직접 밀친다.
+ * 봉에 걸린 옷을 손으로 당겼다 놓는다.
  *
- * 손은 바람이 아니라 **물건**이다. 옷걸이 사이로 손을 훑으면 닿은 옷이 손 앞으로
- * 치워졌다가, 손이 지나가면 그 속도를 들고 놓여나 크게 흔들린다.
- * 닿지 않은 옷은 건드리지 않는다 — 그래야 손이 어디를 지나갔는지가 보인다.
+ * 누르면 그 자리에 있는 옷 **한 벌**을 잡는다. 끄는 동안 옷은 손을 그대로 따라오고
+ * (중력은 손이 이기고 있으니 일하지 않는다), 손을 놓으면 그때부터 진자로 돈다.
  *
- * 옷마다 진자로 풀어서 (lib/pendulum.ts) 길게 걸린 옷은 느리게, 짧게 걸린 옷은
- * 빠르게 되돌아온다.
+ * **당긴 데보다 높이 올라가지 않는다.** 놓을 때 속도를 에너지로 재서 깎기 때문이다
+ * (lib/pendulum.ts 의 release). 끝까지 끌고 가서 놓으면 그 자리에서 조용히 떨어지고,
+ * 오다가 도중에 놓아도 당겨 둔 데까지만 올라간다.
+ *
+ * 옷마다 길이가 달라 (걸린 자리에서 옷 한가운데까지) 되돌아오는 속도가 다르다.
  *
  * 각도는 리액트 밖에서 DOM 에 직접 쓴다. 초당 60번 다시 그릴 이유가 없다.
  */
@@ -88,32 +81,41 @@ export function RailSwing({ hangers }: { hangers: Hanger[] }) {
     }
     measure();
 
-    /** 손가락. touching 이 false 면 화면에 없는 것으로 친다 */
     let handX = 0;
-    let handY = 0;
-    let handSpeed = 0;
-    let touching = false;
-    let idle = 0;
-    let lastX: number | null = null;
-    let lastAt = 0;
+    /** 지금 잡고 있는 옷. −1 이면 아무것도 안 잡았다 */
+    let held = -1;
+    /** 끌고 다니는 동안 가 본 가장 먼 각도. 놓을 때 여기까지만 올라가게 한다 */
+    let peak = 0;
 
-    function onMove(event: PointerEvent) {
-      const now = event.timeStamp;
-      if (lastX !== null && now > lastAt) {
-        handSpeed = ((event.clientX - lastX) / (now - lastAt)) * 1000;
-      }
+    function onDown(event: PointerEvent) {
       handX = event.clientX;
-      handY = event.clientY;
-      lastX = event.clientX;
-      lastAt = now;
-      touching = true;
-      idle = 0;
+      // 손가락에 제일 가까운 옷 한 벌만 잡는다. 여럿을 한꺼번에 끄는 손은 없다.
+      let best = -1;
+      let nearest = Infinity;
+      for (let i = 0; i < hangers.length; i += 1) {
+        const hanger = hangers[i];
+        const bobX = pivots[i].x + offsetX(swings[i], hanger.shape);
+        const bobY = pivots[i].y + offsetY(swings[i], hanger.shape);
+        const away = Math.abs(bobX - event.clientX);
+        if (away > FINGER + hanger.width / 2 || away >= nearest) continue;
+        if (Math.abs(event.clientY - bobY) > (hanger.width * 4) / 3 / 2 + SLACK) continue;
+        nearest = away;
+        best = i;
+      }
+      held = best;
+      peak = best < 0 ? 0 : Math.abs(swings[best].angle);
     }
 
-    function onLeave() {
-      touching = false;
-      handSpeed = 0;
-      lastX = null;
+    function onMove(event: PointerEvent) {
+      handX = event.clientX;
+    }
+
+    function onUp() {
+      if (held >= 0) {
+        // 놓는 순간 당긴 데까지만 올라가도록 속도를 깎는다
+        swings[held] = release(swings[held], hangers[held].shape, peak);
+      }
+      held = -1;
     }
 
     let raf = 0;
@@ -123,33 +125,18 @@ export function RailSwing({ hangers }: { hangers: Hanger[] }) {
       const dt = Math.min((now - last) / 1000, MAX_FRAME);
       last = now;
 
-      // 손이 멈춰 있으면 뗀 것으로 본다 (마우스는 뗀다는 신호가 없다)
-      idle += dt;
-      if (idle > LET_GO) {
-        touching = false;
-        handSpeed = 0;
-      }
       const clock = now / 1000;
 
       for (let i = 0; i < hangers.length; i += 1) {
         const hanger = hangers[i];
         const state = swings[i];
-        const pivot = pivots[i];
-        // 옷 한가운데가 지금 어디에 있는지. 밀렸으면 그만큼 옆으로 가 있다.
-        const bobX = pivot.x + offsetX(state, hanger.shape);
-        const bobY = pivot.y + offsetY(state, hanger.shape);
 
-        const reach = FINGER + hanger.width / 2;
-        const gap = bobX - handX;
-        const hit =
-          touching &&
-          Math.abs(gap) < reach &&
-          Math.abs(handY - bobY) < (hanger.width * 4) / 3 / 2 + SLACK;
-
-        if (hit) {
-          swings[i] = shove(state, hanger.shape, gap, reach, handSpeed);
+        if (i === held) {
+          // 잡고 있는 동안은 손이 가는 자리로 따라간다
+          swings[i] = pull(state, angleAt(hanger.shape, handX - pivots[i].x), dt);
+          peak = Math.max(peak, Math.abs(swings[i].angle));
         } else {
-          // 손이 안 닿을 때는 스스로 흔들린다. 산들바람은 죽은 듯 서 있지 않게 하는 정도.
+          // 놓여난 뒤에는 스스로 흔들린다. 산들바람은 죽은 듯 서 있지 않게 하는 정도.
           const breeze =
             BREEZE * Math.sin(clock * 0.63 + hanger.phase) +
             BREEZE * 0.6 * Math.sin(clock * 1.07 + hanger.phase * 1.7);
@@ -157,8 +144,11 @@ export function RailSwing({ hangers }: { hangers: Hanger[] }) {
         }
 
         const node = nodes.current[i];
+        if (!node) continue;
         // rotate 는 transform 과 따로 쌓인다. Tailwind 의 -translate-x-1/2 를 안 지운다.
-        if (node) node.style.rotate = `${((swings[i].angle * 180) / Math.PI).toFixed(2)}deg`;
+        node.style.rotate = `${((swings[i].angle * 180) / Math.PI).toFixed(2)}deg`;
+        // 뭘 잡았는지 보여야 끌고 있다는 걸 안다
+        node.style.opacity = i === held ? "0.55" : "";
       }
       raf = requestAnimationFrame(frame);
     }
@@ -186,10 +176,10 @@ export function RailSwing({ hangers }: { hangers: Hanger[] }) {
     });
     seen.observe(box);
 
+    window.addEventListener("pointerdown", onDown, { passive: true });
     window.addEventListener("pointermove", onMove, { passive: true });
-    window.addEventListener("pointerup", onLeave, { passive: true });
-    window.addEventListener("pointercancel", onLeave, { passive: true });
-    window.addEventListener("pointerleave", onLeave, { passive: true });
+    window.addEventListener("pointerup", onUp, { passive: true });
+    window.addEventListener("pointercancel", onUp, { passive: true });
     window.addEventListener("resize", measure, { passive: true });
     window.addEventListener("scroll", measure, { passive: true });
     document.addEventListener("visibilitychange", onVisible);
@@ -197,10 +187,10 @@ export function RailSwing({ hangers }: { hangers: Hanger[] }) {
     return () => {
       stop();
       seen.disconnect();
+      window.removeEventListener("pointerdown", onDown);
       window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onLeave);
-      window.removeEventListener("pointercancel", onLeave);
-      window.removeEventListener("pointerleave", onLeave);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
       window.removeEventListener("resize", measure);
       window.removeEventListener("scroll", measure);
       document.removeEventListener("visibilitychange", onVisible);

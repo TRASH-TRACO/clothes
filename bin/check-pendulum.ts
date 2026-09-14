@@ -3,11 +3,12 @@
  *   node --experimental-strip-types bin/check-pendulum.ts
  */
 import {
+  angleAt,
   GRAVITY,
-  offsetX,
   period,
+  pull,
+  release,
   restAngle,
-  shove,
   step,
   type Shape,
   type Swing,
@@ -71,42 +72,40 @@ let overshoot = 0;
   }
 }
 
-/** 손가락 반지름 + 옷 반너비 */
-const REACH = 14 + 20;
-
 /**
- * 손가락을 한 자리에 대고 계속 미는 경우.
+ * 당겼다 놓고 나서 가장 멀리 간 각도.
  *
- * 한 번에 다 치워지지는 않는다 — 각도를 px 로 바꿀 때 쓰는 arm 이 작은 각도 기준이라,
- * 크게 밀 때는 실제로 움직이는 거리가 계산보다 짧다. 다음 프레임에 남은 만큼 또
- * 밀리므로 몇 프레임이면 손 밖으로 나간다. 그게 맞는 동작이라 그렇게 잰다.
+ * 형님이 물은 게 바로 이거다 — 당긴 데보다 높이 올라가면 안 된다.
+ *
+ * @param to 어디까지 끌고 갈지 (라디안)
+ * @param letGoAt 어디서 손을 놓을지. to 보다 작으면 "끌고 오다가 도중에 놓기" 다
  */
-function pinned(times: number) {
+function swungTo(to: number, letGoAt = to, shape: Shape = shirt) {
   let state: Swing = { angle: 0, speed: 0 };
-  // 손가락은 축 바로 아래에 있고 옷이 그 위에 겹쳐 있다
-  for (let i = 0; i < times; i += 1) {
-    state = shove(state, shirt, offsetX(state, shirt), REACH, 800);
+  let peak = 0;
+
+  // 손이 0 에서 to 까지 0.5초 동안 끌고 간다
+  const dragFrames = Math.round(0.5 / DT);
+  for (let i = 1; i <= dragFrames; i += 1) {
+    const target = (to * i) / dragFrames;
+    state = pull(state, target, DT);
+    peak = Math.max(peak, Math.abs(state.angle));
+    // 놓기로 한 자리를 지나면 거기서 손을 뗀다
+    if (Math.abs(state.angle) >= Math.abs(letGoAt)) break;
   }
-  return offsetX(state, shirt);
+
+  state = release(state, shape, peak);
+
+  let most = Math.abs(state.angle);
+  for (let i = 0; i < 60 * 12; i += 1) {
+    state = step(state, shape, 0, DT);
+    most = Math.max(most, Math.abs(state.angle));
+  }
+  return { peak, most, rest: state.angle };
 }
 
-/** 손으로 한 번 훑고 지나간 뒤 어떻게 되는지 */
-const swept = (() => {
-  let state: Swing = { angle: 0, speed: 0 };
-  // 손가락이 옷 한가운데를 가로질러 간다 (초당 900px)
-  let finger = -80;
-  let peak = 0;
-  for (let i = 0; i < 60 * 12; i += 1) {
-    finger += 900 * DT;
-    const gap = offsetX(state, shirt) - finger;
-    state =
-      Math.abs(gap) < REACH
-        ? shove(state, shirt, gap, REACH, 900)
-        : step(state, shirt, 0, DT);
-    peak = Math.max(peak, Math.abs(state.angle));
-  }
-  return { peak, rest: state.angle };
-})();
+const pulled = swungTo(0.6);
+const flicked = swungTo(0.6, 0.1);
 
 const checks: [string, boolean][] = [
   ["가만히 두면 그대로", still.angle === 0 && still.speed === 0],
@@ -134,22 +133,28 @@ const checks: [string, boolean][] = [
 
   ["중력은 화면용 값", GRAVITY > 0 && GRAVITY < 1000],
 
-  // 손으로 직접 밀 때. 바람과 달리 닿은 만큼 바로 치워진다.
-  ["한 번 밀면 손에서 멀어진다", pinned(1) > 0],
-  ["계속 밀면 손 밖으로 나간다", pinned(6) >= REACH],
-  ["더 밀어도 한계 안에서 멎는다", Math.abs(pinned(60) - pinned(6)) < 6],
-  ["미는 쪽으로 밀린다", shove({ angle: 0, speed: 0 }, shirt, 0, REACH, 900).angle > 0],
-  ["반대로 훑으면 반대로", shove({ angle: 0, speed: 0 }, shirt, 0, REACH, -900).angle < 0],
-  ["이미 치우쳐 있으면 그쪽으로 계속 치운다", shove({ angle: 0.3, speed: 0 }, shirt, 12, REACH, -900).angle > 0.3],
-  ["미는 동안은 손 속도를 따라간다", shove({ angle: 0, speed: 0 }, shirt, 0, REACH, 600).speed > 0],
-  ["손이 멈춰 있으면 옷도 멈춘 채 밀려 있다", shove({ angle: 0, speed: 0 }, shirt, 0, REACH, 0).speed === 0],
-  ["아무리 빨리 훑어도 한계를 안 넘는다", Math.abs(shove({ angle: 0, speed: 0 }, shirt, 0, REACH, 99999).angle) <= 1.2],
-  ["많이 기울어도 0 으로 안 나눈다", Number.isFinite(shove({ angle: 1.2, speed: 0 }, shirt, 0, REACH, 900).angle)],
+  // 손가락 자리를 각도로
+  ["손이 제자리면 각도도 0", angleAt(shirt, 0) === 0],
+  ["오른쪽으로 빼면 오른쪽으로", angleAt(shirt, 20) > 0],
+  ["줄 길이만큼 빼면 90도", Math.abs(angleAt(shirt, shirt.length) - Math.PI / 2) < 1e-9],
+  ["줄보다 멀리는 못 간다", angleAt(shirt, 9999) === angleAt(shirt, shirt.length)],
+  ["좌우가 대칭", angleAt(shirt, -20) === -angleAt(shirt, 20)],
 
-  // 손이 지나가면 놓여난다 — 얻은 속도로 크게 넘어갔다가 되돌아온다
-  ["손이 지나간 뒤 크게 넘어간다", swept.peak > 0.35],
-  ["결국 제자리로 돌아온다", Math.abs(swept.rest) < 0.02],
-  ["바람보다 훨씬 크게 움직인다", swept.peak > Math.abs(restAngle(shirt, 340)) * 1.5],
+  // 끌려가는 동안
+  ["손을 따라간다", pull({ angle: 0, speed: 0 }, 0.3, DT).angle === 0.3],
+  ["속도는 움직인 만큼만", Math.abs(pull({ angle: 0, speed: 0 }, 0.3, DT).speed - 0.3 / DT) < 1e-9],
+  ["가만히 잡고 있으면 속도 0", pull({ angle: 0.3, speed: 5 }, 0.3, DT).speed === 0],
+  ["한계 밖으로는 못 끈다", pull({ angle: 0, speed: 0 }, 9, DT).angle <= 1.2],
+
+  // **형님이 물은 것** — 당긴 데보다 높이 올라가지 않는다
+  ["끝에서 놓으면 그 자리에서 떨어진다", release({ angle: 0.6, speed: 40 }, shirt, 0.6).speed === 0],
+  ["당긴 데까지만 올라간다", pulled.most <= pulled.peak + 0.01],
+  ["당겼으면 그만큼은 흔들린다", pulled.most > pulled.peak * 0.9],
+  ["도중에 세게 놓아도 당긴 데를 안 넘는다", flicked.most <= flicked.peak + 0.01],
+  ["느리게 놓으면 속도를 안 깎는다", release({ angle: 0, speed: 0.4 }, shirt, 0.6).speed === 0.4],
+  ["빠르게 놓으면 깎인다", release({ angle: 0, speed: 99 }, shirt, 0.6).speed < 99],
+  ["깎여도 방향은 그대로", release({ angle: 0, speed: -99 }, shirt, 0.6).speed < 0],
+  ["결국 제자리로 돌아온다", Math.abs(pulled.rest) < 0.02],
 ];
 
 let failed = 0;
