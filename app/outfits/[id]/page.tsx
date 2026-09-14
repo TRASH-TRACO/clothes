@@ -5,11 +5,9 @@ import { notFound } from "next/navigation";
 import { deleteOutfit } from "@/app/actions/outfits";
 import { ConfirmForm } from "@/components/confirm-form";
 import { RatingGlyph } from "@/components/feedback-glyph";
-import { ColorDot } from "@/components/color-dot";
-import { ItemPhoto } from "@/components/item-photo";
+import { ItemCard } from "@/components/item-card";
 import { PhotoCarousel } from "@/components/photo-carousel";
 import { RATING_LABELS } from "@/lib/feedback";
-import { CATEGORY_META, formatMeasurements } from "@/lib/categories";
 import { outfitTitle } from "@/lib/outfit-title";
 import { outfitPhotos } from "@/lib/photos";
 import { getOutfit, getOutfitFolders } from "@/lib/data";
@@ -86,32 +84,13 @@ export default async function OutfitPage({ params }: PageProps<"/outfits/[id]">)
       ) : null}
 
       <p className="eyebrow mt-12">이 코디의 옷</p>
-      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 lg:grid-cols-5">
-        {entries.map(({ slot, item }) => {
-          const measurements = formatMeasurements(item!.category, item!.measurements);
-          return (
-            <Link key={slot} href={`/closet/${item!.id}`} className="group block">
-              <p className="eyebrow mb-2">{CATEGORY_META[slot].label}</p>
-              <ItemPhoto
-                path={item!.photo_path}
-                alt={item!.name}
-                category={item!.category}
-                className="aspect-square rounded-xl"
-                sizes="(max-width: 640px) 50vw, 20vw"
-              />
-              <p className="mt-3 text-sm font-semibold group-hover:underline">{item!.name}</p>
-              <p className="flex items-center gap-2 text-sm text-muted">
-                <ColorDot hex={item!.color_hex} />
-                {item!.color_name}
-              </p>
-              {measurements ? (
-                <p className="mt-1 text-xs text-muted" title={measurements}>
-                  {measurements}
-                </p>
-              ) : null}
-            </Link>
-          );
-        })}
+      {/* 옷장 목록과 같은 카드를 쓴다. 실측은 "📏 실측" 표시와 부위별 사이즈감만 보이고
+          숫자는 안 나온다 — 숫자는 옷 상세에서 볼 값이지 여기서 훑을 값이 아니다.
+          같은 카드를 쓰니 옷장에서 보던 것과 같은 자리에 같은 정보가 있다. */}
+      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+        {entries.map(({ slot, item }) => (
+          <ItemCard key={slot} item={item!} />
+        ))}
       </div>
     </div>
   );
