@@ -2,6 +2,7 @@ import "server-only";
 
 import { CATEGORY_META, measurementFields } from "./categories";
 import { NEW_SIDE_NAME } from "./compare";
+import { outfitTitle } from "./outfit-title";
 import { addDays, seoulToday } from "./calendar";
 import { FIT_LABELS, PART_FIT_LABELS, RATING_LABELS, FELT_LABELS, readPartFits } from "./feedback";
 import { getBasePlace, getCompareLogs, getItems, getOutfits, getWearLogs, logPlace } from "./data";
@@ -76,14 +77,18 @@ export async function buildExport(): Promise<ExportData> {
     };
   });
 
-  const exportOutfits: ExportOutfit[] = outfits.map((outfit) => ({
-    이름: outfit.name,
-    옷: outfit.items
+  const exportOutfits: ExportOutfit[] = outfits.map((outfit) => {
+    const names = outfit.items
       .map((entry) => entry.item?.name)
-      .filter((name): name is string => Boolean(name)),
-    만족도: outfit.rating ? RATING_LABELS[outfit.rating] : null,
-    메모: outfit.memo,
-  }));
+      .filter((name): name is string => Boolean(name));
+    return {
+      // 이름은 선택이라, 안 지었으면 들어간 옷으로 부른다
+      이름: outfitTitle(outfit.name, names),
+      옷: names,
+      만족도: outfit.rating ? RATING_LABELS[outfit.rating] : null,
+      메모: outfit.memo,
+    };
+  });
 
   const exportLogs: ExportLog[] = logs
     .slice()

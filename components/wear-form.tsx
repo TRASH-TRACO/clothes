@@ -11,6 +11,7 @@ import { deleteWearLog } from "@/app/actions/wear";
 import { ConfirmForm } from "@/components/confirm-form";
 import { CATEGORIES, CATEGORY_META, type Category } from "@/lib/categories";
 import type { Place } from "@/lib/places";
+import { outfitTitle } from "@/lib/outfit-title";
 import type { ActionState, OutfitWithItems, WearLogWithItems } from "@/lib/types";
 
 type Props = {
@@ -110,7 +111,14 @@ export function WearForm({ date, log, basePlace, place, action, onCancel }: Prop
                         />
                       ))}
                     </div>
-                    <p className="mt-2 truncate text-xs font-semibold">{outfit.name}</p>
+                    <p className="mt-2 truncate text-xs font-semibold">
+                      {outfitTitle(
+                        outfit.name,
+                        outfit.items
+                          .map((entry) => entry.item?.name)
+                          .filter((name): name is string => Boolean(name)),
+                      )}
+                    </p>
                   </button>
                 );
               })}

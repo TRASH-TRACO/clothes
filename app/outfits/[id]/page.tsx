@@ -10,12 +10,19 @@ import { ItemPhoto } from "@/components/item-photo";
 import { OutfitPhoto } from "@/components/outfit-photo";
 import { RATING_LABELS } from "@/lib/feedback";
 import { CATEGORY_META, formatMeasurements } from "@/lib/categories";
-import { getOutfit } from "@/lib/data";
+import { outfitTitle } from "@/lib/outfit-title";
+import { getOutfit, getOutfitFolders } from "@/lib/data";
 
 export async function generateMetadata({ params }: PageProps<"/outfits/[id]">): Promise<Metadata> {
   const { id } = await params;
   const outfit = await getOutfit(id);
-  return { title: outfit?.name ?? "코디" };
+  if (!outfit) return { title: "코디" };
+  return {
+    title: outfitTitle(
+      outfit.name,
+      outfit.items.map((entry) => entry.item?.name).filter((name) => Boolean(name)) as string[],
+    ),
+  };
 }
 
 export default async function OutfitPage({ params }: PageProps<"/outfits/[id]">) {
@@ -24,6 +31,9 @@ export default async function OutfitPage({ params }: PageProps<"/outfits/[id]">)
   if (!outfit) notFound();
 
   const entries = outfit.items.filter((entry) => entry.item !== null);
+  const title = outfitTitle(outfit.name, entries.map((entry) => entry.item!.name));
+  // 어느 폴더에 있는지. 폴더 기능을 안 쓰는 사람에게는 아무것도 안 보인다.
+  const folder = (await getOutfitFolders()).find((entry) => entry.id === outfit.folder_id) ?? null;
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-12 lg:px-10">
@@ -33,8 +43,8 @@ export default async function OutfitPage({ params }: PageProps<"/outfits/[id]">)
 
       <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="eyebrow">Look</p>
-          <h1 className="display mt-2 text-5xl sm:text-6xl">{outfit.name}</h1>
+          <p className="eyebrow">{folder ? folder.name : "Look"}</p>
+          <h1 className="display mt-2 text-5xl sm:text-6xl">{title}</h1>
           {outfit.rating ? (
             <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-mist px-4 py-2 text-sm font-medium">
               <RatingGlyph value={outfit.rating} className="h-5 w-5" />
@@ -52,7 +62,7 @@ export default async function OutfitPage({ params }: PageProps<"/outfits/[id]">)
             hidden={{ id: outfit.id }}
             label="삭제"
             triggerClassName="text-sm text-muted underline underline-offset-4 hover:text-accent"
-            title={`${outfit.name}, 지울까요?`}
+            title={`${title}, 지울까요?`}
             body="코디만 사라지고 옷은 그대로 남습니다. 이 코디로 남긴 지난 착용 기록도 그대로입니다 (기록은 옷을 복사해 두기 때문입니다)."
             confirmLabel="삭제"
           />
@@ -64,7 +74,7 @@ export default async function OutfitPage({ params }: PageProps<"/outfits/[id]">)
           <p className="eyebrow mb-3">착장 사진</p>
           <OutfitPhoto
             path={outfit.photo_path}
-            alt={`${outfit.name} 착장 사진`}
+            alt={`${title} 착장 사진`}
             className="aspect-[3/4] w-full max-w-md rounded-2xl"
             sizes="(max-width: 768px) 100vw, 448px"
             priority

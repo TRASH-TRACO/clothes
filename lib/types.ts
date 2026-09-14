@@ -27,10 +27,23 @@ export type Item = {
   created_at: string;
 };
 
-export type Outfit = {
+/** 코디를 담아 두는 곳. "출근룩", "결혼식룩" 처럼 사람이 직접 만든다 */
+export type OutfitFolder = {
   id: string;
   user_id: string;
   name: string;
+  /** 사람마다 하나. 지울 수 없고, 갈 곳 없는 코디가 여기로 온다 */
+  is_default: boolean;
+  created_at: string;
+};
+
+export type Outfit = {
+  id: string;
+  user_id: string;
+  /** 선택이다. 안 지었으면 들어간 옷으로 부른다 (lib/outfit-title.ts) */
+  name: string | null;
+  /** 어느 폴더에 있는지. 폴더를 지우면 잠깐 null 이 됐다가 기본 폴더로 옮겨진다 */
+  folder_id: string | null;
   memo: string | null;
   /** 착장 사진 (clothes 버킷 경로). 옷 사진과 같은 규칙 */
   photo_path: string | null;
@@ -63,8 +76,11 @@ export type WearLog = {
 
 export type WearLogWithItems = WearLog & {
   items: Item[];
-  /** 코디에서 골랐고 그 코디가 아직 남아 있으면 채워진다 */
-  outfit: Pick<Outfit, "id" | "name" | "photo_path"> | null;
+  /**
+   * 코디에서 골랐고 그 코디가 아직 남아 있으면 채워진다.
+   * title 은 이름을 안 지은 코디까지 부를 수 있게 미리 정해 둔 것 (lib/outfit-title.ts).
+   */
+  outfit: (Pick<Outfit, "id" | "name" | "photo_path"> & { title: string }) | null;
 };
 
 /**

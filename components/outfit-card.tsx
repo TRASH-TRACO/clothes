@@ -5,10 +5,13 @@ import { ItemPhoto } from "@/components/item-photo";
 import { OutfitPhoto } from "@/components/outfit-photo";
 import { CATEGORY_META } from "@/lib/categories";
 import { RATING_LABELS } from "@/lib/feedback";
+import { outfitTitle } from "@/lib/outfit-title";
 import type { OutfitWithItems } from "@/lib/types";
 
 export function OutfitCard({ outfit }: { outfit: OutfitWithItems }) {
   const filled = outfit.items.filter((entry) => entry.item !== null);
+  // 이름은 선택이라, 안 지었으면 들어간 옷으로 부른다
+  const title = outfitTitle(outfit.name, filled.map((entry) => entry.item!.name));
 
   return (
     <WarmLink href={`/outfits/${outfit.id}`} className="group block">
@@ -16,7 +19,7 @@ export function OutfitCard({ outfit }: { outfit: OutfitWithItems }) {
       {outfit.photo_path ? (
         <OutfitPhoto
           path={outfit.photo_path}
-          alt={`${outfit.name} 착장 사진`}
+          alt={`${title} 착장 사진`}
           className="aspect-square rounded-xl"
           sizes="(max-width: 768px) 50vw, 320px"
         />
@@ -45,7 +48,7 @@ export function OutfitCard({ outfit }: { outfit: OutfitWithItems }) {
               <span className="sr-only">{RATING_LABELS[outfit.rating]}</span>
             </>
           ) : null}
-          <span className="truncate">{outfit.name}</span>
+          <span className="truncate">{title}</span>
         </p>
         <p className="mt-1 text-sm text-muted">
           {filled.map((entry) => CATEGORY_META[entry.slot].label).join(" · ")}

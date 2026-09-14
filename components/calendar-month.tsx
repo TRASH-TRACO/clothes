@@ -54,7 +54,7 @@ function Thumb({ log }: { log: WearLogWithItems }) {
     return (
       <OutfitPhoto
         path={log.outfit.photo_path}
-        alt={`${log.outfit.name} 착장 사진`}
+        alt={`${log.outfit.title} 착장 사진`}
         className="min-h-0 flex-1 rounded"
         sizes="(max-width: 640px) 14vw, 120px"
       />

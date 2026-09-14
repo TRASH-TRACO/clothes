@@ -5,24 +5,30 @@ import { redirect } from "next/navigation";
 import { OutfitBuilder } from "@/components/outfit-builder";
 import { CATEGORIES, type Category } from "@/lib/categories";
 import { outfitKey, type KnownOutfit } from "@/lib/outfit-key";
-import { getItems, getOutfit, getOutfits } from "@/lib/data";
+import { outfitTitle } from "@/lib/outfit-title";
+import { getItems, getOutfit, getOutfitFolders, getOutfits } from "@/lib/data";
 import { getUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "코디 만들기" };
 
 export default async function StudioPage({ searchParams }: PageProps<"/studio">) {
   const params = await searchParams;
-  const [items, user, outfits] = await Promise.all([
+  const [items, user, outfits, folders] = await Promise.all([
     getItems({ sort: "recent" }),
     getUser(),
     getOutfits(),
+    getOutfitFolders(),
   ]);
   if (!user) redirect("/login?next=/studio");
 
   // 고르는 동안 "이미 있는 조합" 인지 바로 알려주려고 조합만 추려서 넘긴다
   const known: KnownOutfit[] = outfits.map((outfit) => ({
     id: outfit.id,
-    name: outfit.name,
+    // 이름을 안 지은 코디도 "이미 있습니다 — …" 로 부를 이름이 있어야 한다
+    name: outfitTitle(
+      outfit.name,
+      outfit.items.map((entry) => entry.item?.name).filter((name) => Boolean(name)) as string[],
+    ),
     key: outfitKey(outfit.items.map((entry) => entry.item?.id)),
   }));
 
@@ -71,6 +77,7 @@ export default async function StudioPage({ searchParams }: PageProps<"/studio">)
           userId={user.id}
           initialSelection={selection}
           known={known}
+          folders={folders}
           outfit={
             editing
               ? {
@@ -79,6 +86,7 @@ export default async function StudioPage({ searchParams }: PageProps<"/studio">)
                   memo: editing.memo,
                   photo_path: editing.photo_path,
                   rating: editing.rating,
+                  folder_id: editing.folder_id,
                 }
               : undefined
           }

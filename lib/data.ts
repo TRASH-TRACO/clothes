@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { SLOT_ORDER, type Category } from "./categories";
+import { outfitTitle } from "./outfit-title";
 import { DEFAULT_PLACE, isPlace, roundPlace, type Place } from "./places";
 import { decryptSecret, hasAppSecret } from "./secret";
 import { isSupabaseConfigured } from "./supabase/env";
@@ -11,6 +12,7 @@ import type {
   CompareLogWithItems,
   Item,
   Outfit,
+  OutfitFolder,
   OutfitWithItems,
   WearLog,
   WearLogWithItems,
@@ -130,6 +132,28 @@ export const getOutfits = cache(async (): Promise<OutfitWithItems[]> => {
   return ((data ?? []) as OutfitRow[]).map(toOutfit);
 });
 
+/**
+ * 코디 폴더. 기본 폴더가 맨 앞, 그다음 만든 순서.
+ *
+ * 기본 폴더는 처음 코디를 저장할 때 만들어진다 (app/actions/outfits.ts).
+ * 그전에는 빈 목록이라, 화면에서는 "기본" 하나만 있는 것처럼 굴면 된다.
+ */
+export const getOutfitFolders = cache(async (): Promise<OutfitFolder[]> => {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("outfit_folders")
+    .select("*")
+    .order("is_default", { ascending: false })
+    .order("created_at", { ascending: true });
+  // 스키마를 아직 안 올렸으면 폴더가 없는 것처럼 군다 (코디는 그대로 보인다)
+  if (error) {
+    if (!isMissingTable(error)) console.error("[outfits] outfit_folders", error.message);
+    return [];
+  }
+  return (data ?? []) as OutfitFolder[];
+});
+
 export const getOutfit = cache(async (id: string): Promise<OutfitWithItems | null> => {
   if (!isSupabaseConfigured()) return null;
   const supabase = await createClient();
@@ -155,16 +179,31 @@ function isMissingTable(error: { code?: string } | null) {
 }
 
 type WearLogRow = WearLog & {
-  outfits: Pick<Outfit, "id" | "name" | "photo_path"> | null;
+  outfits:
+    | (Pick<Outfit, "id" | "name" | "photo_path"> & { outfit_items: { items: { name: string } | null }[] })
+    | null;
   wear_log_items: { items: Item | null }[];
 };
 
-const WEAR_SELECT = "*, outfits(id, name, photo_path), wear_log_items(items(*))";
+// 코디 이름은 선택이라, 안 지은 코디를 부르려면 그 코디에 든 옷 이름이 필요하다
+const WEAR_SELECT =
+  "*, outfits(id, name, photo_path, outfit_items(items(name))), wear_log_items(items(*))";
 
 function toWearLog(row: WearLogRow): WearLogWithItems {
+  const outfit = row.outfits;
   return {
     ...row,
-    outfit: row.outfits,
+    outfit: outfit
+      ? {
+          id: outfit.id,
+          name: outfit.name,
+          photo_path: outfit.photo_path,
+          title: outfitTitle(
+            outfit.name,
+            outfit.outfit_items.map((entry) => entry.items?.name ?? "").filter(Boolean),
+          ),
+        }
+      : null,
     // 코디 슬롯 순서대로 세워야 카드가 늘 같은 순서로 보인다
     items: row.wear_log_items
       .map((entry) => entry.items)

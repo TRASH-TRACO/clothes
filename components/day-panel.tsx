@@ -163,7 +163,7 @@ function DayView({
             href={`/outfits/${log.outfit.id}`}
             className="font-semibold text-ink underline underline-offset-4"
           >
-            {log.outfit.name}
+            {log.outfit.title}
           </WarmLink>
         </p>
       ) : null}
@@ -171,7 +171,7 @@ function DayView({
       {log.outfit?.photo_path ? (
         <OutfitPhoto
           path={log.outfit.photo_path}
-          alt={`${log.outfit.name} 착장 사진`}
+          alt={`${log.outfit.title} 착장 사진`}
           className="mt-5 aspect-square max-w-xs rounded-xl"
           sizes="320px"
         />

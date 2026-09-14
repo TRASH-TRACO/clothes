@@ -353,3 +353,41 @@ create policy "push subscriptions are private" on public.push_subscriptions
   for all to authenticated
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- 13. 코디 폴더 ----------------------------------------------------
+-- "출근룩", "결혼식룩" 처럼 사람이 직접 만든다.
+-- 코디를 저장할 때 **이름은 선택**이고 폴더만 정하면 된다 — 매번 이름을 짓게 하면
+-- 이름 짓기 싫어서 저장을 안 하게 된다. 이름이 없으면 들어간 옷으로 부른다
+-- (lib/outfit-title.ts).
+create table if not exists public.outfit_folders (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  name text not null check (char_length(name) between 1 and 30),
+  -- 기본 폴더. 사람마다 하나뿐이고 지울 수 없다. 갈 곳 없는 코디가 여기로 온다.
+  is_default boolean not null default false,
+  created_at timestamptz not null default now(),
+  unique (user_id, name)
+);
+
+create index if not exists outfit_folders_user_idx on public.outfit_folders (user_id, created_at);
+
+-- 기본 폴더는 사람마다 하나만 (부분 유니크 인덱스)
+create unique index if not exists outfit_folders_one_default_idx
+  on public.outfit_folders (user_id) where is_default;
+
+alter table public.outfit_folders enable row level security;
+
+drop policy if exists "outfit folders are private" on public.outfit_folders;
+create policy "outfit folders are private" on public.outfit_folders
+  for all to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- 폴더를 지워도 코디는 남는다. 앱이 기본 폴더로 옮겨 준다 (app/actions/outfits.ts).
+alter table public.outfits
+  add column if not exists folder_id uuid references public.outfit_folders (id) on delete set null;
+
+create index if not exists outfits_folder_idx on public.outfits (folder_id);
+
+-- 이름을 선택으로. 기존 check 는 NULL 을 막지 않는다 (NULL 비교는 NULL 이라 통과).
+alter table public.outfits alter column name drop not null;

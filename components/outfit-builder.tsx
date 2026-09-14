@@ -13,7 +13,7 @@ import { CATEGORY_META, SLOT_ORDER, type Category } from "@/lib/categories";
 import { findSameOutfit, outfitKey, type KnownOutfit } from "@/lib/outfit-key";
 import { photoUrl } from "@/lib/supabase/env";
 import type { Rating } from "@/lib/feedback";
-import type { ActionState, Item } from "@/lib/types";
+import type { ActionState, Item, OutfitFolder } from "@/lib/types";
 
 type Selection = Partial<Record<Category, string>>;
 
@@ -25,11 +25,14 @@ type Props = {
   known?: KnownOutfit[];
   outfit?: {
     id: string;
-    name: string;
+    name: string | null;
     memo: string | null;
     photo_path: string | null;
     rating: Rating | null;
+    folder_id: string | null;
   };
+  /** 만들어 둔 폴더. 비어 있으면 기본 폴더 하나만 있는 것처럼 보여준다 */
+  folders?: OutfitFolder[];
 };
 
 export function OutfitBuilder({
@@ -37,6 +40,7 @@ export function OutfitBuilder({
   userId,
   initialSelection = {},
   known = [],
+  folders = [],
   outfit,
 }: Props) {
   const pickerRef = useRef<HTMLElement>(null);
@@ -44,6 +48,13 @@ export function OutfitBuilder({
   const [state, formAction, pending] = useActionState<ActionState, FormData>(saveOutfit, null);
   const [selection, setSelection] = useState<Selection>(initialSelection);
   const [activeSlot, setActiveSlot] = useState<Category>(SLOT_ORDER[0]);
+
+  // 어느 폴더에 넣을지. 처음에는 넣어 둔 폴더, 없으면 기본 폴더.
+  const [folderId, setFolderId] = useState(
+    outfit?.folder_id ?? folders.find((entry) => entry.is_default)?.id ?? "",
+  );
+  /** 새 폴더 이름을 적는 중인지. 적었으면 그 폴더를 만들어서 넣는다 */
+  const [newFolder, setNewFolder] = useState<string | null>(null);
 
   const byId = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
   const byCategory = useMemo(() => {
@@ -254,17 +265,76 @@ export function OutfitBuilder({
             </div>
           </div>
 
+          {/* 저장에 필요한 건 이것뿐이다. 이름·사진·메모는 없어도 된다. */}
+          <div>
+            <p className="label mb-2">폴더</p>
+            <p className="mb-3 text-sm text-muted">
+              코디는 폴더에만 넣으면 저장됩니다. 나머지는 안 채워도 됩니다.
+            </p>
+
+            {newFolder === null ? <input type="hidden" name="folder_id" value={folderId} /> : null}
+
+            <div className="flex flex-wrap gap-2">
+              {(folders.length > 0
+                ? folders
+                : // 아직 폴더가 없으면 기본 폴더 하나만 있는 것처럼. 저장할 때 만들어진다.
+                  [{ id: "", name: "기본", is_default: true } as OutfitFolder]
+              ).map((folder) => (
+                <button
+                  key={folder.id}
+                  type="button"
+                  aria-pressed={newFolder === null && folderId === folder.id}
+                  onClick={() => {
+                    setFolderId(folder.id);
+                    setNewFolder(null);
+                  }}
+                  className={`chip ${
+                    newFolder === null && folderId === folder.id ? "chip-active" : ""
+                  }`}
+                >
+                  {folder.name}
+                </button>
+              ))}
+
+              {newFolder === null ? (
+                <button type="button" onClick={() => setNewFolder("")} className="chip">
+                  + 새 폴더
+                </button>
+              ) : null}
+            </div>
+
+            {newFolder !== null ? (
+              <div className="mt-3 flex max-w-md items-center gap-2">
+                <input
+                  name="folder_new"
+                  autoFocus
+                  maxLength={30}
+                  value={newFolder}
+                  onChange={(event) => setNewFolder(event.target.value)}
+                  placeholder="예: 출근룩, 결혼식룩"
+                  className="field"
+                />
+                <button
+                  type="button"
+                  onClick={() => setNewFolder(null)}
+                  className="shrink-0 text-sm text-muted underline underline-offset-4 hover:text-ink"
+                >
+                  취소
+                </button>
+              </div>
+            ) : null}
+          </div>
+
           <div>
             <label className="label" htmlFor="name">
-              코디 이름
+              코디 이름 <span className="font-normal normal-case tracking-normal text-muted">(선택)</span>
             </label>
             <input
               id="name"
               name="name"
-              required
               maxLength={60}
-              defaultValue={outfit?.name}
-              placeholder="예: 비 오는 날 출근룩"
+              defaultValue={outfit?.name ?? ""}
+              placeholder="안 지으면 들어간 옷 이름으로 부릅니다"
               className="field max-w-md"
             />
           </div>
