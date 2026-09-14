@@ -15,14 +15,33 @@ export function OutfitCard({ outfit }: { outfit: OutfitWithItems }) {
 
   return (
     <WarmLink href={`/outfits/${outfit.id}`} className="group block">
-      {/* 착장 사진이 있으면 그게 대표 이미지, 없으면 옷 4장 그리드 */}
+      {/* 착장 사진이 있으면 크게 두고 옆에 옷 3장을 세운다.
+          착장 사진만 두면 "뭘 입은 코디였더라" 가 사진 한 장에 달리는데, 실루엣만
+          보이는 사진도 많다. 옷이 같이 보여야 목록에서 바로 가려낸다. */}
       {outfit.photo_path ? (
-        <OutfitPhoto
-          path={outfit.photo_path}
-          alt={`${title} 착장 사진`}
-          className="aspect-square rounded-xl"
-          sizes="(max-width: 768px) 50vw, 320px"
-        />
+        <div className="grid aspect-square grid-cols-3 grid-rows-3 gap-1 overflow-hidden rounded-xl bg-mist p-1">
+          <OutfitPhoto
+            path={outfit.photo_path}
+            alt={`${title} 착장 사진`}
+            className="col-span-2 row-span-3 rounded-lg"
+            sizes="(max-width: 768px) 34vw, 220px"
+          />
+          {filled.slice(0, 3).map((entry) => (
+            <ItemPhoto
+              key={entry.slot}
+              path={entry.item!.photo_path}
+              alt={entry.item!.name}
+              category={entry.item!.category}
+              className="rounded-lg"
+              sizes="(max-width: 768px) 17vw, 110px"
+              compact
+            />
+          ))}
+          {/* 옷이 3벌이 안 되면 빈 칸으로 자리를 잡아 둔다 (사진이 늘어나지 않게) */}
+          {Array.from({ length: Math.max(0, 3 - filled.length) }).map((_, index) => (
+            <div key={index} className="rounded-lg bg-paper/60" />
+          ))}
+        </div>
       ) : (
         <div className="grid grid-cols-2 gap-1 overflow-hidden rounded-xl bg-mist p-1">
           {filled.slice(0, 4).map((entry) => (

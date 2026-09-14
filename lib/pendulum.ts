@@ -2,7 +2,10 @@
  * 봉에 걸린 옷의 흔들림.
  *
  * 옷 하나를 **진자**로 본다. 걸린 자리가 축이고, 옷 무게중심이 추다.
- * 손이 지나가면 그만큼 바람이 분 것으로 치고 옆에서 민다.
+ *
+ * 손은 바람이 아니라 **물건**이다. 옷걸이 사이로 손을 훑으면 옷이 손 앞으로
+ * 밀렸다가 손이 지나가면 놓여나 흔들린다 — 그 그림이다 (shove).
+ * step 은 손이 안 닿을 때 스스로 흔들리는 부분이다.
  *
  * 아무것도 안 물게 해 뒀다 (bin/check-pendulum.ts 에서 바로 돌린다).
  */
@@ -48,6 +51,15 @@ const MAX_DT = 1 / 90;
 
 /** 안전 한계. 여기까지 가면 속도를 죽인다 — 봉 위로 넘어가는 그림은 없다 */
 const MAX_ANGLE = 1.2;
+
+/** 손에 밀려 옷이 낼 수 있는 가로 속도 한계 (px/s). 손가락은 이보다 훨씬 빠르게도 지나간다 */
+const MAX_CARRY = 950;
+
+/**
+ * 많이 기울었을 때 cos 이 0 에 가까워지면서 0 으로 나누게 된다.
+ * 그 자리에서는 옷이 가로로 거의 안 움직이니 각도로 바꾸는 계산도 의미가 없다.
+ */
+const MIN_COS = 0.25;
 
 /**
  * 한 걸음.
@@ -104,4 +116,48 @@ export function restAngle(shape: Shape, wind: number): number {
 /** 작게 흔들릴 때의 주기 (초). 길게 걸린 옷일수록 길다 */
 export function period(shape: Shape): number {
   return 2 * Math.PI * Math.sqrt(shape.length / GRAVITY);
+}
+
+/**
+ * 손가락이 옷을 밀어낸다.
+ *
+ * 바람처럼 살살 미는 게 아니라 **닿아서 치우는** 것이다. 손가락이 파고든 만큼
+ * 옷을 밖으로 내보내고, 미는 동안은 손 속도로 따라가게 한다. 손이 지나가면
+ * 그 속도를 그대로 들고 놓여나므로 크게 한 번 넘어갔다가 되돌아온다.
+ *
+ * @param gap 옷 한가운데 − 손가락 (px, 가로). 양수면 옷이 손 오른쪽에 있다
+ * @param reach 손가락 반지름 + 옷 반너비 (px). |gap| 이 이보다 작으면 닿은 것
+ * @param handSpeed 손가락 가로 속도 (px/s)
+ */
+export function shove(state: Swing, shape: Shape, gap: number, reach: number, handSpeed: number): Swing {
+  // 각도 1rad 당 옷이 가로로 움직이는 거리. 각도와 px 을 오가는 환율이다.
+  const arm = shape.length * Math.max(Math.cos(state.angle), MIN_COS);
+
+  // 어느 쪽으로 치울까. 이미 치우쳐 있으면 그쪽으로, 딱 겹쳐 있으면 손이 가는 쪽으로.
+  const side = Math.abs(gap) > 1 ? Math.sign(gap) : Math.sign(handSpeed) || 1;
+  // 손가락 밖으로 나가려면 이만큼 옮겨야 한다
+  const push = side * reach - gap;
+
+  const carry = Math.max(-MAX_CARRY, Math.min(MAX_CARRY, handSpeed));
+  let angle = state.angle + push / arm;
+  let speed = carry / arm;
+
+  if (angle > MAX_ANGLE) {
+    angle = MAX_ANGLE;
+    if (speed > 0) speed = 0;
+  } else if (angle < -MAX_ANGLE) {
+    angle = -MAX_ANGLE;
+    if (speed < 0) speed = 0;
+  }
+  return { angle, speed };
+}
+
+/** 옷 한가운데가 축에서 가로로 얼마나 벗어나 있는지 (px) */
+export function offsetX(state: Swing, shape: Shape): number {
+  return shape.length * Math.sin(state.angle);
+}
+
+/** 옷 한가운데가 축에서 아래로 얼마나 내려와 있는지 (px) */
+export function offsetY(state: Swing, shape: Shape): number {
+  return shape.length * Math.cos(state.angle);
 }
