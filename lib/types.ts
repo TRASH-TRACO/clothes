@@ -93,4 +93,9 @@ export type CompareLogWithItems = CompareLog & {
 export type ActionState = {
   ok: boolean;
   message: string;
+  /**
+   * 말로만 알려주고 끝내면 안 되는 경우에 붙인다.
+   * (같은 조합의 코디가 이미 있을 때 → 그 코디로 가는 길)
+   */
+  link?: { href: string; label: string };
 } | null;

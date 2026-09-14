@@ -136,6 +136,17 @@ function DayView({
   onEdit: () => void;
   onClose: () => void;
 }) {
+  // 코디는 자리당 한 벌이라, 같은 분류가 여럿이면 앞의 것만 들고 간다
+  // (log.items 는 분류 순서대로 서 있다). 두 벌 아래면 코디가 안 되므로 안 보인다.
+  const studioHref = (() => {
+    if (log.items.length < 2) return null;
+    const params = new URLSearchParams();
+    for (const item of log.items) {
+      if (!params.has(item.category)) params.set(item.category, item.id);
+    }
+    return `/studio?${params.toString()}`;
+  })();
+
   return (
     <div className="pt-6">
       {log.felt ? (
@@ -201,6 +212,13 @@ function DayView({
         <button type="button" onClick={onEdit} className="btn-dark">
           수정하기
         </button>
+        {/* 그날 잘 입었으면 그대로 코디로 남기고 싶어진다. 옷을 다시 고르게 하지 않는다.
+            같은 조합이 이미 있으면 코디 만들기 화면이 바로 알려주므로 여기서는 안 따진다. */}
+        {studioHref ? (
+          <WarmLink href={studioHref} className="btn-light">
+            이 조합으로 코디 만들기
+          </WarmLink>
+        ) : null}
         <button type="button" onClick={onClose} className="btn-light">
           닫기
         </button>

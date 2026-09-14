@@ -1,10 +1,12 @@
 "use server";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { SLOT_ORDER, isCategory } from "@/lib/categories";
 import { isRating } from "@/lib/feedback";
+import { findSameOutfit, outfitKey } from "@/lib/outfit-key";
 import { PHOTO_BUCKET } from "@/lib/supabase/env";
 import { createClient, getUser } from "@/lib/supabase/server";
 import type { ActionState } from "@/lib/types";
@@ -40,6 +42,23 @@ export async function saveOutfit(_prev: ActionState, formData: FormData): Promis
   const user = await getUser();
   if (!user) return fail("로그인이 필요합니다.");
 
+  // 같은 조합이 이미 있으면 한 벌 더 만들지 않는다. 저장한 코디에도, 캘린더에도,
+  // AI 추천에도 똑같은 게 둘씩 뜨면 고를 때마다 어느 쪽인지 확인해야 한다.
+  // 화면에서도 고르는 동안 미리 알려주지만 (components/outfit-builder.tsx),
+  // 탭을 두 개 띄워 두면 그 목록이 낡을 수 있어 여기서 한 번 더 본다.
+  const same = findSameOutfit(
+    outfitKey(slots.map((slot) => slot.item_id)),
+    await knownOutfits(supabase, user.id),
+    outfitId || null,
+  );
+  if (same) {
+    return {
+      ok: false,
+      message: `같은 조합의 코디가 이미 있습니다 — "${same.name}".`,
+      link: { href: `/outfits/${same.id}`, label: "그 코디 보기" },
+    };
+  }
+
   let id = outfitId;
 
   if (id) {
@@ -73,6 +92,20 @@ export async function saveOutfit(_prev: ActionState, formData: FormData): Promis
   // 바꿀 일이 잦지 않으니 통째로 비운다.
   revalidatePath("/", "layout");
   redirect(`/outfits/${id}`);
+}
+
+/** 이미 저장해 둔 코디들을 조합만 남기고 가져온다 */
+async function knownOutfits(supabase: SupabaseClient, userId: string) {
+  const { data } = await supabase
+    .from("outfits")
+    .select("id, name, outfit_items(item_id)")
+    .eq("user_id", userId);
+
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    name: row.name as string,
+    key: outfitKey((row.outfit_items as { item_id: string }[]).map((entry) => entry.item_id)),
+  }));
 }
 
 export async function deleteOutfit(formData: FormData) {

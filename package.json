@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "check": "node --experimental-strip-types bin/check-weather-freshness.ts && node --experimental-strip-types bin/check-recommend-prompt.ts && node --experimental-strip-types bin/check-secret.ts && node --experimental-strip-types bin/check-compare.ts && node --experimental-strip-types bin/check-size-prompt.ts && node --experimental-strip-types bin/check-export.ts && node --experimental-strip-types bin/check-push-message.ts && node --experimental-strip-types bin/check-search.ts"
+    "check": "node --experimental-strip-types bin/check-weather-freshness.ts && node --experimental-strip-types bin/check-recommend-prompt.ts && node --experimental-strip-types bin/check-secret.ts && node --experimental-strip-types bin/check-compare.ts && node --experimental-strip-types bin/check-size-prompt.ts && node --experimental-strip-types bin/check-export.ts && node --experimental-strip-types bin/check-push-message.ts && node --experimental-strip-types bin/check-search.ts && node --experimental-strip-types bin/check-outfit-key.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",

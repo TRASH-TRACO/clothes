@@ -4,15 +4,27 @@ import { redirect } from "next/navigation";
 
 import { OutfitBuilder } from "@/components/outfit-builder";
 import { CATEGORIES, type Category } from "@/lib/categories";
-import { getItems, getOutfit } from "@/lib/data";
+import { outfitKey, type KnownOutfit } from "@/lib/outfit-key";
+import { getItems, getOutfit, getOutfits } from "@/lib/data";
 import { getUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "코디 만들기" };
 
 export default async function StudioPage({ searchParams }: PageProps<"/studio">) {
   const params = await searchParams;
-  const [items, user] = await Promise.all([getItems({ sort: "recent" }), getUser()]);
+  const [items, user, outfits] = await Promise.all([
+    getItems({ sort: "recent" }),
+    getUser(),
+    getOutfits(),
+  ]);
   if (!user) redirect("/login?next=/studio");
+
+  // 고르는 동안 "이미 있는 조합" 인지 바로 알려주려고 조합만 추려서 넘긴다
+  const known: KnownOutfit[] = outfits.map((outfit) => ({
+    id: outfit.id,
+    name: outfit.name,
+    key: outfitKey(outfit.items.map((entry) => entry.item?.id)),
+  }));
 
   // ?edit=<outfitId> 로 저장된 코디를 다시 불러와 수정
   const editId = typeof params.edit === "string" ? params.edit : null;
@@ -58,6 +70,7 @@ export default async function StudioPage({ searchParams }: PageProps<"/studio">)
           items={items}
           userId={user.id}
           initialSelection={selection}
+          known={known}
           outfit={
             editing
               ? {

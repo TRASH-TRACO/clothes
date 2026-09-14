@@ -10,6 +10,7 @@ import { ItemPhoto } from "@/components/item-photo";
 import { RatingPicker } from "@/components/feedback-picker";
 import { PhotoInput } from "@/components/photo-input";
 import { CATEGORY_META, SLOT_ORDER, type Category } from "@/lib/categories";
+import { findSameOutfit, outfitKey, type KnownOutfit } from "@/lib/outfit-key";
 import { photoUrl } from "@/lib/supabase/env";
 import type { Rating } from "@/lib/feedback";
 import type { ActionState, Item } from "@/lib/types";
@@ -20,6 +21,8 @@ type Props = {
   items: Item[];
   userId: string;
   initialSelection?: Selection;
+  /** 이미 저장해 둔 코디들. 같은 조합을 또 만들지 않으려고 본다 */
+  known?: KnownOutfit[];
   outfit?: {
     id: string;
     name: string;
@@ -29,7 +32,13 @@ type Props = {
   };
 };
 
-export function OutfitBuilder({ items, userId, initialSelection = {}, outfit }: Props) {
+export function OutfitBuilder({
+  items,
+  userId,
+  initialSelection = {},
+  known = [],
+  outfit,
+}: Props) {
   const pickerRef = useRef<HTMLElement>(null);
 
   const [state, formAction, pending] = useActionState<ActionState, FormData>(saveOutfit, null);
@@ -46,6 +55,14 @@ export function OutfitBuilder({ items, userId, initialSelection = {}, outfit }: 
 
   const chosen = SLOT_ORDER.map((slot) => ({ slot, item: byId.get(selection[slot] ?? "") ?? null }));
   const chosenCount = chosen.filter((entry) => entry.item).length;
+
+  // 이름을 다 짓고 눌렀는데 그제서야 "이미 있다" 고 하면 늦다. 고르는 동안 알려준다.
+  // (저장할 때 서버도 한 번 더 본다 — 탭을 두 개 띄워 두면 이 목록이 낡는다)
+  const duplicate = findSameOutfit(
+    outfitKey(SLOT_ORDER.map((slot) => selection[slot])),
+    known,
+    outfit?.id ?? null,
+  );
   const candidates = byCategory.get(activeSlot) ?? [];
 
   function toggle(slot: Category, itemId: string) {
@@ -270,21 +287,48 @@ export function OutfitBuilder({ items, userId, initialSelection = {}, outfit }: 
             />
           </div>
 
+          {duplicate ? (
+            <p role="status" className="rounded-xl bg-mist px-5 py-4 text-sm">
+              {/* 이름 뒤에 조사를 붙이면 받침에 따라 "으로/로" 가 갈린다.
+                  이름은 사람이 짓는 값이라 맞출 수 없으므로 조사를 안 쓴다. */}
+              이 조합은 이미 저장돼 있습니다 —{" "}
+              <Link
+                href={`/outfits/${duplicate.id}`}
+                className="font-semibold underline underline-offset-4"
+              >
+                {duplicate.name}
+              </Link>
+              <span className="mt-1 block text-muted">
+                한 벌 빼거나 더해서 다른 조합으로 만들어 보세요.
+              </span>
+            </p>
+          ) : null}
+
           {state && !state.ok ? (
             <p role="alert" className="text-sm font-medium text-accent">
               {state.message}
+              {state.link ? (
+                <>
+                  {" "}
+                  <Link href={state.link.href} className="underline underline-offset-4">
+                    {state.link.label}
+                  </Link>
+                </>
+              ) : null}
             </p>
           ) : null}
 
           <div className="flex flex-wrap items-center gap-4">
             <button
               type="submit"
-              disabled={pending || chosenCount < 2}
+              disabled={pending || chosenCount < 2 || Boolean(duplicate)}
               className="btn-dark min-w-[180px]"
             >
               {pending ? "저장 중…" : outfit ? "코디 수정 저장" : "이 코디 저장"}
             </button>
-            <span className="text-sm text-muted">{chosenCount}개 선택됨 (최소 2개)</span>
+            <span className="text-sm text-muted">
+              {duplicate ? "이미 있는 조합입니다" : `${chosenCount}개 선택됨 (최소 2개)`}
+            </span>
           </div>
         </div>
       </section>
