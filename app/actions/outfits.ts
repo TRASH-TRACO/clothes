@@ -41,7 +41,16 @@ export async function saveOutfit(_prev: ActionState, formData: FormData): Promis
   if (slots.length < 2) return fail("옷을 2개 이상 골라주세요.");
 
   const memo = String(formData.get("memo") ?? "").trim() || null;
-  const photoPath = String(formData.get("photo_path") ?? "").trim() || null;
+  // 사진은 여러 장이다. 같은 경로가 두 번 실려 와도 한 번만 센다.
+  const photos = [
+    ...new Set(
+      formData
+        .getAll("photo_paths")
+        .map(String)
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ),
+  ];
   const ratingInput = formData.get("rating");
   const rating = isRating(ratingInput) ? ratingInput : null;
   const outfitId = String(formData.get("outfit_id") ?? "").trim();
@@ -76,7 +85,15 @@ export async function saveOutfit(_prev: ActionState, formData: FormData): Promis
   if (id) {
     const { error } = await supabase
       .from("outfits")
-      .update({ name, memo, photo_path: photoPath, rating, folder_id: folderId })
+      // 첫 장이 대표 사진. 목록 카드는 photo_path 만 보므로 같이 채운다.
+      .update({
+        name,
+        memo,
+        photo_path: photos[0] ?? null,
+        photo_paths: photos,
+        rating,
+        folder_id: folderId,
+      })
       .eq("id", id)
       .eq("user_id", user.id);
     if (error) return fail(error.message);
@@ -86,7 +103,15 @@ export async function saveOutfit(_prev: ActionState, formData: FormData): Promis
   } else {
     const { data, error } = await supabase
       .from("outfits")
-      .insert({ name, memo, photo_path: photoPath, rating, folder_id: folderId, user_id: user.id })
+      .insert({
+        name,
+        memo,
+        photo_path: photos[0] ?? null,
+        photo_paths: photos,
+        rating,
+        folder_id: folderId,
+        user_id: user.id,
+      })
       .select("id")
       .single();
     if (error) return fail(error.message);
@@ -263,15 +288,19 @@ export async function deleteOutfit(formData: FormData) {
 
   const { data: outfit } = await supabase
     .from("outfits")
-    .select("photo_path")
+    .select("photo_path, photo_paths")
     .eq("id", id)
     .eq("user_id", user.id)
     .maybeSingle();
 
   await supabase.from("outfits").delete().eq("id", id).eq("user_id", user.id);
 
-  if (outfit?.photo_path) {
-    await supabase.storage.from(PHOTO_BUCKET).remove([outfit.photo_path]);
+  // 여러 장 올렸으면 다 지운다 (대표 사진만 지우면 나머지가 남는다)
+  const files = [...new Set([...(outfit?.photo_paths ?? []), outfit?.photo_path])].filter(
+    (path): path is string => Boolean(path),
+  );
+  if (files.length > 0) {
+    await supabase.storage.from(PHOTO_BUCKET).remove(files);
   }
 
   // 옷·코디·기록은 홈, 옷장, 코디 만들기, 캘린더에 걸쳐 나온다.

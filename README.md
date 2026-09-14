@@ -298,8 +298,8 @@ npm run check
 > 그리고 `wear_logs`의 지역 칼럼(`place_name`, `place_lat`, `place_lon`),
 > 한 줄 평가 칼럼(`wear_logs.felt`, `outfits.rating`), 세분류 칼럼(`items.subcategory`),
 > 비교 기록 테이블(`compare_logs`), 알림 구독 테이블(`push_subscriptions`),
-> 코디 폴더 테이블(`outfit_folders`)과 `outfits.folder_id` 가 새로 추가됐고,
-> `outfits.name` 이 선택 값이 됐습니다.
+> 코디 폴더 테이블(`outfit_folders`)과 `outfits.folder_id`, `outfits.photo_paths` 가
+> 새로 추가됐고, `outfits.name` 이 선택 값이 됐습니다.
 > 실행 전에는 비교는 그대로 되고 **아래 `최근 비교` 목록만 안 남습니다.**
 > 여러 번 실행해도 안전합니다. 실행 전에는 캘린더가 날씨만 보여주고 기록은 저장되지 않습니다.
 
@@ -740,6 +740,16 @@ npm run check
 "뭘 입은 코디였더라" 가 사진 한 장에 달렸습니다. 이제 착장 사진을 왼쪽 2/3 에 두고
 옆에 옷 3장을 세웁니다 (`components/outfit-card.tsx`). 착장 사진이 없으면 예전처럼
 옷 4장 그리드입니다.
+
+**착장 사진도 여러 장 올릴 수 있습니다.** 옷 사진(`items.photo_paths`)과 같은 규칙입니다 —
+`photo_path` 는 대표 사진으로 계속 쓰고(목록 카드는 이것만 봅니다), 전체 목록을
+`outfits.photo_paths` 에 담습니다. **첫 장이 곧 대표**입니다.
+
+- 코디 만들기에서 `PhotoListInput` 으로 올리고, 상세에서는 옷 상세와 같은 방식으로
+  옆으로 밀어 넘깁니다 (`PhotoCarousel`, 3:4 비율).
+- `photo_paths` 를 쓰기 전에 저장한 코디는 `photo_path` 한 장만 있습니다. `outfitPhotos()`
+  가 그때는 그 한 장을 돌려주므로 옮기는 작업이 필요 없습니다 (`lib/photos.ts`).
+- 코디를 지우면 **올린 사진을 다 지웁니다.** 대표 사진만 지우면 나머지가 Storage 에 남습니다.
 
 ## 폰에서 눌렀을 때
 

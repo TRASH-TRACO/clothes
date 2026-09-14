@@ -7,10 +7,11 @@ import { ConfirmForm } from "@/components/confirm-form";
 import { RatingGlyph } from "@/components/feedback-glyph";
 import { ColorDot } from "@/components/color-dot";
 import { ItemPhoto } from "@/components/item-photo";
-import { OutfitPhoto } from "@/components/outfit-photo";
+import { PhotoCarousel } from "@/components/photo-carousel";
 import { RATING_LABELS } from "@/lib/feedback";
 import { CATEGORY_META, formatMeasurements } from "@/lib/categories";
 import { outfitTitle } from "@/lib/outfit-title";
+import { outfitPhotos } from "@/lib/photos";
 import { getOutfit, getOutfitFolders } from "@/lib/data";
 
 export async function generateMetadata({ params }: PageProps<"/outfits/[id]">): Promise<Metadata> {
@@ -32,6 +33,7 @@ export default async function OutfitPage({ params }: PageProps<"/outfits/[id]">)
 
   const entries = outfit.items.filter((entry) => entry.item !== null);
   const title = outfitTitle(outfit.name, entries.map((entry) => entry.item!.name));
+  const photos = outfitPhotos(outfit);
   // 어느 폴더에 있는지. 폴더 기능을 안 쓰는 사람에게는 아무것도 안 보인다.
   const folder = (await getOutfitFolders()).find((entry) => entry.id === outfit.folder_id) ?? null;
 
@@ -69,15 +71,16 @@ export default async function OutfitPage({ params }: PageProps<"/outfits/[id]">)
         </div>
       </div>
 
-      {outfit.photo_path ? (
-        <div className="mt-10">
-          <p className="eyebrow mb-3">착장 사진</p>
-          <OutfitPhoto
-            path={outfit.photo_path}
+      {photos.length > 0 ? (
+        <div className="mt-10 max-w-md">
+          <p className="eyebrow mb-3">
+            착장 사진{photos.length > 1 ? ` ${photos.length}장` : ""}
+          </p>
+          {/* 여러 장이면 옆으로 밀어 넘긴다 (옷 상세와 같은 것) */}
+          <PhotoCarousel
+            paths={photos}
             alt={`${title} 착장 사진`}
-            className="aspect-[3/4] w-full max-w-md rounded-2xl"
-            sizes="(max-width: 768px) 100vw, 448px"
-            priority
+            aspect="aspect-[3/4]"
           />
         </div>
       ) : null}

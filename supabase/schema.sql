@@ -391,3 +391,8 @@ create index if not exists outfits_folder_idx on public.outfits (folder_id);
 
 -- 이름을 선택으로. 기존 check 는 NULL 을 막지 않는다 (NULL 비교는 NULL 이라 통과).
 alter table public.outfits alter column name drop not null;
+
+-- 14. 코디 사진 여러 장 ----------------------------------------------
+-- 옷(items.photo_paths)과 같은 규칙이다. photo_path 는 대표 사진으로 계속 쓰고
+-- (목록 카드에서 이것만 본다), 전체 목록을 photo_paths 에 담는다. 첫 장이 곧 대표다.
+alter table public.outfits add column if not exists photo_paths text[] not null default '{}';

@@ -45,8 +45,10 @@ export type Outfit = {
   /** 어느 폴더에 있는지. 폴더를 지우면 잠깐 null 이 됐다가 기본 폴더로 옮겨진다 */
   folder_id: string | null;
   memo: string | null;
-  /** 착장 사진 (clothes 버킷 경로). 옷 사진과 같은 규칙 */
+  /** 대표 착장 사진. photo_paths 의 첫 장과 같다 */
   photo_path: string | null;
+  /** 올린 착장 사진 전부 (대표 포함) */
+  photo_paths: string[];
   /** 입어보고 어땠는지. 안 남겼으면 null */
   rating: Rating | null;
   created_at: string;

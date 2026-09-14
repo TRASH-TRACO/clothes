@@ -8,9 +8,10 @@ import { saveOutfit } from "@/app/actions/outfits";
 import { ColorDot } from "@/components/color-dot";
 import { ItemPhoto } from "@/components/item-photo";
 import { RatingPicker } from "@/components/feedback-picker";
-import { PhotoInput } from "@/components/photo-input";
+import { PhotoListInput } from "@/components/photo-list-input";
 import { CATEGORY_META, SLOT_ORDER, type Category } from "@/lib/categories";
 import { findSameOutfit, outfitKey, type KnownOutfit } from "@/lib/outfit-key";
+import { outfitPhotos } from "@/lib/photos";
 import { photoUrl } from "@/lib/supabase/env";
 import type { Rating } from "@/lib/feedback";
 import type { ActionState, Item, OutfitFolder } from "@/lib/types";
@@ -28,6 +29,7 @@ type Props = {
     name: string | null;
     memo: string | null;
     photo_path: string | null;
+    photo_paths: string[];
     rating: Rating | null;
     folder_id: string | null;
   };
@@ -251,14 +253,13 @@ export function OutfitBuilder({
           <div>
             <p className="label mb-2">착장 사진 (선택)</p>
             <p className="mb-3 text-sm text-muted">
-              실제로 입은 모습을 남겨두면 나중에 고를 때 훨씬 빠릅니다.
+              실제로 입은 모습을 남겨두면 나중에 고를 때 훨씬 빠릅니다. 여러 장 올리면
+              상세에서 넘겨볼 수 있고, 첫 장이 목록에 걸립니다.
             </p>
             <div className="max-w-[320px]">
-              <PhotoInput
+              <PhotoListInput
                 userId={userId}
-                defaultPath={outfit?.photo_path ?? null}
-                emptyLabel="탭해서 착장 사진 올리기"
-                alt="착장 사진"
+                defaultPaths={outfit ? outfitPhotos(outfit) : []}
                 /* 상세 페이지가 3:4로 보여준다 */
                 aspect={3 / 4}
               />

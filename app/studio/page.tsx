@@ -85,6 +85,7 @@ export default async function StudioPage({ searchParams }: PageProps<"/studio">)
                   name: editing.name,
                   memo: editing.memo,
                   photo_path: editing.photo_path,
+                  photo_paths: editing.photo_paths,
                   rating: editing.rating,
                   folder_id: editing.folder_id,
                 }
