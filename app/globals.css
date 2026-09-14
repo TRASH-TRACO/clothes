@@ -165,21 +165,12 @@ body {
 
 /* 헤드라인 뒤 옷걸이 (좁은 화면). 봉에 매달린 옷이 저마다 다른 속도로 흔들린다.
    transform 대신 rotate 속성이라 자리 잡는 translate 와 안 부딪힌다. */
-@keyframes rail-sway {
-  0%,
-  100% {
-    rotate: calc(var(--swing) * -1);
-  }
-  50% {
-    rotate: var(--swing);
-  }
-}
-
+/* 봉에 걸린 지점을 축으로 흔들린다.
+   각도는 CSS 가 아니라 자바스크립트가 준다 (components/rail-swing.tsx) —
+   손으로 그은 바람에 맞춰 움직여야 해서 정해진 애니메이션으로는 안 된다.
+   rotate 는 transform 과 따로 쌓이므로 Tailwind 의 -translate-x-1/2 와 안 부딪힌다. */
 .rail-hang {
-  /* 봉에 걸린 지점을 축으로 흔들린다 */
   transform-origin: top center;
-  animation: rail-sway var(--dur) ease-in-out infinite;
-  animation-delay: var(--delay);
 }
 
 /* 아래로 갈수록 흐려져서 헤드라인·날씨 카드와 안 부딪힌다 */
@@ -205,10 +196,11 @@ body {
   transform: rotate(var(--tilt));
 }
 
-/* 움직임을 줄여달라는 설정이면 가만히 둔다 */
+/* 움직임을 줄여달라는 설정이면 가만히 둔다.
+   옷걸이(.rail-hang)는 CSS 애니메이션이 아니라 자바스크립트라서
+   rail-swing.tsx 가 직접 확인하고 아예 안 돌린다. */
 @media (prefers-reduced-motion: reduce) {
-  .wave-drift,
-  .rail-hang {
+  .wave-drift {
     animation: none;
   }
 }
