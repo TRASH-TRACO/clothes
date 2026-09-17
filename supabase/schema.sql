@@ -396,3 +396,54 @@ alter table public.outfits alter column name drop not null;
 -- 옷(items.photo_paths)과 같은 규칙이다. photo_path 는 대표 사진으로 계속 쓰고
 -- (목록 카드에서 이것만 본다), 전체 목록을 photo_paths 에 담는다. 첫 장이 곧 대표다.
 alter table public.outfits add column if not exists photo_paths text[] not null default '{}';
+
+-- 15. 비슷한 날 찾기 -------------------------------------------------
+-- 캘린더에서 날짜를 누르면 "그때랑 비슷한 날엔 이렇게 입었다" 를 보여준다.
+--
+-- **왜 DB 함수인가.** 이걸 앱에서 하려면 저장해 둔 날씨를 전부 받아 와야 한다.
+-- 기온 차로 줄 세우는 건 SQL 이 훨씬 잘하고, 그러면 여덟 줄만 건너오면 된다.
+-- 입은 옷 id 까지 같이 실어 보내므로 **왕복이 한 번이면 끝난다** (옷 자체는 캘린더가
+-- 이미 들고 있어서 id 만 있으면 화면에 그린다).
+--
+-- 날씨 종류(맑음·비·눈)로 한 번 더 고르는 건 앱에서 한다 (lib/similar-day.ts).
+-- 코드 → 종류 표가 앱에 이미 있는데 SQL 에 또 적으면 언젠가 서로 어긋난다.
+-- 매개변수에 p_ 를 붙인 이유: 아래 returns table 의 이름(on_date …)과 겹치면
+-- 본문에서 어느 쪽인지 애매해진다. 겹칠 일 자체를 없앤다.
+create or replace function public.similar_days(
+  p_date date,
+  p_high double precision,
+  p_low double precision,
+  p_want integer default 8
+)
+returns table (
+  on_date date,
+  code smallint,
+  temp_high double precision,
+  temp_low double precision,
+  item_ids uuid[]
+)
+language sql
+stable
+-- security invoker (기본값) 라서 daily_weather·wear_logs 의 RLS 가 그대로 걸린다.
+-- user_id 조건을 또 적는 건 인덱스(primary key) 를 타게 하려는 것이다.
+as $$
+  select w.on_date, w.code, w.temp_high, w.temp_low, worn.item_ids
+  from public.daily_weather w
+  cross join lateral (
+    select array_agg(i.item_id) as item_ids
+    from public.wear_logs l
+    join public.wear_log_items i on i.wear_log_id = l.id
+    where l.user_id = w.user_id and l.worn_on = w.on_date
+  ) worn
+  where w.user_id = auth.uid()
+    and w.on_date <> p_date
+    and w.temp_high is not null
+    and w.temp_low is not null
+    -- 옷을 안 적고 지역만 남긴 날은 추천할 게 없다
+    and worn.item_ids is not null
+  -- 기온 차로 줄 세우기. 인덱스로는 못 하지만 훑는 줄이 그 사람이 날씨를 저장해 둔
+  -- 날 수(개인 앱이라 수백 줄)뿐이고, 안쪽 조인 둘은 다 인덱스를 탄다
+  -- (wear_logs 의 unique(user_id, worn_on), wear_log_items 의 log 인덱스).
+  order by abs(w.temp_high - p_high) + abs(w.temp_low - p_low)
+  limit greatest(p_want, 1);
+$$;

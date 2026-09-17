@@ -12,7 +12,10 @@ import { ConfirmForm } from "@/components/confirm-form";
 import { CATEGORIES, CATEGORY_META, type Category } from "@/lib/categories";
 import type { Place } from "@/lib/places";
 import { outfitTitle } from "@/lib/outfit-title";
-import type { ActionState, OutfitWithItems, WearLogWithItems } from "@/lib/types";
+import type { SimilarDay } from "@/app/actions/similar";
+import { dayLabel } from "@/lib/calendar";
+import { weatherLabel } from "@/lib/weather-codes";
+import type { ActionState, Item, OutfitWithItems, WearLogWithItems } from "@/lib/types";
 
 type Props = {
   date: string;
@@ -23,10 +26,12 @@ type Props = {
   place: Place | null;
   /** 패널 안에서 쓸 때. 주면 '취소'가 화면 이동 대신 이걸 부른다 */
   onCancel?: () => void;
+  /** 이 날씨와 비슷했던 날. 있으면 "그날처럼 입기" 를 띄운다 */
+  similar?: SimilarDay | null;
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
 };
 
-export function WearForm({ date, log, basePlace, place, action, onCancel }: Props) {
+export function WearForm({ date, log, basePlace, place, action, onCancel, similar }: Props) {
   // 어느 날짜든 같은 목록이라 캘린더 레이아웃에서 한 번 받아둔 것을 쓴다
   const { items, outfits } = useClosetData();
   const [state, formAction, pending] = useActionState<ActionState, FormData>(action, null);
@@ -76,6 +81,18 @@ export function WearForm({ date, log, basePlace, place, action, onCancel }: Prop
         {[...picked].map((id) => (
           <input key={id} type="hidden" name="item_ids" value={id} />
         ))}
+
+        {/* 비슷한 날씨였던 날에 뭘 입었는지. 아무것도 안 고른 상태에서 제일 쓸모 있다. */}
+        {similar ? (
+          <SimilarHint
+            similar={similar}
+            items={items}
+            onUse={(ids) => {
+              setPicked(new Set(ids));
+              setOutfitId(null);
+            }}
+          />
+        ) : null}
 
         {outfits.length > 0 && (
           <section>
@@ -267,5 +284,64 @@ export function WearForm({ date, log, basePlace, place, action, onCancel }: Prop
         </div>
       ) : null}
     </>
+  );
+}
+
+/**
+ * "이런 날엔 이렇게 입었어요".
+ *
+ * 옷은 이미 받아 둔 목록에서 찾는다 (id 만 건너온다). 그새 지운 옷은 빠진다.
+ */
+function SimilarHint({
+  similar,
+  items,
+  onUse,
+}: {
+  similar: SimilarDay;
+  items: Item[];
+  /** 옷장에 아직 있는 것만 넘긴다 */
+  onUse: (ids: string[]) => void;
+}) {
+  const worn = similar.itemIds
+    .map((id) => items.find((item) => item.id === id))
+    .filter((item): item is Item => Boolean(item));
+  if (worn.length === 0) return null;
+
+  return (
+    <section className="rounded-2xl bg-mist p-5">
+      <h2 className="display text-2xl">이런 날엔 이렇게 입었어요</h2>
+      <p className="mt-2 text-sm text-muted">
+        <Link
+          href={`/calendar/${similar.date}`}
+          className="font-medium text-ink underline underline-offset-4"
+        >
+          {dayLabel(similar.date)}
+        </Link>
+        {" · "}
+        최고 {Math.round(similar.high)}° 최저 {Math.round(similar.low)}°{" "}
+        {weatherLabel(similar.code)}
+      </p>
+
+      <div className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-6">
+        {worn.map((item) => (
+          <div key={item.id}>
+            <ItemPhoto
+              path={item.photo_path}
+              alt={item.name}
+              category={item.category}
+              className="aspect-square rounded-lg"
+              sizes="80px"
+              compact
+            />
+            <p className="mt-1 truncate text-[11px] text-muted">{item.name}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* 화면에 보이는 것만 담는다. 그새 지운 옷 id 를 폼에 실으면 안 된다 */}
+      <button type="button" onClick={() => onUse(worn.map((item) => item.id))} className="btn-dark mt-5">
+        그날처럼 입기
+      </button>
+    </section>
   );
 }

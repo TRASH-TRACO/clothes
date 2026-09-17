@@ -8,6 +8,7 @@ import { ItemPhoto } from "@/components/item-photo";
 import { OutfitPhoto } from "@/components/outfit-photo";
 import { WearForm } from "@/components/wear-form";
 import { saveWearLog } from "@/app/actions/wear";
+import { findSimilarDay, type SimilarDay } from "@/app/actions/similar";
 import { CATEGORY_META } from "@/lib/categories";
 import { dayLabel, seoulToday } from "@/lib/calendar";
 import { FELT_LABELS } from "@/lib/feedback";
@@ -42,6 +43,31 @@ export function DayPanel({ date, log, day, basePlace, startInEdit = false, onClo
   const [editing, setEditing] = useState(startInEdit || !log);
   const pinned = logPlaceOf(log);
   const today = seoulToday();
+
+  /**
+   * 이 날씨와 비슷했던 날.
+   *
+   * 이미 옷을 적어 둔 날에는 안 찾는다 — 권할 이유가 없고, 날짜를 누를 때마다
+   * 서버를 부를 이유는 더 없다.
+   */
+  const [similar, setSimilar] = useState<SimilarDay | null>(null);
+  const empty = !log || log.items.length === 0;
+  const canAsk = editing && empty && day !== null && day.high !== null && day.low !== null;
+
+  useEffect(() => {
+    if (!canAsk || !day || day.high === null || day.low === null) return;
+    let alive = true;
+    findSimilarDay(date, day.high, day.low, day.code)
+      .then((found) => {
+        if (alive) setSimilar(found);
+      })
+      .catch(() => {
+        /* 추천은 곁다리다. 못 받아도 기록은 그대로 적는다 */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [canAsk, date, day]);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -117,6 +143,7 @@ export function DayPanel({ date, log, day, basePlace, startInEdit = false, onClo
               place={pinned}
               action={saveWearLog}
               onCancel={onClose}
+              similar={similar}
             />
           ) : (
             <DayView log={log!} onEdit={() => setEditing(true)} onClose={onClose} />
