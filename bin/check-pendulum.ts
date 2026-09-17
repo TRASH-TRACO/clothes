@@ -4,6 +4,7 @@
  */
 import {
   angleAt,
+  cssDegrees,
   GRAVITY,
   period,
   pull,
@@ -155,6 +156,15 @@ const checks: [string, boolean][] = [
   ["빠르게 놓으면 깎인다", release({ angle: 0, speed: 99 }, shirt, 0.6).speed < 99],
   ["깎여도 방향은 그대로", release({ angle: 0, speed: -99 }, shirt, 0.6).speed < 0],
   ["결국 제자리로 돌아온다", Math.abs(pulled.rest) < 0.02],
+
+  // **형님이 말한 것** — 손과 옷이 반대로 움직이면 안 된다.
+  // CSS 의 rotate 는 시계방향이 양수라, 매달린 것은 시계방향으로 돌면 왼쪽으로 간다.
+  // (브라우저에서 재 봤다: transform-origin:top 인 칸을 +30deg 돌리니 추가 왼쪽으로 40px)
+  ["오른쪽으로 당기면 각도가 양수", angleAt(shirt, 20) > 0],
+  ["오른쪽으로 당기면 화면 각도는 음수", cssDegrees(angleAt(shirt, 20)) < 0],
+  ["왼쪽으로 당기면 화면 각도는 양수", cssDegrees(angleAt(shirt, -20)) > 0],
+  ["똑바로 서면 0", cssDegrees(0) === 0],
+  ["크기는 그대로 (라디안→도)", Math.abs(Math.abs(cssDegrees(Math.PI / 6)) - 30) < 1e-9],
 ];
 
 let failed = 0;

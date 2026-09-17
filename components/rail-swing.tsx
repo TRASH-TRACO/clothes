@@ -4,7 +4,17 @@ import { useEffect, useRef } from "react";
 
 import { ItemPhoto } from "@/components/item-photo";
 import type { Category } from "@/lib/categories";
-import { angleAt, offsetX, offsetY, pull, release, step, type Shape, type Swing } from "@/lib/pendulum";
+import {
+  angleAt,
+  cssDegrees,
+  offsetX,
+  offsetY,
+  pull,
+  release,
+  step,
+  type Shape,
+  type Swing,
+} from "@/lib/pendulum";
 
 export type Hanger = {
   photoPath: string | null;
@@ -45,10 +55,23 @@ const BREEZE = 12;
 const MAX_FRAME = 0.1;
 
 /**
+ * 손에서 미끄러지는 각도 (라디안, 약 52°).
+ *
+ * 옷걸이 여러 벌 위로 손을 쓸면 한 벌씩 밀렸다가 손을 놓친다 — 손은 곧게 가는데
+ * 옷은 호를 그리며 올라가니 어느 지점에서 손을 타고 넘어간다. 그 지점이다.
+ * 이게 없으면 맨 처음 잡은 한 벌이 손 끝까지 끌려와 옆으로 드러눕는다.
+ */
+const SLIP = 0.9;
+
+/**
  * 봉에 걸린 옷을 손으로 당겼다 놓는다.
  *
  * 누르면 그 자리에 있는 옷 **한 벌**을 잡는다. 끄는 동안 옷은 손을 그대로 따라오고
  * (중력은 손이 이기고 있으니 일하지 않는다), 손을 놓으면 그때부터 진자로 돈다.
+ *
+ * **손을 쓸면 지나는 길의 옷이 차례로 걸린다.** 끌려가던 옷은 52°쯤에서 손을 놓치고
+ * (SLIP) 제 스스로 돌아가는 동안, 손은 그대로 가서 다음 옷을 집는다. 한 벌을 끝까지
+ * 끌고 가면 그 한 벌만 옆으로 드러눕지, 옷걸이 여러 벌을 쓸어 넘긴 것처럼 안 보인다.
  *
  * **당긴 데보다 높이 올라가지 않는다.** 놓을 때 속도를 에너지로 재서 깎기 때문이다
  * (lib/pendulum.ts 의 release). 끝까지 끌고 가서 놓으면 그 자리에서 조용히 떨어지고,
@@ -82,40 +105,72 @@ export function RailSwing({ hangers }: { hangers: Hanger[] }) {
     measure();
 
     let handX = 0;
+    let handY = 0;
+    /** 손이 화면에 닿아 있는지 */
+    let touching = false;
     /** 지금 잡고 있는 옷. −1 이면 아무것도 안 잡았다 */
     let held = -1;
     /** 끌고 다니는 동안 가 본 가장 먼 각도. 놓을 때 여기까지만 올라가게 한다 */
     let peak = 0;
+    /**
+     * 방금 손에서 미끄러진 옷.
+     *
+     * 미끄러진 자리는 아직 손 바로 밑이라, 안 막으면 같은 벌을 그 자리에서 다시
+     * 잡는다 (잡고–미끄러지고를 되풀이해 파르르 떤다). 손이 그 자리를 뜨면 푼다.
+     */
+    let slipped = -1;
 
-    function onDown(event: PointerEvent) {
-      handX = event.clientX;
-      // 손가락에 제일 가까운 옷 한 벌만 잡는다. 여럿을 한꺼번에 끄는 손은 없다.
+    /** 손가락 밑에 있는 옷. 제일 가까운 한 벌만 — 여럿을 한꺼번에 끄는 손은 없다 */
+    function under(): number {
       let best = -1;
       let nearest = Infinity;
       for (let i = 0; i < hangers.length; i += 1) {
         const hanger = hangers[i];
         const bobX = pivots[i].x + offsetX(swings[i], hanger.shape);
         const bobY = pivots[i].y + offsetY(swings[i], hanger.shape);
-        const away = Math.abs(bobX - event.clientX);
+        const away = Math.abs(bobX - handX);
         if (away > FINGER + hanger.width / 2 || away >= nearest) continue;
-        if (Math.abs(event.clientY - bobY) > (hanger.width * 4) / 3 / 2 + SLACK) continue;
+        if (Math.abs(handY - bobY) > (hanger.width * 4) / 3 / 2 + SLACK) continue;
         nearest = away;
         best = i;
       }
-      held = best;
-      peak = best < 0 ? 0 : Math.abs(swings[best].angle);
+      return best;
+    }
+
+    /** 잡고 있던 것을 놓아준다. 당긴 데까지만 올라가도록 속도를 깎는다 */
+    function letGo() {
+      if (held < 0) return;
+      swings[held] = release(swings[held], hangers[held].shape, peak);
+      held = -1;
+    }
+
+    /** 손 밑에 새 옷이 있으면 잡는다 */
+    function grab() {
+      const found = under();
+      if (found !== slipped) slipped = -1;
+      if (found < 0 || found === slipped || found === held) return;
+      letGo();
+      held = found;
+      peak = Math.abs(swings[found].angle);
+    }
+
+    function onDown(event: PointerEvent) {
+      touching = true;
+      handX = event.clientX;
+      handY = event.clientY;
+      slipped = -1;
+      grab();
     }
 
     function onMove(event: PointerEvent) {
       handX = event.clientX;
+      handY = event.clientY;
     }
 
     function onUp() {
-      if (held >= 0) {
-        // 놓는 순간 당긴 데까지만 올라가도록 속도를 깎는다
-        swings[held] = release(swings[held], hangers[held].shape, peak);
-      }
-      held = -1;
+      letGo();
+      touching = false;
+      slipped = -1;
     }
 
     let raf = 0;
@@ -126,6 +181,16 @@ export function RailSwing({ hangers }: { hangers: Hanger[] }) {
       last = now;
 
       const clock = now / 1000;
+
+      // 손이 지나는 길에 있는 옷을 차례로 잡는다.
+      // 끌려가던 옷은 어느 각도에서 손을 놓치고, 그 다음 옷이 바로 손에 걸린다.
+      if (touching) {
+        if (held >= 0 && Math.abs(angleAt(hangers[held].shape, handX - pivots[held].x)) > SLIP) {
+          slipped = held;
+          letGo();
+        }
+        grab();
+      }
 
       for (let i = 0; i < hangers.length; i += 1) {
         const hanger = hangers[i];
@@ -146,7 +211,7 @@ export function RailSwing({ hangers }: { hangers: Hanger[] }) {
         const node = nodes.current[i];
         if (!node) continue;
         // rotate 는 transform 과 따로 쌓인다. Tailwind 의 -translate-x-1/2 를 안 지운다.
-        node.style.rotate = `${((swings[i].angle * 180) / Math.PI).toFixed(2)}deg`;
+        node.style.rotate = `${cssDegrees(swings[i].angle).toFixed(2)}deg`;
         // 뭘 잡았는지 보여야 끌고 있다는 걸 안다
         node.style.opacity = i === held ? "0.55" : "";
       }
@@ -213,7 +278,7 @@ export function RailSwing({ hangers }: { hangers: Hanger[] }) {
           style={{
             left: `${hanger.left.toFixed(2)}%`,
             width: `${hanger.width.toFixed(1)}px`,
-            rotate: `${((hanger.angle * 180) / Math.PI).toFixed(2)}deg`,
+            rotate: `${cssDegrees(hanger.angle).toFixed(2)}deg`,
           }}
         >
           {/* 화면 밖에서 옷까지 내려오는 고리 */}

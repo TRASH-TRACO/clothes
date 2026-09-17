@@ -156,6 +156,20 @@ export function release(state: Swing, shape: Shape, peak: number): Swing {
   return { angle: state.angle, speed: Math.max(-most, Math.min(most, state.speed)) };
 }
 
+/**
+ * 화면에 쓸 각도 (도). **부호가 뒤집힌다.**
+ *
+ * 여기서는 오른쪽이 양수다 (angleAt 이 손가락 − 축을 그대로 받는다). 그런데 CSS 의
+ * rotate 는 시계방향이 양수라, 매달린 것을 시계방향으로 돌리면 **왼쪽**으로 간다
+ * (시계의 6시에서 7시로 가는 쪽). 그대로 쓰면 손과 옷이 정반대로 움직인다.
+ *
+ * 부딪히는지 보는 계산(offsetX)은 화면 좌표와 같은 부호라야 하므로, 뒤집는 건
+ * 그릴 때 이 함수 한 곳에서만 한다.
+ */
+export function cssDegrees(angle: number): number {
+  return (-angle * 180) / Math.PI;
+}
+
 /** 옷 한가운데가 축에서 가로로 얼마나 벗어나 있는지 (px) */
 export function offsetX(state: Swing, shape: Shape): number {
   return shape.length * Math.sin(state.angle);
