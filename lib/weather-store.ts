@@ -1,10 +1,10 @@
 import "server-only";
 
-import { addDays, seoulToday } from "./calendar";
+import { addDays, endOfDay, seoulToday } from "./calendar";
 import { isPlace, placeKey, roundPlace, type Place } from "./places";
 import { isSupabaseConfigured } from "./supabase/env";
 import { createClient, getUser } from "./supabase/server";
-import { needsFetch, type Freshness } from "./weather-freshness";
+import { fetchPlan, type Freshness } from "./weather-freshness";
 import type { RecordedDay } from "./weather-codes";
 import { getDailyRange, type DayWeather } from "./weather";
 
@@ -158,6 +158,8 @@ function freshness(
     samePlace: Boolean(stored) && placeKey(stored!.place) === placeKey(want),
     age: stored ? Date.now() - stored.fetchedAt : 0,
     past: date < seoulToday(),
+    // 그날이 끝난 뒤에 받은 값이라야 실제로 그랬던 날씨다. 그 전에 받은 건 예보다.
+    settled: Boolean(stored) && stored!.fetchedAt >= endOfDay(date),
     pinned,
     recorded,
   };
@@ -170,7 +172,8 @@ function freshness(
  * 나중에 기본 지역을 바꿔도 지난 날과 기록을 남긴 날은 그대로다.
  *
  * recorded 는 그날 뭘 입었는지 적어 둔 날짜들. 아직 안 지난 날이어도
- * 기록을 남겼으면 지역이 굳는다 (규칙은 lib/weather-freshness.ts).
+ * 기록을 남겼으면 지역이 굳는다 — 다만 **굳는 건 지역이지 값이 아니다.**
+ * 굳은 날도 그 굳은 지역으로 값은 계속 받는다 (규칙은 lib/weather-freshness.ts).
  */
 export async function getCalendarWeather(
   base: Place,
@@ -186,12 +189,28 @@ export async function getCalendarWeather(
   const stored = await readRows(span.from, span.to);
 
   // 여행 간 날은 그 지역, 나머지는 기본 지역
-  const placeOf = (date: string) => placeByDate.get(date) ?? base;
-  const stale = sorted.filter((date) =>
-    needsFetch(
-      freshness(stored.get(date), placeOf(date), date, placeByDate.has(date), recorded.has(date)),
-    ),
+  const wanted = (date: string) => placeByDate.get(date) ?? base;
+
+  const plans = new Map(
+    sorted.map((date) => [
+      date,
+      fetchPlan(
+        freshness(stored.get(date), wanted(date), date, placeByDate.has(date), recorded.has(date)),
+      ),
+    ]),
   );
+
+  const stale = sorted.filter((date) => plans.get(date)!.fetch);
+
+  /**
+   * 지역이 굳은 날은 **그때 받아 뒀던 지역으로** 계속 받는다.
+   * 기본 지역을 바꿨다고 이미 적어 둔 날의 날씨가 딴 동네 것이 되면 안 되고,
+   * 그렇다고 값까지 멈춰 있으면 지나간 뒤에도 옛 예보가 남는다.
+   */
+  const placeOf = (date: string) => {
+    const kept = stored.get(date)?.place;
+    return plans.get(date)?.place === "stored" && kept ? kept : wanted(date);
+  };
 
   // 달력 전체 범위로 부른다. 다시 열 때도 같은 주소라 응답을 그대로 쓴다.
   const filled = await fetchAndStore(stale, placeOf, span);
@@ -233,7 +252,7 @@ async function dropStoredDay(date: string): Promise<void> {
  *
  * 지난 날이어도 다시 받는다. "그날 거기 없었다"고 사용자가 직접 고친 것이므로
  * 기록을 고쳐 주는 게 맞다. 반대로 설정에서 기본 지역만 바꾼 경우에는
- * 여기까지 오지 않는다 (needsFetch 가 지난 날을 그대로 둔다).
+ * 여기까지 오지 않는다 (fetchPlan 이 굳은 지역을 그대로 쓴다).
  */
 export async function resetStoredDay(date: string, base: Place): Promise<void> {
   await dropStoredDay(date);

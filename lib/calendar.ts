@@ -101,3 +101,13 @@ export function gridRange(date: string) {
   const weeks = monthGrid(monthOf(date));
   return { from: weeks[0][0], to: weeks[weeks.length - 1][6] };
 }
+
+/**
+ * 그 날짜가 다 지난 시각 (ms).
+ *
+ * 한국은 서머타임이 없어서 늘 +09:00 이다. "이 날이 끝난 뒤에 받은 값인지" 를
+ * 가리는 데 쓴다 (lib/weather-freshness.ts 의 settled).
+ */
+export function endOfDay(date: string): number {
+  return Date.parse(`${date}T00:00:00+09:00`) + 24 * 60 * 60 * 1000;
+}
