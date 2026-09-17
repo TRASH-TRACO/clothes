@@ -1,5 +1,6 @@
 "use server";
 
+import { isFelt, type Felt } from "@/lib/feedback";
 import { pickSimilar, type Candidate } from "@/lib/similar-day";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { weatherKind } from "@/lib/weather-codes";
@@ -15,6 +16,8 @@ export type SimilarDay = {
   low: number;
   /** 그날 입은 옷 id. 옷 자체는 캘린더가 이미 들고 있다 */
   itemIds: string[];
+  /** 그날 몸으로 느낀 것 ("cold" · "ok" · "hot"). 안 적었으면 null */
+  felt: Felt | null;
 };
 
 type Row = {
@@ -23,6 +26,7 @@ type Row = {
   temp_high: number;
   temp_low: number;
   item_ids: string[] | null;
+  felt: string | null;
 };
 
 /**
@@ -64,6 +68,7 @@ export async function findSimilarDay(
     low: row.temp_low,
     kind: weatherKind(row.code ?? 0),
     itemIds: row.item_ids ?? [],
+    felt: row.felt,
   }));
 
   const best = pickSimilar({ high, low, kind: weatherKind(code) }, candidates);
@@ -76,5 +81,6 @@ export async function findSimilarDay(
     high: best.high,
     low: best.low,
     itemIds: best.itemIds,
+    felt: isFelt(best.felt) ? best.felt : null,
   };
 }

@@ -6,6 +6,7 @@ import { useActionState, useState } from "react";
 import { useClosetData } from "@/components/closet-data";
 import { ItemPhoto } from "@/components/item-photo";
 import { FeltPicker } from "@/components/feedback-picker";
+import { FELT_LABELS, type Felt } from "@/lib/feedback";
 import { PlacePicker } from "@/components/place-picker";
 import { deleteWearLog } from "@/app/actions/wear";
 import { ConfirmForm } from "@/components/confirm-form";
@@ -288,6 +289,25 @@ export function WearForm({ date, log, basePlace, place, action, onCancel, simila
 }
 
 /**
+ * 그날 몸으로 느낀 것에 따라 달라지는 한 줄.
+ *
+ * 만족한 날은 그대로 권하고, 추웠거나 더웠던 날은 그 사실을 같이 말해 준다.
+ * 안 맞았던 날도 숨기지 않는 게 낫다 — 그 기온에 뭘 입었는지는 여전히 참고가 되고,
+ * "그때 추웠다" 를 알면 한 겹 더 챙기게 된다.
+ */
+const FELT_HINT: Record<Felt, { title: string; note: string }> = {
+  ok: { title: "이런 날엔 이렇게 입고 만족했어요", note: "그날은 딱 맞았다고 적어 두셨어요." },
+  cold: {
+    title: "이런 날엔 이렇게 입었는데 추웠어요",
+    note: "한 겹 더 챙기면 좋겠어요.",
+  },
+  hot: {
+    title: "이런 날엔 이렇게 입었는데 더웠어요",
+    note: "한 겹 덜어도 될 것 같아요.",
+  },
+};
+
+/**
  * "이런 날엔 이렇게 입었어요".
  *
  * 옷은 이미 받아 둔 목록에서 찾는다 (id 만 건너온다). 그새 지운 옷은 빠진다.
@@ -307,9 +327,12 @@ function SimilarHint({
     .filter((item): item is Item => Boolean(item));
   if (worn.length === 0) return null;
 
+  // 안 적어 둔 날은 만족도 얘기를 꺼내지 않는다 (모르는 것과 괜찮았던 것은 다르다)
+  const hint = similar.felt ? FELT_HINT[similar.felt] : null;
+
   return (
     <section className="rounded-2xl bg-mist p-5">
-      <h2 className="display text-2xl">이런 날엔 이렇게 입었어요</h2>
+      <h2 className="display text-2xl">{hint ? hint.title : "이런 날엔 이렇게 입었어요"}</h2>
       <p className="mt-2 text-sm text-muted">
         <Link
           href={`/calendar/${similar.date}`}
@@ -320,7 +343,14 @@ function SimilarHint({
         {" · "}
         최고 {Math.round(similar.high)}° 최저 {Math.round(similar.low)}°{" "}
         {weatherLabel(similar.code)}
+        {similar.felt ? (
+          <>
+            {" · "}
+            <span className="font-medium text-ink">{FELT_LABELS[similar.felt]}</span>
+          </>
+        ) : null}
       </p>
+      {hint ? <p className="mt-1 text-sm text-muted">{hint.note}</p> : null}
 
       <div className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-6">
         {worn.map((item) => (

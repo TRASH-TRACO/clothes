@@ -405,8 +405,14 @@ alter table public.outfits add column if not exists photo_paths text[] not null 
 -- 입은 옷 id 까지 같이 실어 보내므로 **왕복이 한 번이면 끝난다** (옷 자체는 캘린더가
 -- 이미 들고 있어서 id 만 있으면 화면에 그린다).
 --
+-- 그날 몸으로 느낀 것(felt)도 같이 보낸다. "이렇게 입고 딱 맞았다" 는 날이 "입었는데
+-- 추웠다" 는 날보다 권할 만하다.
+--
 -- 날씨 종류(맑음·비·눈)로 한 번 더 고르는 건 앱에서 한다 (lib/similar-day.ts).
 -- 코드 → 종류 표가 앱에 이미 있는데 SQL 에 또 적으면 언젠가 서로 어긋난다.
+-- 돌려주는 칸이 바뀌면 create or replace 로는 못 바꾼다. 먼저 지우고 새로 만든다.
+drop function if exists public.similar_days(date, double precision, double precision, integer);
+
 -- 매개변수에 p_ 를 붙인 이유: 아래 returns table 의 이름(on_date …)과 겹치면
 -- 본문에서 어느 쪽인지 애매해진다. 겹칠 일 자체를 없앤다.
 create or replace function public.similar_days(
@@ -420,17 +426,19 @@ returns table (
   code smallint,
   temp_high double precision,
   temp_low double precision,
-  item_ids uuid[]
+  item_ids uuid[],
+  felt text
 )
 language sql
 stable
 -- security invoker (기본값) 라서 daily_weather·wear_logs 의 RLS 가 그대로 걸린다.
 -- user_id 조건을 또 적는 건 인덱스(primary key) 를 타게 하려는 것이다.
 as $$
-  select w.on_date, w.code, w.temp_high, w.temp_low, worn.item_ids
+  select w.on_date, w.code, w.temp_high, w.temp_low, worn.item_ids, worn.felt
   from public.daily_weather w
   cross join lateral (
-    select array_agg(i.item_id) as item_ids
+    -- 하루에 한 줄이라 (wear_logs 의 unique(user_id, worn_on)) min 은 그 줄의 값이다
+    select array_agg(i.item_id) as item_ids, min(l.felt) as felt
     from public.wear_logs l
     join public.wear_log_items i on i.wear_log_id = l.id
     where l.user_id = w.user_id and l.worn_on = w.on_date

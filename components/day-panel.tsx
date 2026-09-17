@@ -1,7 +1,7 @@
 "use client";
 
 import { WarmLink } from "@/components/warm-link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
 import { FeltGlyph } from "@/components/feedback-glyph";
 import { ItemPhoto } from "@/components/item-photo";
@@ -26,6 +26,18 @@ type Props = {
   startInEdit?: boolean;
   onClose: () => void;
 };
+
+/**
+ * 패널 높이. 화면 높이에 대한 비율이고, **내용과 상관없이 늘 같다.**
+ *
+ * 내용에 맞춰 높이가 달라지면 날짜마다 패널이 널뛴다 (옷 열 벌 적은 날과
+ * 아무것도 없는 날). 자리를 고정해 두면 어느 날을 눌러도 같은 자리에서 시작한다.
+ */
+const COLLAPSED = 0.52;
+/** 위로 쓸어올렸을 때 */
+const EXPANDED = 0.92;
+/** 이만큼(px)은 끌어야 단계가 바뀐다. 손가락이 살짝 흔들린 것까지 먹지 않게 */
+const SNAP = 48;
 
 function logPlaceOf(log: WearLogWithItems | null): Place | null {
   if (!log) return null;
@@ -69,6 +81,50 @@ export function DayPanel({ date, log, day, basePlace, startInEdit = false, onClo
     };
   }, [canAsk, date, day]);
 
+  /**
+   * 위로 쓸어올리면 커진다 (모바일).
+   *
+   * 끄는 동안에는 손가락을 그대로 따라가도록 px 로 직접 잡고, 손을 떼면 다시
+   * 두 단계(반 화면 / 거의 전체) 중 하나로 붙는다. 접힌 상태에서 아래로 쓸면 닫힌다.
+   */
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ y: number; height: number } | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [dragHeight, setDragHeight] = useState<number | null>(null);
+
+  function onGrabStart(event: ReactPointerEvent<HTMLElement>) {
+    const sheet = sheetRef.current;
+    if (!sheet) return;
+    // 머리글에는 닫기 버튼도 있다. 버튼을 누른 손가락까지 붙잡으면 눌리지 않는다
+    if ((event.target as HTMLElement).closest("button,a")) return;
+    dragRef.current = { y: event.clientY, height: sheet.getBoundingClientRect().height };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function onGrabMove(event: ReactPointerEvent<HTMLElement>) {
+    const start = dragRef.current;
+    if (!start) return;
+    const view = window.innerHeight;
+    const wanted = start.height - (event.clientY - start.y);
+    // 닫는 손짓이 손가락을 따라가 보이도록 접힌 높이보다 조금 더 내려갈 수 있게 둔다
+    const floor = view * COLLAPSED - SNAP * 2;
+    setDragHeight(Math.max(floor, Math.min(view * EXPANDED, wanted)));
+  }
+
+  function onGrabEnd(event: ReactPointerEvent<HTMLElement>) {
+    const start = dragRef.current;
+    if (!start) return;
+    dragRef.current = null;
+    setDragHeight(null);
+
+    const up = start.y - event.clientY;
+    if (up > SNAP) setExpanded(true);
+    else if (up < -SNAP) {
+      if (expanded) setExpanded(false);
+      else onClose();
+    }
+  }
+
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
@@ -93,13 +149,45 @@ export function DayPanel({ date, log, day, basePlace, startInEdit = false, onClo
       />
 
       <div
+        ref={sheetRef}
         role="dialog"
         aria-modal="true"
         aria-label={dayLabel(date)}
-        className="relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl
-          bg-paper sm:max-h-[88dvh] sm:max-w-3xl sm:rounded-2xl"
+        style={dragHeight === null ? undefined : { height: dragHeight }}
+        className={`relative flex w-full flex-col overflow-hidden rounded-t-2xl bg-paper
+          sm:h-[80dvh] sm:max-w-3xl sm:rounded-2xl ${
+            expanded ? "h-[92dvh]" : "h-[52dvh]"
+          } ${dragHeight === null ? "transition-[height] duration-200 ease-out" : ""}`}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-line px-6 pt-6 pb-5">
+        {/* 쓸어올리는 손잡이. 마우스로는 눌러서 끌거나 그냥 눌러도 단계가 바뀐다 */}
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label={expanded ? "패널 줄이기" : "패널 키우기"}
+          aria-expanded={expanded}
+          onPointerDown={onGrabStart}
+          onPointerMove={onGrabMove}
+          onPointerUp={onGrabEnd}
+          onPointerCancel={onGrabEnd}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              setExpanded((was) => !was);
+            }
+          }}
+          className="flex shrink-0 touch-none cursor-grab justify-center pt-2 pb-1 sm:hidden"
+        >
+          <span className="h-1 w-10 rounded-full bg-line" />
+        </div>
+
+        <div
+          onPointerDown={onGrabStart}
+          onPointerMove={onGrabMove}
+          onPointerUp={onGrabEnd}
+          onPointerCancel={onGrabEnd}
+          className="flex shrink-0 touch-pan-y items-start justify-between gap-4 border-b
+            border-line px-6 pt-4 pb-5 sm:pt-6"
+        >
           <div>
             <p className="eyebrow">{date === today ? "오늘" : date > today ? "예정" : "기록"}</p>
             <h2 className="display mt-2 text-3xl sm:text-4xl">{dayLabel(date)}</h2>

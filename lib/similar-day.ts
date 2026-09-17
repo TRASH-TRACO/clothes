@@ -21,6 +21,13 @@ export type Candidate = Target & {
   date: string;
   /** 그날 입은 옷 */
   itemIds: string[];
+  /**
+   * 그날 몸으로 느낀 것 ("ok" · "cold" · "hot"). 안 적었으면 null.
+   *
+   * 값의 뜻은 lib/feedback 이 정한다. 여기서는 "ok 냐 아니냐" 만 보므로
+   * 그대로 글자로 받는다 (이 파일은 아무것도 안 물어야 한다).
+   */
+  felt: string | null;
 };
 
 /**
@@ -39,10 +46,31 @@ export const TOO_FAR = 6;
  */
 const KIND_PENALTY = 3;
 
-/** 작을수록 비슷하다 */
-export function score(target: Target, candidate: Target): number {
+/**
+ * 그날 어땠는지에 따라 붙는 벌점 (도 단위로 친다).
+ *
+ * "딱 맞았다" 는 날이 제일 권할 만하다. "추웠다·더웠다" 는 그 날씨에 그 옷이
+ * 안 맞았다는 뜻이라 권하면 같은 실수를 되풀이하게 된다. 안 적은 날은 그 중간이다.
+ *
+ * 다만 기온이 훨씬 비슷한 날은 여전히 이긴다 — 벌점이 도 단위라 그만큼만 밀린다.
+ */
+const FELT_PENALTY = { ok: 0, unknown: 1, off: 2.5 } as const;
+
+function feltPenalty(felt: string | null): number {
+  if (!felt) return FELT_PENALTY.unknown;
+  return felt === "ok" ? FELT_PENALTY.ok : FELT_PENALTY.off;
+}
+
+/**
+ * 작을수록 권할 만하다.
+ *
+ * 기온 차 + 날씨가 다르면 벌점 + 그날 안 맞았으면 벌점.
+ * @param felt 그날 몸으로 느낀 것 (후보에만 있다. 오늘은 아직 안 입어봤다).
+ *   빼먹으면 조용히 벌점이 붙어 값이 틀어지므로 반드시 받는다.
+ */
+export function score(target: Target, candidate: Target, felt: string | null): number {
   const gap = Math.abs(candidate.high - target.high) + Math.abs(candidate.low - target.low);
-  return gap + (candidate.kind === target.kind ? 0 : KIND_PENALTY);
+  return gap + (candidate.kind === target.kind ? 0 : KIND_PENALTY) + feltPenalty(felt);
 }
 
 /** 기온만 본 거리 (평균 몇 도 차이). 너무 멀면 추천 자체를 접는다 */
@@ -63,7 +91,7 @@ export function pickSimilar(target: Target, candidates: Candidate[]): Candidate 
     if (candidate.itemIds.length === 0) continue;
     if (tempGap(target, candidate) > TOO_FAR) continue;
 
-    const value = score(target, candidate);
+    const value = score(target, candidate, candidate.felt);
     if (value < bestScore || (value === bestScore && best !== null && candidate.date > best.date)) {
       best = candidate;
       bestScore = value;
