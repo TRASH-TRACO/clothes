@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 
-import { cropToJpeg, loadImage } from "@/lib/image";
+import { backdropColor, coversFrame, cropToJpeg, loadImage, readBackdrop } from "@/lib/image";
 
 const MAX_ZOOM = 4;
 
@@ -86,7 +86,7 @@ export function PhotoCropper({ file, aspect, onCancel, onDone }: Props) {
 
   const image = source?.image ?? null;
   // zoom 1 = 프레임을 꽉 채우는 배율(cover). 그 아래로는 원본 전체가
-  // 들어가는 배율(contain)까지 내려갈 수 있고, 남는 여백은 블러로 채운다.
+  // 들어가는 배율(contain)까지 내려갈 수 있고, 남는 여백은 색 한 가지로 채운다.
   const baseScale =
     image && frame.width
       ? Math.max(
@@ -123,6 +123,15 @@ export function PhotoCropper({ file, aspect, onCancel, onDone }: Props) {
   );
 
   const current = view ?? fitted;
+
+  /**
+   * 뒤에 깔 색. **저장 결과와 같은 색이라야 한다.**
+   *
+   * 예전에는 여기만 흐린 사진을 깔아서, 자르기 전과 자른 뒤의 배경이 서로 달랐다.
+   * 색을 뽑으려면 픽셀을 훑어야 하므로 사진이 바뀔 때만 한 번 구한다 (끌 때마다
+   * 다시 구하면 손가락을 따라오지 못한다).
+   */
+  const backdrop = useMemo(() => (image ? readBackdrop(image) : null), [image]);
 
   const clampOffset = useCallback(
     (next: Point, scale: number): Point => {
@@ -266,6 +275,16 @@ export function PhotoCropper({ file, aspect, onCancel, onDone }: Props) {
 
   const scale = baseScale * (current?.zoom ?? 1);
 
+  // 지금 이 자리·배율로 저장하면 어떤 색이 깔리는지. 자르기 버튼을 누르기 전에
+  // 보이는 그대로가 결과가 되도록 cropToJpeg 와 같은 함수로 정한다.
+  const background =
+    backdrop && image && current && frame.width
+      ? backdropColor(
+          backdrop,
+          coversFrame(image, { frame, offset: current.offset, scale }),
+        )
+      : undefined;
+
   return (
     <div>
       <div
@@ -274,22 +293,9 @@ export function PhotoCropper({ file, aspect, onCancel, onDone }: Props) {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        style={{ aspectRatio: String(aspect), touchAction: "none" }}
+        style={{ aspectRatio: String(aspect), touchAction: "none", background }}
         className="relative w-full cursor-grab overflow-hidden rounded-xl bg-mist active:cursor-grabbing"
       >
-        {/* 여백을 채울 블러 배경. 저장 결과와 같은 그림이 되도록 미리 깔아둔다 */}
-        {source ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={source.url}
-            alt=""
-            aria-hidden
-            draggable={false}
-            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-            style={{ filter: "blur(24px)", transform: "scale(1.15)" }}
-          />
-        ) : null}
-
         {source && current ? (
           /* 크롭 대상 원본이라 next/image가 아니라 <img>를 쓴다 */
           /* eslint-disable-next-line @next/next/no-img-element */

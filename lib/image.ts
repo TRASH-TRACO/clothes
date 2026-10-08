@@ -50,12 +50,16 @@ function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
  * - **밝은 옷이면 바탕을 조금 낮춘다.** 흰 티셔츠를 흰 바탕에 놓으면 묻힌다.
  * - 그림자처럼 반투명한 가장자리는 색 통계에서 뺀다. 섞이면 탁해진다.
  */
-function readBackdrop(image: HTMLImageElement): {
+export type Backdrop = {
+  /** 투명한 자리를 메울 색 */
   color: string;
-  cutout: boolean;
-  /** 여백을 채울 색. 사진 가장자리에서 뽑는다 (lib/fill-color.ts) */
+  /** 사진이 프레임을 다 못 덮을 때 그 여백을 메울 색. 사진 가장자리에서 뽑는다 */
   fill: string;
-} {
+  /** 누끼 딴 사진인지 */
+  cutout: boolean;
+};
+
+export function readBackdrop(image: HTMLImageElement): Backdrop {
   const canvas = document.createElement("canvas");
   const ratio = Math.min(1, SAMPLE_EDGE / Math.max(image.naturalWidth, image.naturalHeight));
   canvas.width = Math.max(1, Math.round(image.naturalWidth * ratio));
@@ -142,6 +146,30 @@ export function loadImage(
   });
 }
 
+/** 사진이 프레임을 빈틈없이 덮는지. 0.5px 쯤의 반올림 오차는 덮은 것으로 본다 */
+export function coversFrame(image: HTMLImageElement, view: CropView): boolean {
+  const epsilon = 0.5;
+  const width = image.naturalWidth * view.scale;
+  const height = image.naturalHeight * view.scale;
+  return (
+    view.offset.x <= epsilon &&
+    view.offset.y <= epsilon &&
+    view.offset.x + width >= view.frame.width - epsilon &&
+    view.offset.y + height >= view.frame.height - epsilon
+  );
+}
+
+/**
+ * 사진 뒤에 깔 색.
+ *
+ * **크롭 화면과 저장 결과가 같은 색을 써야 한다.** 예전에는 크롭 화면이 흐린 사진을
+ * 깔고 저장은 다른 걸 깔아서, 자르기 전과 후의 배경이 서로 달랐다.
+ */
+export function backdropColor(backdrop: Backdrop, covers: boolean): string {
+  // 다 덮으면 여백이 없다. 그때 깔아 둔 색은 투명한 자리에만 비친다.
+  return covers ? backdrop.color : backdrop.fill;
+}
+
 /**
  * 프레임에 보이는 그대로를 JPEG로 인코딩한다.
  *
@@ -180,19 +208,13 @@ export async function cropToJpeg(
   const dw = image.naturalWidth * view.scale * k;
   const dh = image.naturalHeight * view.scale * k;
 
-  const epsilon = 0.5;
-  const covers =
-    dx <= epsilon &&
-    dy <= epsilon &&
-    dx + dw >= width - epsilon &&
-    dy + dh >= height - epsilon;
-
   // 먼저 바탕을 깐다. 두 가지를 한꺼번에 한다.
   //   1) 사진이 프레임을 다 못 덮으면 그 여백을 메운다 (가장자리에서 뽑은 색).
   //   2) 투명한 자리가 검정으로 떨어지지 않게 막는다. JPEG 에는 투명이 없어서,
   //      안 깔면 누끼 딴 PNG 의 투명했던 자리가 전부 검정이 된다.
   // 다 덮는 불투명 사진이면 어차피 위에 가려지므로 달라지는 게 없다.
-  context.fillStyle = covers ? backdrop.color : backdrop.fill;
+  // 크롭 화면도 같은 색을 깐다 (components/photo-cropper.tsx).
+  context.fillStyle = backdropColor(backdrop, coversFrame(image, view));
   context.fillRect(0, 0, width, height);
 
   context.imageSmoothingEnabled = true;
