@@ -19,8 +19,20 @@ type Props = {
 };
 
 /**
+ * 지금 보고 있는 사진을 내려받는 주소.
+ *
+ * 저장될 이름은 **옷·코디 이름**으로 짓는다. 저장해 둔 경로에는 uuid 가 박혀 있어서
+ * 그대로 받으면 사진첩에 `a3f2….jpg` 가 쌓인다. 여러 장이면 뒤에 번호를 붙인다.
+ */
+function downloadHref(path: string, alt: string, index: number, total: number) {
+  const name = total > 1 ? `${alt} ${index + 1}` : alt;
+  return `${photoUrl(path)}?download=1&name=${encodeURIComponent(name)}`;
+}
+
+/**
  * 옷 사진 넘겨 보기.
  * 옆으로 밀어 넘기고(스크롤 스냅), 아래 점으로 위치를 보여준다.
+ * 오른쪽 아래 버튼으로 **보고 있는 사진을 내려받는다.**
  */
 export function PhotoCarousel({ paths, alt, category, aspect = "aspect-square" }: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -41,8 +53,12 @@ export function PhotoCarousel({ paths, alt, category, aspect = "aspect-square" }
     track.scrollTo({ left: track.clientWidth * index, behavior: "smooth" });
   }
 
+  // 스크롤 중에 범위 밖을 가리킬 수 있다
+  const shown = Math.min(Math.max(current, 0), paths.length - 1);
+
   return (
     <div>
+      <div className="relative">
       <div
         ref={trackRef}
         onScroll={(event) => {
@@ -64,6 +80,31 @@ export function PhotoCarousel({ paths, alt, category, aspect = "aspect-square" }
             />
           </div>
         ))}
+      </div>
+
+      {/* 내려받기. 사진 위에 올려 둬야 어느 사진을 받는지가 분명하다 */}
+      <a
+        href={downloadHref(paths[shown], alt, shown, paths.length)}
+        download
+        aria-label={paths.length > 1 ? `${shown + 1}번째 사진 내려받기` : "사진 내려받기"}
+        className="absolute bottom-3 right-3 rounded-full bg-paper/85 p-2.5 text-ink shadow-sm
+          backdrop-blur-sm transition-colors hover:bg-paper"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.6}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          className="h-5 w-5"
+        >
+          <path d="M12 4v11" />
+          <path d="M7.5 10.5 12 15l4.5-4.5" />
+          <path d="M5 19h14" />
+        </svg>
+      </a>
       </div>
 
       {paths.length > 1 ? (
