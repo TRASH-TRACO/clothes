@@ -105,10 +105,18 @@ export async function getCategoryCounts() {
 }
 
 type OutfitRow = Outfit & {
-  outfit_items: { slot: Category; layer: number; items: Item | null }[];
+  outfit_items: { slot: Category; layer?: number | null; items: Item | null }[];
 };
 
 const OUTFIT_SELECT = "*, outfit_items(slot, layer, items(*))";
+/**
+ * schema.sql 16 번(레이어드)을 아직 안 돌렸을 때 쓰는 셀렉트.
+ *
+ * `layer` 는 **컬럼**이라 없으면 쿼리 자체가 400 이 난다. 테이블이 없을 때와 달리
+ * 빈 목록으로 넘길 수도 없다 — 코디는 멀쩡히 있으니까. 그래서 한 번 더 물어본다.
+ * 겹쳐 입기만 못 할 뿐 나머지는 그대로 돈다.
+ */
+const OUTFIT_SELECT_PLAIN = "*, outfit_items(slot, items(*))";
 
 /**
  * 코디 보드와 같은 순서로 세운다 — 분류는 모자 → 아우터 → 상의 …,
@@ -121,21 +129,24 @@ function toOutfit(row: OutfitRow): OutfitWithItems {
   const items = [...row.outfit_items]
     .sort(
       (a, b) =>
-        (rank.get(a.slot) ?? 99) - (rank.get(b.slot) ?? 99) || a.layer - b.layer,
+        (rank.get(a.slot) ?? 99) - (rank.get(b.slot) ?? 99) ||
+        (a.layer ?? 0) - (b.layer ?? 0),
     )
-    .map((entry) => ({ slot: entry.slot, layer: entry.layer, item: entry.items }));
+    .map((entry) => ({ slot: entry.slot, layer: entry.layer ?? 0, item: entry.items }));
   return { ...row, items };
 }
 
 export const getOutfits = cache(async (): Promise<OutfitWithItems[]> => {
   if (!isSupabaseConfigured()) return [];
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("outfits")
-    .select(OUTFIT_SELECT)
-    .order("created_at", { ascending: false });
+  const ask = (select: string) =>
+    supabase.from("outfits").select(select).order("created_at", { ascending: false });
+
+  let { data, error } = await ask(OUTFIT_SELECT);
+  // layer 컬럼을 아직 안 만들었으면 그것만 빼고 다시 묻는다
+  if (isMissingColumn(error)) ({ data, error } = await ask(OUTFIT_SELECT_PLAIN));
   if (error) throw new Error(error.message);
-  return ((data ?? []) as OutfitRow[]).map(toOutfit);
+  return ((data ?? []) as unknown as OutfitRow[]).map(toOutfit);
 });
 
 /**
@@ -163,13 +174,13 @@ export const getOutfitFolders = cache(async (): Promise<OutfitFolder[]> => {
 export const getOutfit = cache(async (id: string): Promise<OutfitWithItems | null> => {
   if (!isSupabaseConfigured()) return null;
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("outfits")
-    .select(OUTFIT_SELECT)
-    .eq("id", id)
-    .maybeSingle();
+  const ask = (select: string) =>
+    supabase.from("outfits").select(select).eq("id", id).maybeSingle();
+
+  let { data, error } = await ask(OUTFIT_SELECT);
+  if (isMissingColumn(error)) ({ data, error } = await ask(OUTFIT_SELECT_PLAIN));
   if (error) throw new Error(error.message);
-  return data ? toOutfit(data as OutfitRow) : null;
+  return data ? toOutfit(data as unknown as OutfitRow) : null;
 });
 
 /**
@@ -182,6 +193,19 @@ export const getOutfit = cache(async (id: string): Promise<OutfitWithItems | nul
  */
 function isMissingTable(error: { code?: string } | null) {
   return error?.code === "42P01" || error?.code === "PGRST205";
+}
+
+/**
+ * 테이블은 있는데 **컬럼**이 없다. 나중에 더한 칸을 아직 안 만든 경우다.
+ *
+ * 테이블이 없을 때와 다르게 빈 목록으로 넘길 수가 없다 — 나머지 칸의 값은 멀쩡히
+ * 있으니 그걸 보여줘야 한다. 그래서 부르는 쪽이 그 칸만 빼고 다시 묻는다.
+ *
+ * 코드가 둘인 건 테이블 때와 같은 이유다. 읽을 때는 포스트그레스가 42703 을 주고,
+ * 쓸 때는 PostgREST 가 제 스키마 목록에서 못 찾아 PGRST204 를 준다.
+ */
+export function isMissingColumn(error: { code?: string } | null) {
+  return error?.code === "42703" || error?.code === "PGRST204";
 }
 
 type WearLogRow = WearLog & {

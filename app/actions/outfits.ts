@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 
 import { isCategory, type Category } from "@/lib/categories";
 import { isRating } from "@/lib/feedback";
+import { isMissingColumn } from "@/lib/data";
 import { findSameOutfit, outfitKey } from "@/lib/outfit-key";
 import { outfitTitle } from "@/lib/outfit-title";
 import { PHOTO_BUCKET } from "@/lib/supabase/env";
@@ -161,17 +162,46 @@ export async function saveOutfit(_prev: ActionState, formData: FormData): Promis
     id = data.id;
   }
 
-  const { error: itemsError } = await supabase
-    .from("outfit_items")
-    .insert(rows.map((row) => ({ ...row, outfit_id: id })));
-
-  if (itemsError) return fail(itemsError.message);
+  const itemsError = await insertItems(supabase, id, rows);
+  if (itemsError) return fail(itemsError);
 
   // 옷·코디·기록은 홈, 옷장, 코디 만들기, 캘린더에 걸쳐 나온다.
   // 경로를 하나씩 적으면 빠뜨리는 곳이 생기고, 이동 캐시 때문에 옛 값이 남는다.
   // 바꿀 일이 잦지 않으니 통째로 비운다.
   revalidatePath("/", "layout");
   redirect(`/outfits/${id}`);
+}
+
+/**
+ * 코디 구성을 넣는다. 실패하면 사람이 읽을 이유를, 성공하면 null.
+ *
+ * **schema.sql 16 번을 아직 안 돌렸을 수 있다.** 그때는 layer 칸이 없고, 분류당
+ * 한 벌만 넣을 수 있는 옛 제약이 그대로 걸려 있다. 겹쳐 입기만 못 하게 막고
+ * 나머지는 예전처럼 저장되게 한다.
+ */
+async function insertItems(
+  supabase: SupabaseClient,
+  outfitId: string,
+  rows: { item_id: string; slot: Category; layer: number }[],
+): Promise<string | null> {
+  const { error } = await supabase
+    .from("outfit_items")
+    .insert(rows.map((row) => ({ ...row, outfit_id: outfitId })));
+  if (!error) return null;
+
+  if (!isMissingColumn(error)) return error.message;
+
+  // layer 칸이 없으면 그것만 빼고 다시 넣는다
+  const { error: plainError } = await supabase
+    .from("outfit_items")
+    .insert(rows.map(({ item_id, slot }) => ({ item_id, slot, outfit_id: outfitId })));
+  if (!plainError) return null;
+
+  // 옛 제약(분류당 한 벌)에 걸렸다. 무엇을 해야 하는지 그대로 말해 준다.
+  if (plainError.code === "23505") {
+    return "겹쳐 입은 코디를 저장하려면 supabase/schema.sql 의 16번을 먼저 실행해 주세요. 그전까지는 분류당 한 벌만 담을 수 있습니다.";
+  }
+  return plainError.message;
 }
 
 /** 이미 저장해 둔 코디들을 조합만 남기고 가져온다 */
