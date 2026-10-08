@@ -28,7 +28,7 @@ export function OutfitCard({ outfit }: { outfit: OutfitWithItems }) {
           />
           {filled.slice(0, 3).map((entry) => (
             <ItemPhoto
-              key={entry.slot}
+              key={entry.item!.id}
               path={entry.item!.photo_path}
               alt={entry.item!.name}
               category={entry.item!.category}
@@ -46,7 +46,7 @@ export function OutfitCard({ outfit }: { outfit: OutfitWithItems }) {
         <div className="grid grid-cols-2 gap-1 overflow-hidden rounded-xl bg-mist p-1">
           {filled.slice(0, 4).map((entry) => (
             <ItemPhoto
-              key={entry.slot}
+              key={entry.item!.id}
               path={entry.item!.photo_path}
               alt={entry.item!.name}
               category={entry.item!.category}
@@ -69,8 +69,15 @@ export function OutfitCard({ outfit }: { outfit: OutfitWithItems }) {
           ) : null}
           <span className="truncate">{title}</span>
         </p>
+        {/* 겹쳐 입으면 같은 분류가 여러 번 나온다. "상의 · 상의" 는 알려주는 게 없으니
+            분류는 한 번만 적고, 몇 벌인지 숫자로 붙인다 ("상의 2 · 하의") */}
         <p className="mt-1 text-sm text-muted">
-          {filled.map((entry) => CATEGORY_META[entry.slot].label).join(" · ")}
+          {[...new Set(filled.map((entry) => entry.slot))]
+            .map((slot) => {
+              const count = filled.filter((entry) => entry.slot === slot).length;
+              return count > 1 ? `${CATEGORY_META[slot].label} ${count}` : CATEGORY_META[slot].label;
+            })
+            .join(" · ")}
         </p>
       </div>
     </WarmLink>

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { OutfitBuilder } from "@/components/outfit-builder";
-import { CATEGORIES, type Category } from "@/lib/categories";
+import { CATEGORIES } from "@/lib/categories";
 import { outfitKey, type KnownOutfit } from "@/lib/outfit-key";
 import { outfitTitle } from "@/lib/outfit-title";
 import { getItems, getOutfit, getOutfitFolders, getOutfits } from "@/lib/data";
@@ -36,16 +36,29 @@ export default async function StudioPage({ searchParams }: PageProps<"/studio">)
   const editId = typeof params.edit === "string" ? params.edit : null;
   const editing = editId ? await getOutfit(editId) : null;
 
-  const selection: Partial<Record<Category, string>> = {};
+  /**
+   * 미리 골라 둘 옷. **순서가 그대로 겹쳐 입은 순서**가 된다.
+   *
+   * - 수정이면 저장해 둔 순서 그대로 (`getOutfit` 이 이미 안에서 겉으로 세워 준다).
+   * - `?i=<id>&i=<id>` 로 넘겨도 된다. 분류당 한 벌이 아니라 레이어드도 실린다.
+   * - `?top=<id>` 처럼 분류 이름으로 넘기던 예전 주소도 그대로 받는다
+   *   (이미 돌아다니는 링크가 있고, 그때는 분류당 한 벌이었다).
+   */
+  const picks: string[] = [];
   if (editing) {
     for (const entry of editing.items) {
-      if (entry.item) selection[entry.slot] = entry.item.id;
+      if (entry.item) picks.push(entry.item.id);
     }
   } else {
-    // ?top=<itemId> 처럼 카테고리별로 미리 채워둘 수 있다
-    for (const category of CATEGORIES) {
-      const value = params[category];
-      if (typeof value === "string") selection[category] = value;
+    const listed = params.i;
+    for (const value of Array.isArray(listed) ? listed : listed ? [listed] : []) {
+      if (typeof value === "string" && value) picks.push(value);
+    }
+    if (picks.length === 0) {
+      for (const category of CATEGORIES) {
+        const value = params[category];
+        if (typeof value === "string") picks.push(value);
+      }
     }
   }
 
@@ -75,7 +88,7 @@ export default async function StudioPage({ searchParams }: PageProps<"/studio">)
         <OutfitBuilder
           items={items}
           userId={user.id}
-          initialSelection={selection}
+          initialPicks={picks}
           known={known}
           folders={folders}
           outfit={

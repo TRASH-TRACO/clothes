@@ -119,7 +119,7 @@ export function WearForm({ date, log, basePlace, place, action, onCancel, simila
                     <div className="grid grid-cols-2 gap-1">
                       {filled.slice(0, 4).map((entry) => (
                         <ItemPhoto
-                          key={entry.slot}
+                          key={entry.item!.id}
                           path={entry.item!.photo_path}
                           alt={entry.item!.name}
                           category={entry.item!.category}

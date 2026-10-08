@@ -455,3 +455,18 @@ as $$
   order by abs(w.temp_high - p_high) + abs(w.temp_low - p_low)
   limit greatest(p_want, 1);
 $$;
+
+-- 16. 코디 레이어드 (분류당 여러 벌) ----------------------------------
+-- 사람은 겹쳐 입는다. 티셔츠 위에 셔츠, 가디건 위에 코트.
+-- 그런데 outfit_items 는 unique (outfit_id, slot) 이라 분류당 한 벌만 들어갔다.
+-- 그 제약을 풀고, 대신 **같은 옷을 두 번** 넣는 것만 막는다 (한 벌을 두 번 입을 수는 없다).
+alter table public.outfit_items
+  drop constraint if exists outfit_items_outfit_id_slot_key;
+
+-- 같은 분류 안에서 안에서 겉으로 가는 순서. 작을수록 안쪽(먼저 입는 것)이다.
+-- 분류끼리의 순서는 앱이 정한다 (lib/categories.ts 의 SLOT_ORDER).
+alter table public.outfit_items
+  add column if not exists layer smallint not null default 0;
+
+create unique index if not exists outfit_items_outfit_item_idx
+  on public.outfit_items (outfit_id, item_id);

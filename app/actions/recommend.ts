@@ -130,18 +130,25 @@ export async function recommendOutfits(
     const recommendations: Recommendation[] = [];
 
     for (const suggestion of answer.suggestions.slice(0, 3)) {
-      const used = new Set<Category>();
+      const seen = new Set<string>();
       const picks: { slot: Category; itemId: string }[] = [];
       for (const id of suggestion.itemIds) {
         const item = byId.get(id);
-        // 없는 옷을 지어냈거나 같은 분류를 두 번 넣은 경우
-        if (!item || used.has(item.category)) continue;
-        used.add(item.category);
+        // 없는 옷을 지어냈거나, 같은 옷을 두 번 넣은 경우.
+        // **같은 분류가 여럿인 건 막지 않는다** — 겹쳐 입는 건 제대로 된 추천이다.
+        if (!item || seen.has(item.id)) continue;
+        seen.add(item.id);
         picks.push({ slot: item.category, itemId: item.id });
       }
       if (picks.length < 2) continue;
-      // 코디 보드와 같은 순서로 (모자 → 아우터 → 상의 …)
-      picks.sort((a, b) => SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot));
+      // 코디 보드와 같은 순서로 (모자 → 아우터 → 상의 …).
+      // 같은 분류 안에서는 **AI 가 적어 준 순서**(안에서 겉으로)를 지킨다.
+      const order = new Map(picks.map((pick, index) => [pick.itemId, index]));
+      picks.sort(
+        (a, b) =>
+          SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot) ||
+          order.get(a.itemId)! - order.get(b.itemId)!,
+      );
       recommendations.push({
         name: suggestion.name.slice(0, 60),
         reason: suggestion.reason.slice(0, 300),

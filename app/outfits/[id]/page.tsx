@@ -88,8 +88,8 @@ export default async function OutfitPage({ params }: PageProps<"/outfits/[id]">)
           숫자는 안 나온다 — 숫자는 옷 상세에서 볼 값이지 여기서 훑을 값이 아니다.
           같은 카드를 쓰니 옷장에서 보던 것과 같은 자리에 같은 정보가 있다. */}
       <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
-        {entries.map(({ slot, item }) => (
-          <ItemCard key={slot} item={item!} />
+        {entries.map(({ item }) => (
+          <ItemCard key={item!.id} item={item!} />
         ))}
       </div>
     </div>

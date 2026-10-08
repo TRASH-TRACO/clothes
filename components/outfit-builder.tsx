@@ -16,12 +16,11 @@ import { photoUrl } from "@/lib/supabase/env";
 import type { Rating } from "@/lib/feedback";
 import type { ActionState, Item, OutfitFolder } from "@/lib/types";
 
-type Selection = Partial<Record<Category, string>>;
-
 type Props = {
   items: Item[];
   userId: string;
-  initialSelection?: Selection;
+  /** 미리 골라 둔 옷 id. 순서가 그대로 겹쳐 입은 순서가 된다 */
+  initialPicks?: string[];
   /** 이미 저장해 둔 코디들. 같은 조합을 또 만들지 않으려고 본다 */
   known?: KnownOutfit[];
   outfit?: {
@@ -37,10 +36,17 @@ type Props = {
   folders?: OutfitFolder[];
 };
 
+/**
+ * 코디 만들기.
+ *
+ * **분류당 한 벌이 아니다.** 사람은 겹쳐 입는다 — 티셔츠 위에 셔츠, 가디건 위에 코트.
+ * 그래서 고른 옷을 분류별 칸이 아니라 **한 줄로 세운 목록**으로 들고 있고, 같은 분류
+ * 안에서의 순서가 그대로 안에서 겉으로 가는 순서(layer)가 된다.
+ */
 export function OutfitBuilder({
   items,
   userId,
-  initialSelection = {},
+  initialPicks = [],
   known = [],
   folders = [],
   outfit,
@@ -48,7 +54,7 @@ export function OutfitBuilder({
   const pickerRef = useRef<HTMLElement>(null);
 
   const [state, formAction, pending] = useActionState<ActionState, FormData>(saveOutfit, null);
-  const [selection, setSelection] = useState<Selection>(initialSelection);
+  const [picks, setPicks] = useState<string[]>(initialPicks);
   const [activeSlot, setActiveSlot] = useState<Category>(SLOT_ORDER[0]);
 
   // 어느 폴더에 넣을지. 처음에는 넣어 둔 폴더, 없으면 기본 폴더.
@@ -66,55 +72,94 @@ export function OutfitBuilder({
     return map;
   }, [items]);
 
-  const chosen = SLOT_ORDER.map((slot) => ({ slot, item: byId.get(selection[slot] ?? "") ?? null }));
-  const chosenCount = chosen.filter((entry) => entry.item).length;
+  /** 고른 옷을 분류별로 모은다. 분류 안에서는 고른 순서 = 안에서 겉으로 */
+  const groups = useMemo(() => {
+    const map = new Map<Category, Item[]>();
+    for (const slot of SLOT_ORDER) map.set(slot, []);
+    for (const id of picks) {
+      const item = byId.get(id);
+      if (item) map.get(item.category)?.push(item);
+    }
+    return map;
+  }, [picks, byId]);
+
+  /** 폼에 실을 순서. 분류는 보드와 같은 순서로, 그 안은 겹쳐 입은 순서로 */
+  const ordered = SLOT_ORDER.flatMap((slot) => (groups.get(slot) ?? []).map((item) => item.id));
+  const chosenCount = ordered.length;
 
   // 이름을 다 짓고 눌렀는데 그제서야 "이미 있다" 고 하면 늦다. 고르는 동안 알려준다.
   // (저장할 때 서버도 한 번 더 본다 — 탭을 두 개 띄워 두면 이 목록이 낡는다)
-  const duplicate = findSameOutfit(
-    outfitKey(SLOT_ORDER.map((slot) => selection[slot])),
-    known,
-    outfit?.id ?? null,
-  );
+  const duplicate = findSameOutfit(outfitKey(ordered), known, outfit?.id ?? null);
   const candidates = byCategory.get(activeSlot) ?? [];
 
-  function toggle(slot: Category, itemId: string) {
-    setSelection((prev) => {
-      const next = { ...prev };
-      if (next[slot] === itemId) delete next[slot];
-      else next[slot] = itemId;
-      return next;
+  /** 고르면 그 분류의 **맨 겉**에 더한다. 이미 골랐으면 뺀다 */
+  function toggle(itemId: string) {
+    setPicks((prev) => (prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId]));
+  }
+
+  function remove(itemId: string) {
+    setPicks((prev) => prev.filter((id) => id !== itemId));
+  }
+
+  /**
+   * 같은 분류 안에서 한 칸 안쪽(−1) 또는 겉쪽(+1)으로.
+   *
+   * picks 는 분류가 섞인 한 줄이라 이웃이 같은 분류가 아닐 수 있다.
+   * 그래서 **같은 분류끼리만** 자리를 맞바꾼다.
+   */
+  function shift(itemId: string, by: -1 | 1) {
+    setPicks((prev) => {
+      const item = byId.get(itemId);
+      if (!item) return prev;
+      const sameSlot = prev.filter((id) => byId.get(id)?.category === item.category);
+      const at = sameSlot.indexOf(itemId);
+      const to = at + by;
+      if (at < 0 || to < 0 || to >= sameSlot.length) return prev;
+
+      const swapped = [...sameSlot];
+      [swapped[at], swapped[to]] = [swapped[to], swapped[at]];
+      // 그 분류의 자리들에 바뀐 순서를 다시 끼워 넣는다 (다른 분류는 그대로)
+      let cursor = 0;
+      return prev.map((id) =>
+        byId.get(id)?.category === item.category ? swapped[cursor++] : id,
+      );
     });
   }
 
-  function clearSlot(slot: Category) {
-    setSelection((prev) => {
-      const next = { ...prev };
-      delete next[slot];
-      return next;
+  /** 그 분류를 고르는 자리로 보낸다 */
+  function openPicker(slot: Category) {
+    setActiveSlot(slot);
+    // 좁은 화면에서는 옷 고르기가 아래에 있어 한참 내려가야 한다.
+    // 넓은 화면은 옆에 붙어 있으므로 그냥 둔다.
+    if (window.matchMedia("(min-width: 1024px)").matches) return;
+    // 다시 그려진 뒤에, 상단 고정 헤더 높이만큼 빼고 옮긴다.
+    // scrollIntoView 는 누른 버튼에 포커스가 남아 중간에 멈춘다.
+    requestAnimationFrame(() => {
+      const picker = pickerRef.current;
+      if (!picker) return;
+      window.scrollTo({ top: picker.getBoundingClientRect().top + window.scrollY - 140, behavior: "instant" });
     });
   }
 
   function shuffle() {
-    const next: Selection = {};
+    const next: string[] = [];
     for (const slot of SLOT_ORDER) {
       const pool = byCategory.get(slot) ?? [];
       if (pool.length === 0) continue;
       // 모자·아우터·액세서리는 가끔 빼서 조합이 뻔해지지 않게 한다
       if ((slot === "hat" || slot === "acc" || slot === "outer") && Math.random() < 0.4) continue;
-      next[slot] = pool[Math.floor(Math.random() * pool.length)].id;
+      next.push(pool[Math.floor(Math.random() * pool.length)].id);
     }
-    setSelection(next);
+    setPicks(next);
   }
 
   return (
     <form action={formAction} className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_380px]">
       {outfit ? <input type="hidden" name="outfit_id" value={outfit.id} /> : null}
-      {SLOT_ORDER.map((slot) =>
-        selection[slot] ? (
-          <input key={slot} type="hidden" name={`slot_${slot}`} value={selection[slot]} />
-        ) : null,
-      )}
+      {/* 보내는 순서가 그대로 겹쳐 입은 순서가 된다 (서버가 분류별로 번호를 매긴다) */}
+      {ordered.map((id) => (
+        <input key={id} type="hidden" name="item_ids" value={id} />
+      ))}
 
       {/* 코디 보드 */}
       <section className="lg:col-start-1 lg:row-start-1">
@@ -129,64 +174,116 @@ export function OutfitBuilder({
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 rounded-2xl bg-mist p-3 sm:grid-cols-3">
-          {chosen.map(({ slot, item }) => (
-            <div key={slot} className="relative">
+        {/* 분류마다 한 줄 — 겹쳐 입은 옷이 옆으로 늘어선다. 칸이 여섯 개로 정해져
+            있으면 둘 자리가 없다. 빈 분류는 줄을 안 만들고 아래 칩으로만 둔다
+            (여섯 줄을 늘 깔면 좁은 화면에서 옷 고르기까지 한참 내려가야 한다). */}
+        <div className="space-y-3 rounded-2xl bg-mist p-4">
+          {chosenCount === 0 ? (
+            <p className="py-6 text-center text-sm text-muted">
+              아래에서 옷을 고르면 여기에 쌓입니다. 같은 분류를 여러 벌 골라 겹쳐 입어도 됩니다.
+            </p>
+          ) : null}
+
+          {SLOT_ORDER.filter((slot) => (groups.get(slot) ?? []).length > 0).map((slot) => {
+            const worn = groups.get(slot)!;
+            return (
+              <div key={slot} className="flex gap-3">
+                <div className="w-14 shrink-0 pt-1">
+                  <p className="eyebrow">{CATEGORY_META[slot].label}</p>
+                  {/* 한 벌일 때는 안팎을 말할 게 없다 */}
+                  {worn.length > 1 ? (
+                    <p className="mt-1 text-[10px] leading-tight text-muted">안 → 겉</p>
+                  ) : null}
+                </div>
+
+                <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
+                  {worn.map((item, index) => (
+                    <div key={item.id} className="relative w-20 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => remove(item.id)}
+                        aria-label={`${item.name} 빼기`}
+                        className="group relative block aspect-square w-full overflow-hidden rounded-xl bg-paper"
+                      >
+                        {photoUrl(item.photo_path) ? (
+                          <Image
+                            src={photoUrl(item.photo_path)!}
+                            alt={item.name}
+                            fill
+                            sizes="120px"
+                            unoptimized
+                            className="object-cover"
+                          />
+                        ) : (
+                          <span className="display flex h-full items-center justify-center text-xs text-line">
+                            {CATEGORY_META[slot].en}
+                          </span>
+                        )}
+                        <span className="absolute inset-x-0 bottom-0 hidden bg-ink/80 py-1 text-center text-[11px] text-paper group-hover:block">
+                          빼기
+                        </span>
+                      </button>
+
+                      {/* 겹쳐 입었을 때만. 안팎을 바꿀 수 있어야 레이어드가 레이어드다 */}
+                      {worn.length > 1 ? (
+                        <div className="absolute inset-x-0 top-0 flex justify-between">
+                          <button
+                            type="button"
+                            disabled={index === 0}
+                            onClick={() => shift(item.id, -1)}
+                            aria-label={`${item.name} 안쪽으로`}
+                            className="rounded-br-lg rounded-tl-xl bg-ink/70 px-2 py-1 text-xs
+                              leading-none text-paper disabled:invisible"
+                          >
+                            ‹
+                          </button>
+                          <button
+                            type="button"
+                            disabled={index === worn.length - 1}
+                            onClick={() => shift(item.id, 1)}
+                            aria-label={`${item.name} 겉으로`}
+                            className="rounded-bl-lg rounded-tr-xl bg-ink/70 px-2 py-1 text-xs
+                              leading-none text-paper disabled:invisible"
+                          >
+                            ›
+                          </button>
+                        </div>
+                      ) : null}
+
+                      <p className="mt-1.5 truncate text-[11px] text-muted">{item.name}</p>
+                    </div>
+                  ))}
+
+                  {/* 겹쳐 입으려면 이미 한 벌 있어도 더 담을 자리가 있어야 한다 */}
+                  <button
+                    type="button"
+                    onClick={() => openPicker(slot)}
+                    aria-label={`${CATEGORY_META[slot].label} 더 고르기`}
+                    className="flex aspect-square w-20 shrink-0 flex-col items-center justify-center
+                      gap-0.5 self-start rounded-xl border-2 border-dashed border-line bg-paper/50
+                      text-muted transition-colors hover:border-ink"
+                  >
+                    <span className="display text-xl text-line">+</span>
+                    <span className="text-[11px]">겹치기</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* 아직 안 고른 분류. 줄을 통째로 깔지 않고 칩 한 줄로만 둔다 */}
+          <div className="no-scrollbar flex gap-2 overflow-x-auto pt-1">
+            {SLOT_ORDER.filter((slot) => (groups.get(slot) ?? []).length === 0).map((slot) => (
               <button
+                key={slot}
                 type="button"
-                onClick={() => {
-                  setActiveSlot(slot);
-                  if (item) clearSlot(slot);
-                  // 좁은 화면에서는 옷 고르기가 아래에 있어 한참 내려가야 한다.
-                  // 넓은 화면은 옆에 붙어 있으므로 그냥 둔다.
-                  if (!window.matchMedia("(min-width: 1024px)").matches) {
-                    // 다시 그려진 뒤에, 상단 고정 헤더 높이만큼 빼고 옮긴다.
-                    // scrollIntoView 는 누른 버튼에 포커스가 남아 중간에 멈춘다.
-                    requestAnimationFrame(() => {
-                      const picker = pickerRef.current;
-                      if (!picker) return;
-                      const top = picker.getBoundingClientRect().top + window.scrollY - 140;
-                      window.scrollTo({ top, behavior: "instant" });
-                    });
-                  }
-                }}
-                className={`group relative block aspect-square w-full overflow-hidden rounded-xl transition-colors ${
-                  item ? "bg-paper" : "border-2 border-dashed border-line bg-paper/50"
-                } ${activeSlot === slot ? "ring-2 ring-ink" : ""}`}
+                onClick={() => openPicker(slot)}
+                className={`chip shrink-0 bg-paper ${activeSlot === slot ? "chip-active" : ""}`}
               >
-                {item ? (
-                  <>
-                    {photoUrl(item.photo_path) ? (
-                      <Image
-                        src={photoUrl(item.photo_path)!}
-                        alt={item.name}
-                        fill
-                        sizes="(max-width: 640px) 50vw, 260px"
-                        unoptimized
-                        className="object-cover"
-                      />
-                    ) : (
-                      <span className="display flex h-full items-center justify-center text-2xl text-line">
-                        {CATEGORY_META[slot].en}
-                      </span>
-                    )}
-                    <span className="absolute inset-x-0 bottom-0 hidden bg-ink/80 py-2 text-center text-xs text-paper group-hover:block">
-                      빼기
-                    </span>
-                  </>
-                ) : (
-                  <span className="flex h-full flex-col items-center justify-center gap-1 text-muted">
-                    <span className="display text-xl text-line">{CATEGORY_META[slot].en}</span>
-                    <span className="text-xs">고르기</span>
-                  </span>
-                )}
+                + {CATEGORY_META[slot].label}
               </button>
-              <p className="mt-2 truncate px-1 text-xs text-muted">
-                {CATEGORY_META[slot].label}
-                {item ? ` · ${item.name}` : ""}
-              </p>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
       </section>
@@ -220,12 +317,12 @@ export function OutfitBuilder({
         ) : (
           <div className="mt-4 grid grid-cols-3 gap-3 lg:grid-cols-2">
             {candidates.map((item) => {
-              const active = selection[item.category] === item.id;
+              const active = picks.includes(item.id);
               return (
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => toggle(item.category, item.id)}
+                  onClick={() => toggle(item.id)}
                   className="group text-left"
                 >
                   <ItemPhoto

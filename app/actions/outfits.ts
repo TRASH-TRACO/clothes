@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { SLOT_ORDER, isCategory } from "@/lib/categories";
+import { isCategory, type Category } from "@/lib/categories";
 import { isRating } from "@/lib/feedback";
 import { findSameOutfit, outfitKey } from "@/lib/outfit-key";
 import { outfitTitle } from "@/lib/outfit-title";
@@ -16,14 +16,54 @@ function fail(message: string): ActionState {
   return { ok: false, message };
 }
 
-/** formData의 slot_top=<itemId> 형태를 [{slot, item_id}] 로 */
-function parseSlots(formData: FormData) {
-  const slots: { slot: string; item_id: string }[] = [];
-  for (const slot of SLOT_ORDER) {
-    const itemId = String(formData.get(`slot_${slot}`) ?? "").trim();
-    if (itemId && isCategory(slot)) slots.push({ slot, item_id: itemId });
+/**
+ * 고른 옷 id. 보내온 순서를 그대로 지킨다 — 같은 분류 안에서는 그 순서가
+ * **안에서 겉으로** 겹쳐 입은 순서(layer)가 된다.
+ *
+ * 같은 옷이 두 번 실려 와도 한 번만 센다 (한 벌을 두 번 입을 수는 없다).
+ */
+function parseItemIds(formData: FormData): string[] {
+  const seen = new Set<string>();
+  for (const value of formData.getAll("item_ids")) {
+    const id = String(value).trim();
+    if (id) seen.add(id);
   }
-  return slots;
+  return [...seen];
+}
+
+/**
+ * 고른 옷을 outfit_items 줄로.
+ *
+ * **분류는 DB 에서 읽는다.** 예전에는 화면이 `slot_top=<id>` 로 자리까지 알려줬는데,
+ * 그건 보내는 쪽을 믿는 것이다. 어차피 내 옷인지 확인해야 하므로 그 자리에서
+ * 분류도 같이 받아 온다.
+ */
+async function toRows(
+  supabase: SupabaseClient,
+  userId: string,
+  itemIds: string[],
+): Promise<{ outfit_id?: string; item_id: string; slot: Category; layer: number }[] | null> {
+  const { data, error } = await supabase
+    .from("items")
+    .select("id, category")
+    .eq("user_id", userId)
+    .in("id", itemIds);
+  if (error || !data) return null;
+
+  const categoryOf = new Map<string, string>(data.map((row) => [row.id, row.category]));
+  // 하나라도 내 옷이 아니면 저장하지 않는다. 일부만 들어가면 조합이 달라진다.
+  if (categoryOf.size !== itemIds.length) return null;
+
+  const used = new Map<Category, number>();
+  const rows = [];
+  for (const itemId of itemIds) {
+    const category = categoryOf.get(itemId);
+    if (!isCategory(category)) return null;
+    const layer = used.get(category) ?? 0;
+    used.set(category, layer + 1);
+    rows.push({ item_id: itemId, slot: category, layer });
+  }
+  return rows;
 }
 
 /** 기본 폴더 이름. 사람마다 하나 있고 지울 수 없다 */
@@ -37,8 +77,8 @@ export async function saveOutfit(_prev: ActionState, formData: FormData): Promis
   // 안 지었으면 들어간 옷으로 부른다 (lib/outfit-title.ts).
   const name = String(formData.get("name") ?? "").trim() || null;
 
-  const slots = parseSlots(formData);
-  if (slots.length < 2) return fail("옷을 2개 이상 골라주세요.");
+  const itemIds = parseItemIds(formData);
+  if (itemIds.length < 2) return fail("옷을 2개 이상 골라주세요.");
 
   const memo = String(formData.get("memo") ?? "").trim() || null;
   // 사진은 여러 장이다. 같은 경로가 두 번 실려 와도 한 번만 센다.
@@ -63,8 +103,11 @@ export async function saveOutfit(_prev: ActionState, formData: FormData): Promis
   // AI 추천에도 똑같은 게 둘씩 뜨면 고를 때마다 어느 쪽인지 확인해야 한다.
   // 화면에서도 고르는 동안 미리 알려주지만 (components/outfit-builder.tsx),
   // 탭을 두 개 띄워 두면 그 목록이 낡을 수 있어 여기서 한 번 더 본다.
+  const rows = await toRows(supabase, user.id, itemIds);
+  if (!rows) return fail("고른 옷을 확인하지 못했습니다. 다시 골라주세요.");
+
   const same = findSameOutfit(
-    outfitKey(slots.map((slot) => slot.item_id)),
+    outfitKey(itemIds),
     await knownOutfits(supabase, user.id),
     outfitId || null,
   );
@@ -120,7 +163,7 @@ export async function saveOutfit(_prev: ActionState, formData: FormData): Promis
 
   const { error: itemsError } = await supabase
     .from("outfit_items")
-    .insert(slots.map((slot) => ({ ...slot, outfit_id: id })));
+    .insert(rows.map((row) => ({ ...row, outfit_id: id })));
 
   if (itemsError) return fail(itemsError.message);
 

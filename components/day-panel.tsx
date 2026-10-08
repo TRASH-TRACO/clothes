@@ -337,14 +337,13 @@ function DayView({
   onEdit: () => void;
   onClose: () => void;
 }) {
-  // 코디는 자리당 한 벌이라, 같은 분류가 여럿이면 앞의 것만 들고 간다
-  // (log.items 는 분류 순서대로 서 있다). 두 벌 아래면 코디가 안 되므로 안 보인다.
+  // 그날 입은 옷을 그대로 들고 간다. **같은 분류가 여럿이어도 다 넘긴다** —
+  // 겹쳐 입은 날이면 코디도 겹쳐 입은 채로 저장돼야 한다.
+  // 두 벌 아래면 코디가 안 되므로 안 보인다.
   const studioHref = (() => {
     if (log.items.length < 2) return null;
     const params = new URLSearchParams();
-    for (const item of log.items) {
-      if (!params.has(item.category)) params.set(item.category, item.id);
-    }
+    for (const item of log.items) params.append("i", item.id);
     return `/studio?${params.toString()}`;
   })();
 

@@ -105,20 +105,26 @@ export async function getCategoryCounts() {
 }
 
 type OutfitRow = Outfit & {
-  outfit_items: { slot: Category; items: Item | null }[];
+  outfit_items: { slot: Category; layer: number; items: Item | null }[];
 };
 
-const OUTFIT_SELECT = "*, outfit_items(slot, items(*))";
+const OUTFIT_SELECT = "*, outfit_items(slot, layer, items(*))";
 
+/**
+ * 코디 보드와 같은 순서로 세운다 — 분류는 모자 → 아우터 → 상의 …,
+ * 같은 분류 안에서는 **안에서 겉으로**(layer 오름차순).
+ *
+ * 분류당 한 벌이 아니라 여러 벌이 들어올 수 있다 (레이어드).
+ */
 function toOutfit(row: OutfitRow): OutfitWithItems {
-  const bySlot = new Map(row.outfit_items.map((entry) => [entry.slot, entry.items]));
-  return {
-    ...row,
-    items: SLOT_ORDER.filter((slot) => bySlot.has(slot)).map((slot) => ({
-      slot,
-      item: bySlot.get(slot) ?? null,
-    })),
-  };
+  const rank = new Map(SLOT_ORDER.map((slot, index) => [slot, index]));
+  const items = [...row.outfit_items]
+    .sort(
+      (a, b) =>
+        (rank.get(a.slot) ?? 99) - (rank.get(b.slot) ?? 99) || a.layer - b.layer,
+    )
+    .map((entry) => ({ slot: entry.slot, layer: entry.layer, item: entry.items }));
+  return { ...row, items };
 }
 
 export const getOutfits = cache(async (): Promise<OutfitWithItems[]> => {

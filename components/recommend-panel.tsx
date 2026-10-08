@@ -70,9 +70,10 @@ export function RecommendPanel({ items }: { items: Item[] }) {
       {state && state.ok ? (
         <div className="mt-10 space-y-10">
           {state.recommendations.map((recommendation, index) => {
-            // 고른 옷을 코디 만들기 화면에 그대로 넘긴다 (?top=<id>&bottom=<id>)
+            // 고른 옷을 코디 만들기 화면에 그대로 넘긴다 (?i=<id>&i=<id>).
+            // 분류별 칸이 아니라 한 줄로 넘겨야 겹쳐 입은 추천도 그대로 실린다.
             const query = recommendation.picks
-              .map((pick) => `${pick.slot}=${encodeURIComponent(pick.itemId)}`)
+              .map((pick) => `i=${encodeURIComponent(pick.itemId)}`)
               .join("&");
 
             return (

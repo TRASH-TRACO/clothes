@@ -26,6 +26,22 @@ const checks: [string, boolean][] = [
   ["고치는 중인 자기 자신은 뺀다", findSameOutfit(tee, known, "o1") === null],
   ["남의 코디와 같으면 걸린다", findSameOutfit(tee, known, "o2")?.id === "o1"],
   ["빈 조합은 아무것도 안 걸린다", findSameOutfit("", known) === null],
+
+  // **레이어드** — 같은 옷을 안팎만 바꿔 입은 것은 같은 차림이다
+  [
+    "안팎을 바꿔 입어도 같은 차림",
+    outfitKey(["tee", "shirt", "bottom1"]) === outfitKey(["shirt", "tee", "bottom1"]),
+  ],
+  [
+    "상의를 한 벌 더 겹치면 다른 차림",
+    outfitKey(["tee", "bottom1"]) !== outfitKey(["tee", "shirt", "bottom1"]),
+  ],
+  [
+    "겹쳐 입은 조합도 이미 있으면 걸린다",
+    findSameOutfit(outfitKey(["shirt", "top1", "bottom1"]), [
+      { id: "o3", name: "레이어드룩", key: outfitKey(["top1", "shirt", "bottom1"]) },
+    ])?.id === "o3",
+  ],
 ];
 
 let failed = 0;

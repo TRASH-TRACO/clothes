@@ -55,7 +55,12 @@ export type Outfit = {
 };
 
 export type OutfitWithItems = Outfit & {
-  items: { slot: Category; item: Item | null }[];
+  /**
+   * 들어간 옷. 분류 순서(SLOT_ORDER)대로, 같은 분류 안에서는 layer 순으로 선다.
+   *
+   * **분류당 한 벌이 아니다.** 사람은 겹쳐 입는다 — 티셔츠 위에 셔츠, 가디건 위에 코트.
+   */
+  items: { slot: Category; layer: number; item: Item | null }[];
 };
 
 /** 그날 뭘 입었는지. 하루에 한 줄 (user_id + worn_on 유니크) */
