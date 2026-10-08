@@ -278,7 +278,9 @@ export function OutfitBuilder({
                 key={slot}
                 type="button"
                 onClick={() => openPicker(slot)}
-                className={`chip shrink-0 bg-paper ${activeSlot === slot ? "chip-active" : ""}`}
+                // bg-paper 를 chip-active 와 같이 주면 안 된다. 둘 다 utilities 레이어라
+                // 배경만 흰색으로 덮이고 chip-active 의 흰 글씨가 남아 글자가 안 보인다.
+                className={`chip shrink-0 ${activeSlot === slot ? "chip-active" : "bg-paper"}`}
               >
                 + {CATEGORY_META[slot].label}
               </button>
