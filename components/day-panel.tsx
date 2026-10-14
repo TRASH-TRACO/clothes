@@ -5,11 +5,13 @@ import {
   memo,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
+import { useClosetData } from "@/components/closet-data";
 import { FeltGlyph } from "@/components/feedback-glyph";
 import { ItemPhoto } from "@/components/item-photo";
 import { OutfitPhoto } from "@/components/outfit-photo";
@@ -19,6 +21,8 @@ import { findSimilarDay, type SimilarDay } from "@/app/actions/similar";
 import { CATEGORY_META } from "@/lib/categories";
 import { dayLabel, seoulToday } from "@/lib/calendar";
 import { FELT_LABELS } from "@/lib/feedback";
+import { outfitKey } from "@/lib/outfit-key";
+import { outfitTitle } from "@/lib/outfit-title";
 import { isPlace, placeKey, roundPlace, type Place } from "@/lib/places";
 import type { WearLogWithItems } from "@/lib/types";
 import { weatherKind, weatherLabel, type RecordedDay } from "@/lib/weather-codes";
@@ -337,6 +341,38 @@ function DayView({
   onEdit: () => void;
   onClose: () => void;
 }) {
+  const { outfits } = useClosetData();
+
+  /**
+   * 이 날 입은 것과 **같은 조합**으로 저장해 둔 코디.
+   *
+   * 예전에는 눌러서 코디 만들기 화면까지 가야 "이미 있는 조합입니다" 를 알았다.
+   * 여기서 바로 보여준다 — **서버를 더 부르지 않는다.** 캘린더가 코디 목록을
+   * 이미 들고 있고(useClosetData), 같은 조합인지는 옷 id 를 정렬해 잇는 순수
+   * 계산이다 (lib/outfit-key.ts).
+   *
+   * log.outfit 과 다를 수 있다. 코디를 골라 적은 날이어도 그 코디를 나중에 고치면
+   * 조합이 어긋나고, 반대로 옷을 하나씩 골라 적었는데 우연히 저장해 둔 조합과
+   * 같아질 수도 있다. 여기서 보는 건 **지금 이 조합이 저장돼 있는가** 다.
+   */
+  const saved = useMemo(() => {
+    const key = outfitKey(log.items.map((item) => item.id));
+    if (!key) return null;
+    const found = outfits.find(
+      (outfit) => outfitKey(outfit.items.map((entry) => entry.item?.id)) === key,
+    );
+    if (!found) return null;
+    return {
+      id: found.id,
+      title: outfitTitle(
+        found.name,
+        found.items
+          .map((entry) => entry.item?.name)
+          .filter((name): name is string => Boolean(name)),
+      ),
+    };
+  }, [log.items, outfits]);
+
   // 그날 입은 옷을 그대로 들고 간다. **같은 분류가 여럿이어도 다 넘긴다** —
   // 겹쳐 입은 날이면 코디도 겹쳐 입은 채로 저장돼야 한다.
   // 두 벌 아래면 코디가 안 되므로 안 보인다.
@@ -356,6 +392,9 @@ function DayView({
         </p>
       ) : null}
 
+      {/* 코디를 골라 적은 날이면 그 코디를, 아니면 같은 조합으로 저장해 둔 코디를.
+          둘을 나눠 적는다 — 앞은 "이 코디를 보고 입었다", 뒤는 "입고 보니 그 조합이
+          이미 있더라" 라서 같은 말이 아니다. */}
       {log.outfit ? (
         <p className="mt-5 text-sm text-muted">
           저장한 코디{" "}
@@ -364,6 +403,16 @@ function DayView({
             className="font-semibold text-ink underline underline-offset-4"
           >
             {log.outfit.title}
+          </WarmLink>
+        </p>
+      ) : saved ? (
+        <p className="mt-5 text-sm text-muted">
+          같은 조합의 코디가 있습니다{" "}
+          <WarmLink
+            href={`/outfits/${saved.id}`}
+            className="font-semibold text-ink underline underline-offset-4"
+          >
+            {saved.title}
           </WarmLink>
         </p>
       ) : null}
@@ -413,8 +462,9 @@ function DayView({
           수정하기
         </button>
         {/* 그날 잘 입었으면 그대로 코디로 남기고 싶어진다. 옷을 다시 고르게 하지 않는다.
-            같은 조합이 이미 있으면 코디 만들기 화면이 바로 알려주므로 여기서는 안 따진다. */}
-        {studioHref ? (
+            **이미 저장된 조합이면 안 보여준다** — 눌러 봐야 코디 만들기 화면에서
+            "이미 있는 조합입니다" 로 막히는 길이다. 위에 그 코디로 가는 줄이 있다. */}
+        {studioHref && !saved ? (
           <WarmLink href={studioHref} className="btn-light">
             이 조합으로 코디 만들기
           </WarmLink>
