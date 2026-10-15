@@ -148,9 +148,14 @@ body {
    그 모드의 상태바 글씨는 흰색이라 띠가 검어야 시계가 보인다.
    지금은 default 로 담기지만, 예전에 black-translucent 로 담아 둔 아이콘은 지웠다
    다시 담기 전까지 그 모드로 뜬다. 그 아이콘을 위한 자리다.
-   inset 이 0으로 올 때가 있어 최소 높이를 직접 준다. */
+
+   **위아래로 다 묶는다.** 예전에는 max(inset, 64px) 이라 아래만 막혀 있었는데,
+   iOS 가 주는 inset 을 그대로 믿는 셈이었다. 아이폰 16 프로 맥스에서 재 보니
+   126pt 가 와서 띠가 두 배로 깔렸다 (상태바는 62pt 인데). 세로 화면 상태바가
+   64pt 를 넘는 아이폰은 없으므로 거기서 자른다. 0 으로 올 때를 위해 아래도 막는다
+   (56pt 면 다이내믹 아일랜드 기기의 시계도 덮는다). */
 [data-status-overlay] .status-band {
-  height: max(env(safe-area-inset-top), 64px);
+  height: clamp(56px, env(safe-area-inset-top), 64px);
   background: var(--color-ink);
 }
 
@@ -231,14 +236,15 @@ body {
 }
 
 /* 상태바가 화면을 덮는 모드에서는 그 자리가 검어야 흰 시계가 보인다.
-   헤더의 .status-band 와 높이·색이 같아서, 이 화면이 걷혀도 띠가 그 자리에 남는다. */
+   헤더의 .status-band 와 **높이 규칙이 같아야 한다** — 이 화면이 걷힐 때 띠가
+   그 자리에 그대로 남아야 깜빡이지 않는다. 위 규칙을 바꾸면 여기도 같이 바꾼다. */
 [data-status-overlay] #boot::before {
   content: "";
   position: absolute;
   top: 0;
   right: 0;
   left: 0;
-  height: max(env(safe-area-inset-top), 64px);
+  height: clamp(56px, env(safe-area-inset-top), 64px);
   background: var(--color-ink);
 }
 

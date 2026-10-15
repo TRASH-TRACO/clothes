@@ -407,13 +407,14 @@ function DayView({
         </p>
       ) : saved ? (
         <p className="mt-5 text-sm text-muted">
-          같은 조합의 코디가 있습니다{" "}
+          같은 조합의{" "}
           <WarmLink
             href={`/outfits/${saved.id}`}
             className="font-semibold text-ink underline underline-offset-4"
           >
             {saved.title}
-          </WarmLink>
+          </WarmLink>{" "}
+          코디입니다.
         </p>
       ) : null}
 
