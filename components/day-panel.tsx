@@ -20,6 +20,7 @@ import { saveWearLog } from "@/app/actions/wear";
 import { findSimilarDay, type SimilarDay } from "@/app/actions/similar";
 import { CATEGORY_META } from "@/lib/categories";
 import { dayLabel, seoulToday } from "@/lib/calendar";
+import { advice, swing } from "@/lib/day-parts";
 import { FELT_LABELS } from "@/lib/feedback";
 import { outfitKey } from "@/lib/outfit-key";
 import { outfitTitle } from "@/lib/outfit-title";
@@ -261,6 +262,11 @@ export function DayPanel({ date, log, day, basePlace, startInEdit = false, onClo
             ) : (
               <p className="mt-2 text-sm text-muted">이 날짜의 날씨는 남아 있지 않습니다.</p>
             )}
+
+            {/* 나갈 때 · 낮 · 돌아올 때. 최고·최저로 옷을 고르면 틀린다 —
+                최저는 새벽 값이고 최고는 오후 2~3시라, 정작 나설 때 기온이
+                그 사이에 숨어 있다. 이 칸을 더하기 전에 적어 둔 날은 없다. */}
+            {day ? <DayPartsLine day={day} /> : null}
           </div>
 
           <button
@@ -288,6 +294,37 @@ export function DayPanel({ date, log, day, basePlace, startInEdit = false, onClo
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+/** 날짜 화면의 아침·낮·밤 한 줄. 값이 없으면 (예전 기록) 아무것도 안 그린다 */
+function DayPartsLine({ day }: { day: RecordedDay }) {
+  const parts = { morning: day.morning, day: day.day, night: day.night };
+  const columns: [string, number | null][] = [
+    ["아침", parts.morning],
+    ["낮", parts.day],
+    ["밤", parts.night],
+  ];
+  if (columns.every(([, value]) => value === null)) return null;
+
+  const gap = swing(parts);
+  const tip = advice(gap);
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+      {columns
+        .filter(([, value]) => value !== null)
+        .map(([label, value]) => (
+          <span key={label} className="text-muted">
+            {label} <span className="font-semibold text-ink">{Math.round(value!)}°</span>
+          </span>
+        ))}
+      {tip ? (
+        <span className="rounded-full bg-mist px-2.5 py-1 text-xs font-semibold">
+          {tip.text}
+        </span>
+      ) : null}
     </div>
   );
 }

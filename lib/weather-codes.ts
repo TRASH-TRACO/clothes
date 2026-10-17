@@ -11,6 +11,18 @@ export type DayWeather = {
   low: number | null;
   /** mm */
   rainAmount: number | null;
+  /**
+   * 밖에 있는 시간으로 끊은 기온 (lib/day-parts.ts). 체감으로 잰다.
+   *
+   * 최저는 새벽 값이라 겪지 않는 시간이고 최고는 오후 2~3시다. 정작 나설 때
+   * 기온이 그 사이에 숨어 있어서 따로 들고 다닌다.
+   *
+   * 예전에 적어 둔 날은 이 칸이 없다 (schema.sql 17 을 더하기 전에 받은 것).
+   * 그때는 최고·최저로 돌아간다.
+   */
+  morning: number | null;
+  day: number | null;
+  night: number | null;
 };
 
 /**

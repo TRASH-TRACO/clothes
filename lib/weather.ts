@@ -1,6 +1,7 @@
 import "server-only";
 
 import { TIME_ZONE, addDays, seoulNow } from "./calendar";
+import { dayParts, type DayParts, type HourTemp } from "./day-parts";
 import { placeKey, type Place } from "./places";
 import type { DayWeather } from "./weather-codes";
 
@@ -34,6 +35,8 @@ export type Weather = {
   rainAmount: number | null;
   windMax: number | null;
   hours: HourPoint[];
+  /** 밖에 있는 시간으로 끊은 기온 (lib/day-parts.ts). 체감으로 잰다 */
+  parts: DayParts;
   /** 비교 기준이 되는 전날 (오늘 예보면 어제, 내일 예보면 오늘) */
   baseline: { high: number | null; low: number | null; windMax: number | null } | null;
 };
@@ -50,6 +53,29 @@ function pickIndex(times: unknown, date: string) {
 
 /** 하루 중 이 시간대만 보여준다 (아침에 춥고 낮에 더운 걸 보려고) */
 const CHECKPOINTS = [6, 9, 12, 15, 18, 21];
+
+/**
+ * 그 날짜의 0~23시를 통째로 꺼낸다.
+ *
+ * 화면에 깔 여섯 시각(CHECKPOINTS)과 다르다. 아침은 07~09시 중 **가장 낮은**
+ * 값이라 9시만 봐서는 안 되고, 7·8시가 그 목록에 없다.
+ */
+function allHours(hourly: Record<string, unknown> | undefined, date: string): HourTemp[] {
+  if (!hourly) return [];
+  const times = hourly.time;
+  if (!Array.isArray(times)) return [];
+
+  const temps = Array.isArray(hourly.temperature_2m) ? hourly.temperature_2m : [];
+  const feels = Array.isArray(hourly.apparent_temperature) ? hourly.apparent_temperature : [];
+
+  const out: HourTemp[] = [];
+  for (let hour = 0; hour < 24; hour += 1) {
+    const i = times.indexOf(`${date}T${String(hour).padStart(2, "0")}:00`);
+    if (i < 0) continue;
+    out.push({ hour, temp: num(temps[i]), feels: num(feels[i]) });
+  }
+  return out;
+}
 
 function buildHours(hourly: Record<string, unknown> | undefined, date: string, nowHour: number | null) {
   if (!hourly) return [];
@@ -92,7 +118,9 @@ export async function getWeather(place: Place): Promise<Weather | null> {
     "&current=temperature_2m,apparent_temperature,weather_code" +
     "&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_min," +
     "precipitation_sum,precipitation_probability_max,wind_speed_10m_max" +
-    "&hourly=temperature_2m,precipitation_probability";
+    // 체감까지 받는다. 아침 바람이 불면 14° 가 체감 10° 다 — 옷을 고르는 건 그쪽이다.
+    // 같은 요청에 칸 하나가 느는 것이라 왕복은 그대로다.
+    "&hourly=temperature_2m,apparent_temperature,precipitation_probability";
 
   let payload: Record<string, unknown>;
   try {
@@ -143,6 +171,7 @@ export async function getWeather(place: Place): Promise<Weather | null> {
       date,
       isToday ? seoul.hour : null,
     ),
+    parts: dayParts(allHours(payload.hourly as Record<string, unknown> | undefined, date)),
     baseline:
       baseIndex < 0
         ? null
@@ -184,7 +213,10 @@ export async function getDailyRange(
     `?latitude=${lat.toFixed(2)}&longitude=${lon.toFixed(2)}` +
     `&timezone=${encodeURIComponent(TIME_ZONE)}` +
     `&start_date=${start}&end_date=${end}` +
-    "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum";
+    "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum" +
+    // 날짜마다 아침·낮·밤을 끊으려면 시간별이 있어야 한다. 한 달치를 한 번에
+    // 받는 같은 요청이라 왕복은 안 는다.
+    "&hourly=temperature_2m,apparent_temperature";
 
   let payload: Record<string, unknown>;
   try {
@@ -208,14 +240,18 @@ export async function getDailyRange(
   const lows = column("temperature_2m_min");
   const rains = column("precipitation_sum");
 
+  const hourly = payload.hourly as Record<string, unknown> | undefined;
+
   const result = new Map<string, DayWeather>();
   times.forEach((time, i) => {
     if (typeof time !== "string") return;
+    const parts = dayParts(allHours(hourly, time));
     result.set(time, {
       code: num(codes[i]) ?? 0,
       high: num(highs[i]),
       low: num(lows[i]),
       rainAmount: num(rains[i]),
+      ...parts,
     });
   });
   return result;

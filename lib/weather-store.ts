@@ -2,6 +2,7 @@ import "server-only";
 
 import { addDays, endOfDay, seoulToday } from "./calendar";
 import { isPlace, placeKey, roundPlace, type Place } from "./places";
+import { isMissingColumn } from "./data";
 import { isSupabaseConfigured } from "./supabase/env";
 import { createClient, getUser } from "./supabase/server";
 import { fetchPlan, type Freshness } from "./weather-freshness";
@@ -24,11 +25,16 @@ type Row = {
   temp_high: number | null;
   temp_low: number | null;
   rain_amount: number | null;
+  temp_morning: number | null;
+  temp_day: number | null;
+  temp_night: number | null;
   fetched_at: string;
 };
 
 const COLUMNS =
   "on_date, place_name, place_lat, place_lon, code, temp_high, temp_low, rain_amount, fetched_at";
+/** schema.sql 17 을 아직 안 돌렸을 때를 대비해 새 칸은 따로 적는다 */
+const PART_COLUMNS = "temp_morning, temp_day, temp_night";
 
 function toStored(row: Row): StoredDay | null {
   const place = { name: row.place_name, lat: row.place_lat, lon: row.place_lon };
@@ -39,6 +45,10 @@ function toStored(row: Row): StoredDay | null {
     high: row.temp_high,
     low: row.temp_low,
     rainAmount: row.rain_amount,
+    // 칸이 없거나 그 칸을 더하기 전에 적어 둔 날이면 null 이다. 화면이 최고·최저로 돌아간다.
+    morning: row.temp_morning ?? null,
+    day: row.temp_day ?? null,
+    night: row.temp_night ?? null,
     fetchedAt: Date.parse(row.fetched_at) || 0,
   };
 }
@@ -54,6 +64,9 @@ function toRow(userId: string, date: string, place: Place, day: DayWeather) {
     temp_high: day.high,
     temp_low: day.low,
     rain_amount: day.rainAmount,
+    temp_morning: day.morning,
+    temp_day: day.day,
+    temp_night: day.night,
     fetched_at: new Date().toISOString(),
   };
 }
@@ -69,11 +82,13 @@ async function readRows(from: string, to: string): Promise<Map<string, StoredDay
   if (!isSupabaseConfigured()) return result;
 
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("daily_weather")
-    .select(COLUMNS)
-    .gte("on_date", from)
-    .lte("on_date", to);
+  const ask = (columns: string) =>
+    supabase.from("daily_weather").select(columns).gte("on_date", from).lte("on_date", to);
+
+  let { data, error } = await ask(`${COLUMNS}, ${PART_COLUMNS}`);
+  // schema.sql 17 을 아직 안 돌렸으면 아침·낮·밤 칸이 없다. 그것만 빼고 다시 묻는다
+  // (없는 칸을 물으면 쿼리가 통째로 400 이라 날씨가 다 사라진다).
+  if (isMissingColumn(error)) ({ data, error } = await ask(COLUMNS));
 
   // 아직 마이그레이션을 안 돌렸으면 저장된 게 없는 것처럼 군다.
   // 다만 조용히 넘어가면 "저장이 안 되는데 이유를 모르는" 상태가 되므로 남긴다.
@@ -82,7 +97,7 @@ async function readRows(from: string, to: string): Promise<Map<string, StoredDay
     return result;
   }
 
-  for (const row of data as Row[]) {
+  for (const row of data as unknown as Row[]) {
     const stored = toStored(row);
     if (stored) result.set(row.on_date, stored);
   }
@@ -135,9 +150,22 @@ async function fetchAndStore(
 
   if (rows.length > 0) {
     const supabase = await createClient();
-    const { error } = await supabase
-      .from("daily_weather")
-      .upsert(rows, { onConflict: "user_id,on_date" });
+    type Saved = Partial<ReturnType<typeof toRow>>;
+    const save = (list: Saved[]) =>
+      supabase.from("daily_weather").upsert(list, { onConflict: "user_id,on_date" });
+
+    let { error } = await save(rows);
+    // 칸이 없으면 그것만 빼고 다시 넣는다. 아침·낮·밤만 빠지고 나머지는 그대로 남는다.
+    if (isMissingColumn(error)) {
+      const plain = rows.map((row) => {
+        const copy: Saved = { ...row };
+        delete copy.temp_morning;
+        delete copy.temp_day;
+        delete copy.temp_night;
+        return copy;
+      });
+      ({ error } = await save(plain));
+    }
     // 저장이 안 되면 날씨가 기록으로 굳지 않는다 (볼 때마다 지금 지역으로 다시 받는다).
     // 화면은 그대로 뜨므로 로그에라도 남겨야 알 수 있다.
     if (error) console.error("[weather] daily_weather 저장 실패:", error.message);

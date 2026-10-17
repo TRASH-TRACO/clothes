@@ -470,3 +470,20 @@ alter table public.outfit_items
 
 create unique index if not exists outfit_items_outfit_item_idx
   on public.outfit_items (outfit_id, item_id);
+
+-- 17. 아침·낮·밤 기온 ------------------------------------------------
+-- 최고·최저로 옷을 고르면 틀린다. 최저는 새벽 5~6시 값이라 겪지도 않는 시간이고
+-- 최고는 오후 2~3시다. 정작 집을 나서는 아침 기온이 그 사이에 숨어 있다.
+--
+-- 그래서 **밖에 있는 시간**으로 끊어 따로 적어 둔다 (lib/day-parts.ts).
+--   morning 07~09시 중 가장 낮은 값 (나갈 때)
+--   day     12~15시 중 가장 높은 값
+--   night   18~22시 중 가장 낮은 값 (돌아올 때)
+-- 기온이 아니라 **체감**이다. 아침 바람이 불면 14° 가 체감 10° 다.
+--
+-- 이 칸을 더하기 전에 적어 둔 날은 null 로 남는다. 화면은 그때 최고·최저로
+-- 돌아가므로 지난 기록을 건드릴 필요가 없다.
+alter table public.daily_weather
+  add column if not exists temp_morning double precision,
+  add column if not exists temp_day double precision,
+  add column if not exists temp_night double precision;
