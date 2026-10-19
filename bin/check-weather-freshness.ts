@@ -5,7 +5,13 @@
  * 테스트 러너를 들이지 않으려고 한 파일로 뒀다. 규칙만 보는 것이라
  * 네트워크도 DB도 필요 없다.
  */
-import { FORECAST_STALE_MS, fetchPlan, type Freshness, type Plan } from "../lib/weather-freshness.ts";
+import {
+  FORECAST_STALE_MS,
+  NEAR_STALE_MS,
+  fetchPlan,
+  type Freshness,
+  type Plan,
+} from "../lib/weather-freshness.ts";
 
 /** 지난 날. 그날이 끝난 뒤에 받은 값이라 확정이다 */
 const past: Freshness = {
@@ -13,12 +19,15 @@ const past: Freshness = {
   samePlace: true,
   age: 0,
   past: true,
+  near: false,
   settled: true,
   pinned: false,
   recorded: false,
 };
-/** 오늘·앞날. 아직 안 끝난 날이라 확정일 수가 없다 */
-const today: Freshness = { ...past, past: false, settled: false };
+/** 오늘. 홈도 같이 보여주는 날이다 */
+const today: Freshness = { ...past, past: false, near: true, settled: false };
+/** 홈에는 안 뜨는 먼 앞날 (다음 주) */
+const later: Freshness = { ...today, near: false };
 
 const cases: [string, Freshness, Plan][] = [
   ["저장분이 없으면 받는다", { ...past, stored: false }, { fetch: true, place: "want" }],
@@ -97,6 +106,34 @@ const cases: [string, Freshness, Plan][] = [
     "앞으로: 기록이 없으면 지역을 바꾼 대로 따라간다",
     { ...today, samePlace: false },
     { fetch: true, place: "want" },
+  ],
+
+  // **형님이 물은 것** — 홈과 캘린더의 오늘 기온이 달랐다.
+  // 홈은 30분마다 새로 받는데 캘린더가 3시간을 들고 있었다.
+  [
+    "오늘: 30분 넘으면 다시 받는다 (홈과 맞추려고)",
+    { ...today, age: NEAR_STALE_MS + 1 },
+    { fetch: true, place: "want" },
+  ],
+  [
+    "오늘: 30분 안 됐으면 그대로",
+    { ...today, age: NEAR_STALE_MS - 1 },
+    { fetch: false, place: "want" },
+  ],
+  [
+    "먼 앞날은 3시간 그대로 (홈에 안 뜨니 나란히 볼 일이 없다)",
+    { ...later, age: NEAR_STALE_MS + 1 },
+    { fetch: false, place: "want" },
+  ],
+  [
+    "먼 앞날도 3시간 넘으면 받는다",
+    { ...later, age: FORECAST_STALE_MS + 1 },
+    { fetch: true, place: "want" },
+  ],
+  [
+    "오늘인데 기록을 남겼어도 30분이면 갱신한다 (지역만 굳는다)",
+    { ...today, recorded: true, samePlace: false, age: NEAR_STALE_MS + 1 },
+    { fetch: true, place: "stored" },
   ],
 ];
 

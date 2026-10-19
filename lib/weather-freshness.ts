@@ -8,6 +8,19 @@
 /** 아직 지나지 않은 날은 예보라 값이 바뀐다. 이보다 오래된 저장분은 다시 받는다 */
 export const FORECAST_STALE_MS = 3 * 60 * 60 * 1000;
 
+/**
+ * 홈이 같이 보여주는 날(오늘·내일)은 더 짧게 잡는다.
+ *
+ * 홈은 30분마다 예보를 새로 받는데(`getWeather` 의 revalidate) 캘린더가 3시간을
+ * 들고 있으면, **같은 날 기온이 두 화면에서 다르게 보인다.** 그 둘을 나란히 놓고
+ * 보는 사람 눈에는 그냥 틀린 값이다.
+ *
+ * 비용은 작다. 캘린더 요청에도 30분짜리 revalidate 가 걸려 있어서 같은 주소로
+ * **30분에 한 번보다 자주는 못 나간다** (하루 8번쯤이던 게 48번쯤이 된다).
+ * 한 달치를 한 번에 받는 요청이고 같은 지역끼리 캐시를 나눠 쓰므로 이 정도면 된다.
+ */
+export const NEAR_STALE_MS = 30 * 60 * 1000;
+
 export type Freshness = {
   /** 저장해 둔 값이 있는지 */
   stored: boolean;
@@ -17,6 +30,13 @@ export type Freshness = {
   age: number;
   /** 이미 지나간 날인지 (오늘은 아직 안 지난 날로 본다) */
   past: boolean;
+  /**
+   * 홈도 같이 보여주는 날인지 (오늘·내일).
+   *
+   * 홈은 오후 5시부터 내일 예보로 넘어가므로 그 둘이 겹치는 날이다.
+   * 그보다 먼 앞날은 나란히 놓고 볼 일이 없어서 3시간이면 된다.
+   */
+  near: boolean;
   /**
    * 저장분을 **그날이 다 지난 뒤에** 받았는지.
    *
@@ -69,6 +89,7 @@ export function fetchPlan(f: Freshness): Plan {
   // 그 전에 받은 건 아직 예보라 실측으로 한 번 덮는다. 덮고 나면 영영 안 받는다.
   if (f.past) return { fetch: !f.settled, place };
 
-  // 오늘과 앞으로는 예보라 계속 바뀐다
-  return { fetch: f.age > FORECAST_STALE_MS, place };
+  // 오늘과 앞으로는 예보라 계속 바뀐다.
+  // 홈과 나란히 보이는 날(오늘·내일)은 더 자주 맞춘다.
+  return { fetch: f.age > (f.near ? NEAR_STALE_MS : FORECAST_STALE_MS), place };
 }

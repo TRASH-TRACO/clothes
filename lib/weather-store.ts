@@ -186,6 +186,8 @@ function freshness(
     samePlace: Boolean(stored) && placeKey(stored!.place) === placeKey(want),
     age: stored ? Date.now() - stored.fetchedAt : 0,
     past: date < seoulToday(),
+    // 홈이 오후 5시부터 내일 예보를 보여주므로 오늘·내일이 겹친다
+    near: date >= seoulToday() && date <= addDays(seoulToday(), 1),
     // 그날이 끝난 뒤에 받은 값이라야 실제로 그랬던 날씨다. 그 전에 받은 건 예보다.
     settled: Boolean(stored) && stored!.fetchedAt >= endOfDay(date),
     pinned,
