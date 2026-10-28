@@ -487,3 +487,39 @@ alter table public.daily_weather
   add column if not exists temp_morning double precision,
   add column if not exists temp_day double precision,
   add column if not exists temp_night double precision;
+
+-- 18. 장바구니 ---------------------------------------------------------
+-- 사려고 봐 둔 옷. 옷장(items)과 일부러 따로 둔다 — 아직 **안 산** 것이라
+-- 코디에도, 캘린더에도, 추천에도 끼면 안 된다.
+--
+-- 핵심은 **링크**다. 나중에 다시 찾으려고 열어 두는 탭을 대신한다.
+create table if not exists public.cart_items (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  name text not null check (char_length(name) between 1 and 80),
+  -- 상품 페이지 주소. http/https 만 화면에서 링크로 건다 (lib/safe-url.ts)
+  url text,
+  brand text,
+  -- 옷장과 같은 분류를 쓴다. 안 정해도 된다 (보고만 둔 것일 수 있다)
+  category item_category,
+  -- 원 단위 정수. 옷값에 소수점을 쓸 일이 없다
+  price integer check (price is null or price >= 0),
+  memo text,
+  photo_path text,
+  -- 상품 페이지에 적힌 실측. 옷장의 것과 같은 모양이라 /compare 가 그대로 읽는다
+  measurements jsonb not null default '{}'::jsonb,
+  -- 샀으면 그때 시각. 지우지 않고 아래로 내린다 (또 사지 않으려고)
+  bought_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists cart_items_user_idx
+  on public.cart_items (user_id, bought_at nulls first, created_at desc);
+
+alter table public.cart_items enable row level security;
+
+drop policy if exists "cart items are private" on public.cart_items;
+create policy "cart items are private" on public.cart_items
+  for all to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);

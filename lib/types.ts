@@ -122,3 +122,27 @@ export type ActionState = {
    */
   link?: { href: string; label: string };
 } | null;
+
+/**
+ * 사려고 봐 둔 옷.
+ *
+ * 옷장(Item)과 일부러 따로 둔다 — 아직 **안 산** 것이라 코디에도, 캘린더에도,
+ * 추천에도 끼면 안 된다. 핵심은 링크다 (나중에 다시 찾으려고 열어 두는 탭 대신).
+ */
+export type CartItem = {
+  id: string;
+  user_id: string;
+  name: string;
+  url: string | null;
+  brand: string | null;
+  category: Category | null;
+  /** 원 단위 정수 */
+  price: number | null;
+  memo: string | null;
+  photo_path: string | null;
+  /** 상품 페이지에 적힌 실측. 옷장의 것과 같은 모양이라 /compare 가 그대로 읽는다 */
+  measurements: Record<string, number>;
+  /** 샀으면 그때 시각. 지우지 않고 목록 아래로 내린다 */
+  bought_at: string | null;
+  created_at: string;
+};

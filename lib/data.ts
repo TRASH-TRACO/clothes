@@ -2,13 +2,14 @@ import "server-only";
 
 import { cache } from "react";
 
-import { SLOT_ORDER, type Category } from "./categories";
+import { SLOT_ORDER, isCategory, type Category } from "./categories";
 import { outfitTitle } from "./outfit-title";
 import { DEFAULT_PLACE, isPlace, roundPlace, type Place } from "./places";
 import { decryptSecret, hasAppSecret } from "./secret";
 import { isSupabaseConfigured } from "./supabase/env";
 import { createClient } from "./supabase/server";
 import type {
+  CartItem,
   CompareLogWithItems,
   Item,
   Outfit,
@@ -384,4 +385,50 @@ export function logPlace(log: WearLog | null | undefined): Place | null {
   if (!log) return null;
   const place = { name: log.place_name, lat: log.place_lat, lon: log.place_lon };
   return isPlace(place) ? roundPlace(place) : null;
+}
+
+/**
+ * 장바구니. **안 산 것이 먼저**, 그 안에서는 최근에 담은 순.
+ *
+ * 산 것은 지우지 않고 아래로 내린다 — 또 사지 않으려고 남겨 두는 값이다.
+ */
+export const getCartItems = cache(async (): Promise<CartItem[]> => {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("cart_items")
+    .select("*")
+    .order("bought_at", { ascending: true, nullsFirst: true })
+    .order("created_at", { ascending: false });
+
+  // 스키마를 아직 안 올렸으면 빈 장바구니처럼 군다 (다른 화면은 그대로 돈다)
+  if (error) {
+    if (!isMissingTable(error)) console.error("[cart] cart_items", error.message);
+    return [];
+  }
+  return (data ?? []).map(toCartItem);
+});
+
+export const getCartItem = cache(async (id: string): Promise<CartItem | null> => {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("cart_items").select("*").eq("id", id).maybeSingle();
+  if (error || !data) return null;
+  return toCartItem(data);
+});
+
+/** DB 의 jsonb·숫자를 믿지 않고 걸러 낸다 */
+function toCartItem(row: Record<string, unknown>): CartItem {
+  const measurements: Record<string, number> = {};
+  const raw = row.measurements;
+  if (raw && typeof raw === "object") {
+    for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+      if (typeof value === "number" && Number.isFinite(value)) measurements[key] = value;
+    }
+  }
+  return {
+    ...(row as unknown as CartItem),
+    category: isCategory(row.category) ? row.category : null,
+    measurements,
+  };
 }

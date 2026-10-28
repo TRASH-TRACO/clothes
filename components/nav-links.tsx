@@ -12,6 +12,7 @@ const LINKS = [
   { href: "/studio", label: "코디 만들기", lab: false },
   { href: "/outfits", label: "저장한 코디", lab: false },
   { href: "/calendar", label: "캘린더", lab: false },
+  { href: "/cart", label: "장바구니", lab: false },
   { href: "/ai", label: "AI", lab: true },
 ];
 
