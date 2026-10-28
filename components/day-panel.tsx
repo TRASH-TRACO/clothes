@@ -20,6 +20,7 @@ import { saveWearLog } from "@/app/actions/wear";
 import { findSimilarDay, type SimilarDay } from "@/app/actions/similar";
 import { CATEGORY_META } from "@/lib/categories";
 import { dayLabel, seoulToday } from "@/lib/calendar";
+import { lockScroll } from "@/lib/scroll-lock";
 import { advice, swing } from "@/lib/day-parts";
 import { FELT_LABELS } from "@/lib/feedback";
 import { outfitKey } from "@/lib/outfit-key";
@@ -183,12 +184,11 @@ export function DayPanel({ date, log, day, basePlace, startInEdit = false, onClo
       if (event.key === "Escape") onClose();
     }
     document.addEventListener("keydown", onKey);
-    // 패널 뒤 달력이 같이 스크롤되지 않게
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    // 패널 뒤 달력이 같이 스크롤되지 않게. 겹쳐 열릴 수 있어서 공용 자물쇠를 쓴다
+    const unlock = lockScroll();
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previous;
+      unlock();
     };
   }, [onClose]);
 

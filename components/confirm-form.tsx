@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { lockScroll } from "@/lib/scroll-lock";
 
 type Props = {
   /** 확인을 누르면 부를 서버 액션 */
@@ -46,11 +47,10 @@ export function ConfirmForm({
     }
     document.addEventListener("keydown", onKey);
     // 뒤에서 본문이 같이 스크롤되면 무엇을 묻는지 놓친다
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previous;
+      unlock();
     };
   }, [open]);
 

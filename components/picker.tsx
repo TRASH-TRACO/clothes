@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { matchesQuery } from "@/lib/search";
+import { lockScroll } from "@/lib/scroll-lock";
 
 export type PickerOption = {
   value: string;
@@ -92,11 +93,10 @@ export function Picker({
     }
     document.addEventListener("keydown", onKey);
     // 뒤에서 본문이 같이 스크롤되면 고르는 중에 자리를 잃는다
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previous;
+      unlock();
     };
   }, [open, options.length]);
 
