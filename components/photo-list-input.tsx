@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { PhotoCropper } from "@/components/photo-cropper";
 import { createClient } from "@/lib/supabase/client";
@@ -14,6 +14,11 @@ type Props = {
   aspect?: number;
   /** 장수가 바뀔 때. 단계별 등록에서 "사진 올렸는지"를 알아야 한다 */
   onChange?: (paths: string[]) => void;
+  /**
+   * 자르는 중이거나 올리는 중일 때. 폼이 저장 버튼을 잠그는 데 쓴다.
+   * 아직 손에 든 사진이 있는데 저장만 되고 끝나면 안 된다.
+   */
+  onBusy?: (busy: boolean) => void;
 };
 
 /** 한 옷에 올릴 수 있는 사진 수. 너무 많으면 고르기도 보기도 번거롭다 */
@@ -23,12 +28,24 @@ const MAX = 8;
  * 옷 사진 여러 장.
  * 첫 장이 대표 사진이고, 목록·카드에는 그것만 보인다.
  */
-export function PhotoListInput({ userId, defaultPaths = [], aspect = 1, onChange }: Props) {
+export function PhotoListInput({
+  userId,
+  defaultPaths = [],
+  aspect = 1,
+  onChange,
+  onBusy,
+}: Props) {
   const [paths, setPaths] = useState<string[]>(defaultPaths);
   const [pending, setPending] = useState<File | null>(null);
   const [status, setStatus] = useState<"idle" | "uploading" | "error">("idle");
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  /** 사진 한 장이 아직 손 안에 있다 (자르는 중 / 올리는 중) */
+  const busy = pending !== null || status === "uploading";
+  useEffect(() => {
+    onBusy?.(busy);
+  }, [busy, onBusy]);
 
   function update(next: string[]) {
     setPaths(next);
@@ -65,22 +82,37 @@ export function PhotoListInput({ userId, defaultPaths = [], aspect = 1, onChange
     update(paths.filter((value) => value !== path));
   }
 
+  /**
+   * 폼에 실리는 칸. **자르기 창을 열어도 그대로 있어야 한다.**
+   *
+   * 예전에는 자르는 동안 이 컴포넌트가 자르기 창만 돌려줬다. 그러면 지금까지
+   * 올려 둔 사진이 폼에서 통째로 사라진다 — 수정 화면은 저장 버튼이 아래에
+   * 같이 떠 있어서, 자르기 창을 열어 둔 채 저장을 누르면 **원래 있던 사진이
+   * 전부 떨어져 나간 채로 저장됐다.** (파일은 Storage 에 남지만 옷에서는 끊긴다)
+   *
+   * 저장 버튼도 잠그지만(onBusy), 눌려도 잃는 게 없어야 한다.
+   */
+  const fields = paths.map((path) => (
+    <input key={path} type="hidden" name="photo_paths" value={path} />
+  ));
+
   if (pending) {
     return (
-      <PhotoCropper
-        file={pending}
-        aspect={aspect}
-        onCancel={() => setPending(null)}
-        onDone={(blob) => void upload(blob)}
-      />
+      <div>
+        {fields}
+        <PhotoCropper
+          file={pending}
+          aspect={aspect}
+          onCancel={() => setPending(null)}
+          onDone={(blob) => void upload(blob)}
+        />
+      </div>
     );
   }
 
   return (
     <div>
-      {paths.map((path) => (
-        <input key={path} type="hidden" name="photo_paths" value={path} />
-      ))}
+      {fields}
 
       <div className="grid grid-cols-3 gap-2">
         {paths.map((path, index) => (

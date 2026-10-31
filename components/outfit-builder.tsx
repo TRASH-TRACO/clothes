@@ -63,6 +63,8 @@ export function OutfitBuilder({
   );
   /** 새 폴더 이름을 적는 중인지. 적었으면 그 폴더를 만들어서 넣는다 */
   const [newFolder, setNewFolder] = useState<string | null>(null);
+  /** 착장 사진을 자르거나 올리는 중. 그 사이에 저장되면 손에 든 사진을 잃는다 */
+  const [photoBusy, setPhotoBusy] = useState(false);
 
   const byId = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
   const byCategory = useMemo(() => {
@@ -361,6 +363,7 @@ export function OutfitBuilder({
                 defaultPaths={outfit ? outfitPhotos(outfit) : []}
                 /* 상세 페이지가 3:4로 보여준다 */
                 aspect={3 / 4}
+                onBusy={setPhotoBusy}
               />
             </div>
           </div>
@@ -489,15 +492,26 @@ export function OutfitBuilder({
           ) : null}
 
           <div className="flex flex-wrap items-center gap-4">
+            {/* 자르는 중에는 잠근다. 손에 든 사진을 두고 저장되면 안 된다 */}
             <button
               type="submit"
-              disabled={pending || chosenCount < 2 || Boolean(duplicate)}
+              disabled={pending || photoBusy || chosenCount < 2 || Boolean(duplicate)}
               className="btn-dark min-w-[180px]"
             >
-              {pending ? "저장 중…" : outfit ? "코디 수정 저장" : "이 코디 저장"}
+              {pending
+                ? "저장 중…"
+                : photoBusy
+                  ? "사진 먼저 끝내기"
+                  : outfit
+                    ? "코디 수정 저장"
+                    : "이 코디 저장"}
             </button>
             <span className="text-sm text-muted">
-              {duplicate ? "이미 있는 조합입니다" : `${chosenCount}개 선택됨 (최소 2개)`}
+              {photoBusy
+                ? "사진을 자르는 중입니다"
+                : duplicate
+                  ? "이미 있는 조합입니다"
+                  : `${chosenCount}개 선택됨 (최소 2개)`}
             </span>
           </div>
         </div>

@@ -58,6 +58,8 @@ export function ItemForm({ userId, item, brands, action }: Props) {
   const [name, setName] = useState(item?.name ?? "");
   const [photos, setPhotos] = useState<string[]>(itemPhotos(item ?? { photo_path: null, photo_paths: [] }));
   const [more, setMore] = useState(false);
+  /** 사진을 자르거나 올리는 중. 그 사이에 저장되면 손에 든 사진을 잃는다 */
+  const [photoBusy, setPhotoBusy] = useState(false);
 
   const fields = category ? measurementFields(category) : [];
   const kinds = category ? kindsOf(category) : [];
@@ -142,6 +144,7 @@ export function ItemForm({ userId, item, brands, action }: Props) {
           userId={userId}
           defaultPaths={photos}
           onChange={setPhotos}
+          onBusy={setPhotoBusy}
         />
       </div>
 
@@ -402,8 +405,9 @@ export function ItemForm({ userId, item, brands, action }: Props) {
             저장까지 됐다 (마지막 화면이 스쳐 지나간 것처럼 보였다). */}
         {editing || last ? (
           <Fragment key="save">
-            <button type="submit" disabled={pending} className="btn-dark flex-1 py-4">
-              {pending ? "저장 중…" : editing ? "수정 저장" : "옷장에 추가"}
+            {/* 자르는 중에는 잠근다. 손에 든 사진을 두고 저장되면 안 된다 */}
+            <button type="submit" disabled={pending || photoBusy} className="btn-dark flex-1 py-4">
+              {pending ? "저장 중…" : photoBusy ? "사진 먼저 끝내기" : editing ? "수정 저장" : "옷장에 추가"}
             </button>
             <Link href={item ? `/closet/${item.id}` : "/closet"} className="btn-ghost">
               취소
@@ -413,7 +417,7 @@ export function ItemForm({ userId, item, brands, action }: Props) {
           <button
             key="next"
             type="button"
-            disabled={!canAdvance}
+            disabled={!canAdvance || photoBusy}
             onClick={() => {
               if (step === 2) suggestName();
               go(step + 1);
