@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>연결이 끊겼습니다 | CLOSET</title>
+    <!--
+      네트워크가 끊겨 화면을 못 받아왔을 때 서비스 워커가 대신 보여주는 화면.
+
+      **앱 바깥에 있는 파일이다.** 서버에 닿지 못할 때 뜨는 화면이라
+      Next 의 CSS·폰트·자바스크립트를 하나도 못 쓴다. 그래서 여기 있는 건
+      전부 이 파일 안에 있다.
+    -->
+    <style>
+      :root {
+        --ink: #111111;
+        --paper: #ffffff;
+        --muted: #757575;
+        --line: #e5e5e5;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --ink: #f5f5f5;
+          --paper: #111111;
+          --muted: #9a9a9a;
+          --line: #333333;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100svh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 24px calc(24px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom))
+          calc(24px + env(safe-area-inset-left));
+        background: var(--paper);
+        color: var(--ink);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        text-align: center;
+        -webkit-font-smoothing: antialiased;
+      }
+      img {
+        width: 72px;
+        height: 72px;
+        border-radius: 18px;
+        margin-bottom: 14px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      p {
+        margin: 0;
+        max-width: 22em;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.6;
+      }
+      button {
+        margin-top: 18px;
+        appearance: none;
+        border: 0;
+        border-radius: 999px;
+        padding: 14px 28px;
+        background: var(--ink);
+        color: var(--paper);
+        font-size: 15px;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.4;
+      }
+      small {
+        margin-top: 14px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 아이콘도 안에 넣어 둔다. 연결이 끊긴 화면에서 그림을 또 받아오면
+         깨진 네모만 남는다 -->
+    <img alt="" src="data:image/png;base64,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" />
+    <h1>연결이 끊겼습니다</h1>
+    <p>인터넷에 닿지 못해 화면을 받아오지 못했습니다. 연결을 확인하고 다시 시도해 주세요.</p>
+    <button type="button" id="retry">다시 시도</button>
+    <small id="hint">연결이 돌아오면 저절로 다시 엽니다.</small>
+
+    <script>
+      (function () {
+        var retry = document.getElementById("retry");
+        var hint = document.getElementById("hint");
+
+        function again() {
+          retry.disabled = true;
+          hint.textContent = "다시 여는 중…";
+          // 끊겼던 화면 주소 그대로 다시 받는다
+          location.reload();
+        }
+
+        retry.addEventListener("click", again);
+        // 와이파이가 돌아오면 손대지 않아도 열린다
+        window.addEventListener("online", again);
+      })();
+    </script>
+  </body>
+</html>

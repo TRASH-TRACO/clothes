@@ -4,6 +4,7 @@ import { Anton, Black_Han_Sans, Inter } from "next/font/google";
 import { SetupNotice } from "@/components/setup-notice";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { ServiceWorker } from "@/components/sw-register";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import "./globals.css";
 
@@ -164,6 +165,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <SiteHeader />
         <main className="flex-1">{isSupabaseConfigured() ? children : <SetupNotice />}</main>
         <SiteFooter />
+        <ServiceWorker />
       </body>
     </html>
   );
