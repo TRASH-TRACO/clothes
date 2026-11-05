@@ -38,16 +38,13 @@ export const metadata: Metadata = {
   // 홈 화면에 추가하면 주소창 없이 뜬다.
   //
   // 상태바 자리를 iOS 에 맡긴다 (default). 화면은 상태바 아래에서 시작하고
-  // 그 자리는 본문 배경색(흰색)에 검은 글씨로 그려진다 — 위에 띠가 안 생긴다.
+  // 그 자리는 iOS 가 본문 배경색에 검은 글씨로 그려준다 — 앱이 메울 게 없다.
   //
-  // black-translucent 는 반대로 상태바 뒤까지 화면을 채우는데, 그 모드의 상태바
-  // 글씨는 무조건 흰색이라 흰 배경에서는 시계가 안 보인다. 그래서 헤더 맨 위에
-  // 검은 띠(.status-band)를 깔아야 했다. 그 띠가 보기 싫어서 default 로 옮긴다.
-  //
-  // **이 값은 홈 화면에 아이콘을 담을 때 저장된다.** 이미 담아 둔 아이콘은 지웠다
-  // 다시 담기 전까지 예전 값(black-translucent)으로 뜬다. 그래서 띠를 지우는 게
-  // 아니라, 화면이 상태바를 덮는지 앱이 직접 재서 (아래 인라인 스크립트) 덮을
-  // 때만 띠를 깐다. 다시 담고 나면 저절로 안 깔린다.
+  // **상태바 자리를 앱이 직접 메우지 않는다.** 예전에는 헤더 맨 위에 띠를 깔아
+  // 그 자리를 메웠는데, 띠 높이를 env(safe-area-inset-top) 으로 잡은 게 화근이었다.
+  // iOS 가 그 값을 들쭉날쭉 준다 (아이폰 16 프로 맥스에서 118pt·126pt 가 왔다 —
+  // 실제 상태바는 62pt 다). 그래서 어떨 땐 멀쩡하고 어떨 땐 화면이 아래로 밀렸다.
+  // 재서 맞추는 걸 그만두고 띠를 통째로 걷었다.
   appleWebApp: {
     capable: true,
     title: "CLOSET",
@@ -135,20 +132,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${inter.variable} ${anton.variable} ${blackHanSans.variable} h-full`}
     >
       <body className="flex min-h-full flex-col bg-paper text-ink">
-        {/* 그릴 때 바로 판정해야 하는 두 가지. 첫 페인트 전에 돌아야 하므로 인라인.
-            1. data-standalone — 홈 화면에서 띄웠는가. 아래 #boot 를 보일지 정한다.
-            2. data-status-overlay — 상태바가 화면을 덮는가. iOS 전체화면에서
-               env(safe-area-inset-top) 이 0으로 오는 경우가 있어 CSS 만으로는 알 수
-               없었다. 덮는 모드에서는 화면 높이가 기기 높이와 같고, 안 덮으면
-               상태바만큼 작다. */}
+        {/* 홈 화면에서 띄웠는지만 본다 (아래 #boot 를 보일지 정한다).
+            첫 페인트 전에 돌아야 하므로 인라인. */}
         <script
           dangerouslySetInnerHTML={{
             __html:
-              'try{var d=document.documentElement,s=navigator.standalone===true;' +
-              'if(s||matchMedia("(display-mode: standalone)").matches)' +
-              'd.setAttribute("data-standalone","");' +
-              'if(s&&window.innerHeight>=screen.height-2)' +
-              'd.setAttribute("data-status-overlay","")}catch(e){}',
+              'try{if(navigator.standalone===true||' +
+              'matchMedia("(display-mode: standalone)").matches)' +
+              'document.documentElement.setAttribute("data-standalone","")}catch(e){}',
           }}
         />
 

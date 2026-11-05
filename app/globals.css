@@ -135,30 +135,6 @@ body {
   display: none;
 }
 
-/* 헤더 맨 위, 상태바 자리를 메우는 띠.
-   기본은 inset 만큼. 브라우저에서는 0이라 아예 안 보인다. */
-/* 보통은 높이가 0 이다. 상태바 자리는 iOS 가 잡아 주고 (statusBarStyle: default)
-   흰 바탕에 검은 글씨로 그려지므로, 앱이 따로 메울 게 없다. */
-.status-band {
-  height: env(safe-area-inset-top);
-  background: var(--color-paper);
-}
-
-/* 화면이 상태바 뒤까지 차는 경우에만 띠를 깐다 (app/layout.tsx 가 재서 표시해 준다).
-   그 모드의 상태바 글씨는 흰색이라 띠가 검어야 시계가 보인다.
-   지금은 default 로 담기지만, 예전에 black-translucent 로 담아 둔 아이콘은 지웠다
-   다시 담기 전까지 그 모드로 뜬다. 그 아이콘을 위한 자리다.
-
-   **위아래로 다 묶는다.** 예전에는 max(inset, 64px) 이라 아래만 막혀 있었는데,
-   iOS 가 주는 inset 을 그대로 믿는 셈이었다. 아이폰 16 프로 맥스에서 재 보니
-   126pt 가 와서 띠가 두 배로 깔렸다 (상태바는 62pt 인데). 세로 화면 상태바가
-   64pt 를 넘는 아이폰은 없으므로 거기서 자른다. 0 으로 올 때를 위해 아래도 막는다
-   (56pt 면 다이내믹 아일랜드 기기의 시계도 덮는다). */
-[data-status-overlay] .status-band {
-  height: clamp(56px, env(safe-area-inset-top), 64px);
-  background: var(--color-ink);
-}
-
 /* viewport-fit=cover 라 가로 모드에선 노치가 좌우를 파고든다.
    세로 모드에선 좌우 inset이 0이므로 가로일 때만 밀어준다. */
 @media (orientation: landscape) {
@@ -233,19 +209,6 @@ body {
   place-items: center;
   background: var(--color-paper);
   animation: boot-out 0.4s ease 0.6s forwards;
-}
-
-/* 상태바가 화면을 덮는 모드에서는 그 자리가 검어야 흰 시계가 보인다.
-   헤더의 .status-band 와 **높이 규칙이 같아야 한다** — 이 화면이 걷힐 때 띠가
-   그 자리에 그대로 남아야 깜빡이지 않는다. 위 규칙을 바꾸면 여기도 같이 바꾼다. */
-[data-status-overlay] #boot::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: clamp(56px, env(safe-area-inset-top), 64px);
-  background: var(--color-ink);
 }
 
 /* public/splash/*.png 와 같은 배치 — 짧은 쪽의 28%, 모서리 22%.
