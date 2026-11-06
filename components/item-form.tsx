@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useActionState, useState } from "react";
+import { Fragment, useActionState, useEffect, useRef, useState } from "react";
 
 import { BrandInput, type BrandOption } from "@/components/brand-input";
 import { FitPicker } from "@/components/fit-picker";
@@ -61,6 +61,25 @@ export function ItemForm({ userId, item, brands, action }: Props) {
   /** 사진을 자르거나 올리는 중. 그 사이에 저장되면 손에 든 사진을 잃는다 */
   const [photoBusy, setPhotoBusy] = useState(false);
 
+  /**
+   * 우리가 지어 준 이름은 **고른 채로** 보여준다.
+   *
+   * 지어 주는 이름("블루 상의")은 거의 다 고쳐 쓴다. 그대로 두면 커서를 맨 뒤로
+   * 보내 놓고 지우기부터 시작해야 한다. 골라 두면 바로 쳐서 덮어쓸 수 있고,
+   * 그대로 쓰고 싶으면 다음으로 넘어가면 된다.
+   *
+   * 숫자를 올려서 신호를 보낸다 — 같은 이름을 두 번 지어 줘도 다시 골라진다.
+   */
+  const nameRef = useRef<HTMLInputElement>(null);
+  const [autoNamed, setAutoNamed] = useState(0);
+  useEffect(() => {
+    if (autoNamed === 0) return;
+    const field = nameRef.current;
+    if (!field) return;
+    field.focus();
+    field.select();
+  }, [autoNamed]);
+
   const fields = category ? measurementFields(category) : [];
   const kinds = category ? kindsOf(category) : [];
 
@@ -76,11 +95,12 @@ export function ItemForm({ userId, item, brands, action }: Props) {
     window.scrollTo({ top: 0, behavior: "instant" });
   }
 
-  /** 이름을 안 지었으면 고른 값으로 만들어 준다 (지우고 다시 쓸 수 있다) */
+  /** 이름을 안 지었으면 고른 값으로 만들어 준다 (골라 둔 채로 보여주므로 바로 덮어쓸 수 있다) */
   function suggestName() {
     if (name.trim() || !category) return;
     const what = kind ?? CATEGORY_META[category].label;
     setName(color ? `${color.name} ${what}` : what);
+    setAutoNamed((count) => count + 1);
   }
 
   function pickColor(next: Color) {
@@ -90,6 +110,7 @@ export function ItemForm({ userId, item, brands, action }: Props) {
       if (!name.trim() && category) {
         const what = kind ?? CATEGORY_META[category].label;
         setName(`${next.name} ${what}`);
+        setAutoNamed((count) => count + 1);
       }
       go(3);
     }, ADVANCE_MS);
@@ -101,6 +122,35 @@ export function ItemForm({ userId, item, brands, action }: Props) {
 
   /** 수정 화면에서는 모든 칸을 한꺼번에 보여준다 */
   const shown = (index: number) => editing || step === index;
+
+  /**
+   * 이름 칸. **한 군데서만 만든다.**
+   *
+   * 고치는 화면에서는 이게 제목 자리에 온다. 예전에는 페이지 맨 위에 옷 이름을
+   * 크게 쓰고, 그 아래 폼에 "이름" 칸을 또 뒀다. 같은 걸 두 번 보여주면서
+   * 고치는 건 아래쪽뿐이라, 위를 눌러 보다가 아래로 내려가야 했다.
+   * 이제 제목이 곧 입력 칸이다.
+   */
+  const nameField = (
+    <input
+      ref={nameRef}
+      id="name"
+      name="name"
+      value={name}
+      onChange={(event) => setName(event.target.value)}
+      maxLength={80}
+      placeholder={editing ? "이름" : "예: 오버핏 반팔 티셔츠"}
+      /* 크기는 감싼 쪽이 정한다 — globals.css 의 `input { font-size: max(16px, 1em) }`
+         가 레이어 밖이라 text-3xl 같은 유틸리티보다 세다. 1em 은 부모 글자 크기라
+         부모에 크기를 주면 칸이 그대로 따라온다 */
+      className={
+        editing
+          ? `w-full border-b border-line bg-transparent pb-2 font-semibold
+             outline-none transition-colors placeholder:text-line focus:border-ink`
+          : "field"
+      }
+    />
+  );
 
   return (
     <form action={formAction} className="mx-auto max-w-xl">
@@ -136,6 +186,9 @@ export function ItemForm({ userId, item, brands, action }: Props) {
           </div>
         </div>
       )}
+
+      {/* 고치는 화면의 제목 = 이름 칸 (page.tsx 에는 제목이 없다) */}
+      {editing && <div className="mb-10 text-3xl sm:text-4xl">{nameField}</div>}
 
       {/* 1 사진 */}
       <div className={shown(0) ? "" : "hidden"}>
@@ -255,20 +308,11 @@ export function ItemForm({ userId, item, brands, action }: Props) {
         </details>
       </div>
 
-      {/* 4 이름·브랜드·사이즈 */}
+      {/* 4 이름·브랜드·사이즈 (고칠 때 이름은 맨 위 제목에 있다) */}
       <div className={shown(3) ? "" : "hidden"}>
-        {editing && <h2 className="eyebrow mb-4 mt-10">이름</h2>}
-        <input
-          id="name"
-          name="name"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          maxLength={80}
-          placeholder="예: 오버핏 반팔 티셔츠"
-          className="field text-lg"
-        />
+        {editing ? null : <div className="text-lg">{nameField}</div>}
 
-        <div className="mt-8 grid gap-5 sm:grid-cols-2">
+        <div className={`grid gap-5 sm:grid-cols-2 ${editing ? "mt-10" : "mt-8"}`}>
           <div>
             <label className="label" htmlFor="brand">
               브랜드 (선택)

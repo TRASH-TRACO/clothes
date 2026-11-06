@@ -110,7 +110,7 @@ export function OutfitBrowser({ outfits, folders }: Props) {
         <div>
           <p className="eyebrow">Saved looks</p>
           <h1 className="display mt-2 text-5xl sm:text-6xl">
-            {openFolder?.name ?? "저장한 코디"}
+            {openFolder?.name ?? "코디"}
           </h1>
         </div>
         <Link href="/studio" className="btn-dark">

@@ -71,8 +71,9 @@ export default async function StudioPage({ searchParams }: PageProps<"/studio">)
             {editing ? "코디 수정" : "코디 만들기"}
           </h1>
         </div>
+        {/* 메뉴에서 '코디' 는 목록 한 칸이다. 만드는 중에도 돌아갈 길을 둔다 */}
         <Link href="/outfits" className="text-sm underline underline-offset-4 hover:text-muted">
-          저장한 코디 보기
+          ← 코디 목록
         </Link>
       </div>
 

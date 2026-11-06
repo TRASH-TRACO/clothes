@@ -3,10 +3,12 @@ import "server-only";
 import { cache } from "react";
 
 import { SLOT_ORDER, isCategory, type Category } from "./categories";
+import { isFelt, type Felt } from "./feedback";
 import { outfitTitle } from "./outfit-title";
 import { DEFAULT_PLACE, isPlace, roundPlace, type Place } from "./places";
 import { decryptSecret, hasAppSecret } from "./secret";
 import { isSupabaseConfigured } from "./supabase/env";
+import { weatherKind } from "./weather-codes";
 import { createClient } from "./supabase/server";
 import type {
   CartItem,
@@ -209,6 +211,17 @@ export function isMissingColumn(error: { code?: string } | null) {
   return error?.code === "42703" || error?.code === "PGRST204";
 }
 
+/**
+ * 칸은 있는데 **그 값을 아직 못 받는다** (check 제약에 걸렸다).
+ *
+ * 고를 수 있는 값을 늘린 뒤 SQL 을 아직 안 돌린 경우다. 예: 체감을 다섯 칸으로
+ * 늘렸는데 wear_logs 의 check 가 아직 셋만 받는다. 부르는 쪽이 옛 값으로 바꿔
+ * 다시 넣는다 — 기록 자체가 통째로 안 남는 것보다 낫다.
+ */
+export function isCheckViolation(error: { code?: string } | null) {
+  return error?.code === "23514";
+}
+
 type WearLogRow = WearLog & {
   outfits:
     | (Pick<Outfit, "id" | "name" | "photo_path"> & { outfit_items: { items: { name: string } | null }[] })
@@ -259,6 +272,79 @@ export const getWearLogs = cache(
     return ((data ?? []) as WearLogRow[]).map(toWearLog);
   },
 );
+
+/**
+ * "이 날씨와 비슷했던 날" 을 고를 때 쓸 후보 전부.
+ *
+ * **날짜를 누를 때마다 서버를 부르지 않으려고** 달력을 그릴 때 한 번만 받는다.
+ * 예전에는 날짜를 누르면 서버 액션(findSimilarDay)이 나갔는데, 서버 액션은
+ * 지금 화면의 서버 컴포넌트를 통째로 다시 그려서 돌려준다 — 날짜 하나 눌렀을
+ * 뿐인데 그 달의 기록과 날씨를 다시 받아오고 있었다.
+ *
+ * 고르는 셈 자체는 아무것도 안 묻는 함수라 (lib/similar-day.ts) 받아 온 뒤
+ * 서버에서 날짜별로 한 번씩 돌리면 된다.
+ *
+ * 가벼운 칸만 받는다 — 옷은 id 만, 날씨는 기온과 코드만.
+ */
+export type WearCandidate = {
+  date: string;
+  high: number;
+  low: number;
+  code: number;
+  /** 코드를 큰 분류로 묶은 것. 고르는 쪽(lib/similar-day.ts)이 이걸 본다 */
+  kind: string;
+  itemIds: string[];
+  felt: Felt | null;
+};
+
+/** 몇 날까지 거슬러 볼지. 하루 한 줄이라 1년을 훌쩍 넘는다 */
+const POOL_DAYS = 400;
+
+export const getWearPool = cache(async (): Promise<WearCandidate[]> => {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = await createClient();
+
+  const { data: logs, error } = await supabase
+    .from("wear_logs")
+    .select("worn_on, felt, wear_log_items(item_id)")
+    .order("worn_on", { ascending: false })
+    .limit(POOL_DAYS);
+  if (error || !logs || logs.length === 0) return [];
+
+  type LogRow = { worn_on: string; felt: string | null; wear_log_items: { item_id: string }[] };
+  const rows = logs as LogRow[];
+
+  // 옷을 안 적고 지역만 남긴 날은 권할 게 없다
+  const worn = rows.filter((row) => row.wear_log_items.length > 0);
+  if (worn.length === 0) return [];
+
+  const oldest = worn[worn.length - 1].worn_on;
+  const { data: days } = await supabase
+    .from("daily_weather")
+    .select("on_date, code, temp_high, temp_low")
+    .gte("on_date", oldest)
+    .not("temp_high", "is", null)
+    .not("temp_low", "is", null);
+
+  type DayRow = { on_date: string; code: number | null; temp_high: number; temp_low: number };
+  const byDate = new Map((days ?? []).map((day) => [(day as DayRow).on_date, day as DayRow]));
+
+  const pool: WearCandidate[] = [];
+  for (const row of worn) {
+    const day = byDate.get(row.worn_on);
+    if (!day) continue;
+    pool.push({
+      date: row.worn_on,
+      high: day.temp_high,
+      low: day.temp_low,
+      code: day.code ?? 0,
+      kind: weatherKind(day.code ?? 0),
+      itemIds: row.wear_log_items.map((entry) => entry.item_id),
+      felt: isFelt(row.felt) ? row.felt : null,
+    });
+  }
+  return pool;
+});
 
 export const getWearLog = cache(async (date: string): Promise<WearLogWithItems | null> => {
   if (!isSupabaseConfigured()) return null;

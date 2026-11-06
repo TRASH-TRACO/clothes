@@ -1,5 +1,13 @@
-/** 그날 몸으로 느낀 온도 */
-export const FELT_VALUES = ["cold", "ok", "hot"] as const;
+/**
+ * 그날 몸으로 느낀 온도.
+ *
+ * **다섯 칸이다.** 셋뿐이던 때는 "조금 쌀쌀했지만 입을 만했다" 를 적을 데가 없어서
+ * `추웠다` 로 적거나 아예 안 적게 됐다. 둘 다 나중에 쓸모가 없다 — 앞은 실제보다
+ * 세게 읽히고, 뒤는 기록이 안 남는다. 가운데 둘(`cool`·`warm`)이 그 자리다.
+ *
+ * 순서가 곧 눈금이다 (추움 → 더움). 화면도 이 순서로 늘어놓는다.
+ */
+export const FELT_VALUES = ["cold", "cool", "ok", "warm", "hot"] as const;
 export type Felt = (typeof FELT_VALUES)[number];
 
 /**
@@ -17,7 +25,9 @@ export type Rating = (typeof RATING_VALUES)[number];
 
 export const FELT_LABELS: Record<Felt, string> = {
   cold: "추웠다",
+  cool: "약간 추웠다",
   ok: "적당했다",
+  warm: "약간 더웠다",
   hot: "더웠다",
 };
 
@@ -27,10 +37,12 @@ export const RATING_LABELS: Record<Rating, string> = {
   good: "맘에 들었다",
 };
 
-/** 좁은 화면에서는 이모지 대신 색으로만 표시한다 */
+/** 좁은 화면에서는 이모지 대신 색으로만 표시한다. 가운데 둘은 양끝을 옅게 한 색이다 */
 export const FELT_COLORS: Record<Felt, string> = {
   cold: "#3b82f6",
+  cool: "#8ab6f6",
   ok: "#a3a3a3",
+  warm: "#fba06d",
   hot: "#fa5400",
 };
 

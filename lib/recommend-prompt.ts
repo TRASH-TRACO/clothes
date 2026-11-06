@@ -34,7 +34,7 @@ export type PromptWeather = {
 export type PromptHistory = {
   date: string;
   itemIds: string[];
-  felt: "cold" | "ok" | "hot" | null;
+  felt: "cold" | "cool" | "ok" | "warm" | "hot" | null;
 };
 
 /**
@@ -87,7 +87,13 @@ function weatherBlock(weather: PromptWeather | null) {
   return `날씨: ${bits.join(" · ")}${weather.compare ? `\n(${weather.compare})` : ""}`;
 }
 
-const FELT_TEXT = { cold: "추웠다", ok: "적당했다", hot: "더웠다" } as const;
+const FELT_TEXT = {
+  cold: "추웠다",
+  cool: "약간 추웠다",
+  ok: "적당했다",
+  warm: "약간 더웠다",
+  hot: "더웠다",
+} as const;
 
 function historyBlock(history: PromptHistory[]) {
   if (history.length === 0) return "최근 입은 기록: 없음";

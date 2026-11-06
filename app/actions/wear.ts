@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { isValidDate, monthOf } from "@/lib/calendar";
 import { isFelt } from "@/lib/feedback";
+import { isCheckViolation } from "@/lib/data";
 import { isPlace, roundPlace } from "@/lib/places";
 import { getBasePlace } from "@/lib/data";
 import { freezeDay, resetStoredDay, storeDay } from "@/lib/weather-store";
@@ -19,6 +20,12 @@ function fail(message: string): ActionState {
  * 그날 입은 옷을 저장한다. 하루에 한 줄이라 같은 날짜면 덮어쓴다.
  * 코디를 골랐어도 구성 옷을 복사해 두므로, 나중에 코디를 고쳐도 지난 기록은 그대로다.
  */
+/**
+ * 체감 다섯 칸을 아직 못 받는 DB 에서 대신 넣을 값 (supabase/schema.sql 19번).
+ * '약간' 은 가까운 쪽으로 눕힌다.
+ */
+const FELT_FALLBACK = { cool: "cold", warm: "hot" } as const;
+
 export async function saveWearLog(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const date = String(formData.get("worn_on") ?? "");
   if (!isValidDate(date)) return fail("날짜가 올바르지 않습니다.");
@@ -68,24 +75,33 @@ export async function saveWearLog(_prev: ActionState, formData: FormData): Promi
     .maybeSingle();
   const hadPlace = Boolean(before?.place_name);
 
-  const { data: log, error } = await supabase
-    .from("wear_logs")
-    .upsert(
-      {
-        user_id: user.id,
-        worn_on: date,
-        outfit_id: outfitId,
-        memo,
-        felt,
-        place_name: place?.name ?? null,
-        place_lat: place?.lat ?? null,
-        place_lon: place?.lon ?? null,
-      },
-      { onConflict: "user_id,worn_on" },
-    )
-    .select("id")
-    .single();
-  if (error) return fail(error.message);
+  const save = (value: string | null) =>
+    supabase
+      .from("wear_logs")
+      .upsert(
+        {
+          user_id: user.id,
+          worn_on: date,
+          outfit_id: outfitId,
+          memo,
+          felt: value,
+          place_name: place?.name ?? null,
+          place_lat: place?.lat ?? null,
+          place_lon: place?.lon ?? null,
+        },
+        { onConflict: "user_id,worn_on" },
+      )
+      .select("id")
+      .single();
+
+  let { data: log, error } = await save(felt);
+
+  // 체감이 다섯 칸으로 늘기 전의 DB 는 '약간' 을 못 받는다 (schema.sql 19번).
+  // 그때는 가까운 옛 값으로 바꿔 넣는다 — 기록이 통째로 안 남는 것보다 낫다.
+  if (error && isCheckViolation(error) && felt && felt in FELT_FALLBACK) {
+    ({ data: log, error } = await save(FELT_FALLBACK[felt as keyof typeof FELT_FALLBACK]));
+  }
+  if (error || !log) return fail(error?.message ?? "기록을 저장하지 못했습니다.");
 
   const { error: clearError } = await supabase
     .from("wear_log_items")

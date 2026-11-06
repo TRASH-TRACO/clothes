@@ -21,12 +21,14 @@ function Svg({ className = "", children }: Props & { children: React.ReactNode }
 
 const FELT_EMOJI: Record<Felt, string> = {
   cold: "🥶",
+  cool: "😬",
   ok: "😊",
+  warm: "😅",
   hot: "🥵",
 };
 
 /**
- * 추웠다 · 적당 · 더웠다.
+ * 추웠다 · 약간 추웠다 · 적당 · 약간 더웠다 · 더웠다.
  * 선으로 그린 아이콘보다 이모지가 한눈에 읽혀서 이쪽을 쓴다.
  * 크기는 글자 크기로 잡는다 (className 에 text-2xl 같은 걸 준다).
  */

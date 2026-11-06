@@ -146,3 +146,19 @@ export type CartItem = {
   bought_at: string | null;
   created_at: string;
 };
+
+/**
+ * 이 날씨와 비슷했던 날. 캘린더가 빈 날마다 미리 골라 둔다.
+ *
+ * 옷은 id 만 들고 다닌다 — 옷 자체는 캘린더 레이아웃이 이미 받아 둔 목록에 있다.
+ */
+export type SimilarDay = {
+  /** YYYY-MM-DD */
+  date: string;
+  code: number;
+  high: number;
+  low: number;
+  itemIds: string[];
+  /** 그날 몸으로 느낀 것. 안 적었으면 null */
+  felt: Felt | null;
+};

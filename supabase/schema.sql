@@ -214,9 +214,9 @@ alter table public.items add column if not exists photo_paths text[] not null de
 alter table public.items add column if not exists subcategory text;
 
 -- 5-5. 한 줄 평가 ---------------------------------------------------
--- 그날 체감: 추웠다 / 적당 / 더웠다
+-- 그날 체감: 추웠다 / 약간 추웠다 / 적당 / 약간 더웠다 / 더웠다 (19번에서 늘렸다)
 alter table public.wear_logs
-  add column if not exists felt text check (felt in ('cold', 'ok', 'hot'));
+  add column if not exists felt text check (felt in ('cold', 'cool', 'ok', 'warm', 'hot'));
 
 -- 코디 만족도: 별로다 / 적당 / 맘에 들었다
 alter table public.outfits
@@ -523,3 +523,17 @@ create policy "cart items are private" on public.cart_items
   for all to authenticated
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- 19. 체감을 다섯 칸으로 ------------------------------------------------
+-- 셋(추움·적당·더움)뿐이라 "조금 쌀쌀했지만 입을 만했다" 를 적을 데가 없었다.
+-- 그러면 추웠다고 적거나 아예 안 적게 되는데, 둘 다 나중에 쓸모가 없다 —
+-- 앞은 실제보다 세게 읽히고, 뒤는 기록이 안 남는다.
+--
+-- 위 11번의 add column 은 이미 칸이 있으면 아무것도 안 하므로, 예전에 만든
+-- 테이블은 여기서 제약만 다시 건다. 먼저 지우고 새로 걸어서 여러 번 돌려도 된다.
+alter table public.wear_logs
+  drop constraint if exists wear_logs_felt_check;
+
+alter table public.wear_logs
+  add constraint wear_logs_felt_check
+  check (felt is null or felt in ('cold', 'cool', 'ok', 'warm', 'hot'));

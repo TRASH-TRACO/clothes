@@ -17,7 +17,6 @@ import { ItemPhoto } from "@/components/item-photo";
 import { OutfitPhoto } from "@/components/outfit-photo";
 import { WearForm } from "@/components/wear-form";
 import { saveWearLog } from "@/app/actions/wear";
-import { findSimilarDay, type SimilarDay } from "@/app/actions/similar";
 import { CATEGORY_META } from "@/lib/categories";
 import { dayLabel, seoulToday } from "@/lib/calendar";
 import { lockScroll } from "@/lib/scroll-lock";
@@ -26,7 +25,7 @@ import { FELT_LABELS } from "@/lib/feedback";
 import { outfitKey } from "@/lib/outfit-key";
 import { outfitTitle } from "@/lib/outfit-title";
 import { isPlace, placeKey, roundPlace, type Place } from "@/lib/places";
-import type { WearLogWithItems } from "@/lib/types";
+import type { SimilarDay, WearLogWithItems } from "@/lib/types";
 import { weatherKind, weatherLabel, type RecordedDay } from "@/lib/weather-codes";
 import { WeatherGlyph } from "@/components/weather-glyph";
 
@@ -35,6 +34,11 @@ type Props = {
   log: WearLogWithItems | null;
   day: RecordedDay | null;
   basePlace: Place;
+  /**
+   * 이 날씨와 비슷했던 날. **달력이 그릴 때 이미 골라 온다** (calendar-board.tsx).
+   * 그래서 날짜를 눌러도 서버를 안 부른다.
+   */
+  similar: SimilarDay | null;
   /** 바로 수정 화면으로 열지 */
   startInEdit?: boolean;
   onClose: () => void;
@@ -64,35 +68,25 @@ function logPlaceOf(log: WearLogWithItems | null): Place | null {
  * 달력이 이미 그 달의 기록과 날씨를 들고 있고 옷·코디 목록은 레이아웃에 있으므로,
  * 날짜를 눌러도 서버를 부르지 않는다.
  */
-export function DayPanel({ date, log, day, basePlace, startInEdit = false, onClose }: Props) {
+export function DayPanel({
+  date,
+  log,
+  day,
+  basePlace,
+  similar,
+  startInEdit = false,
+  onClose,
+}: Props) {
   const [editing, setEditing] = useState(startInEdit || !log);
   const pinned = logPlaceOf(log);
   const today = seoulToday();
 
   /**
-   * 이 날씨와 비슷했던 날.
-   *
-   * 이미 옷을 적어 둔 날에는 안 찾는다 — 권할 이유가 없고, 날짜를 누를 때마다
-   * 서버를 부를 이유는 더 없다.
+   * 이 날씨와 비슷했던 날은 달력이 이미 골라 왔다 (calendar-board.tsx).
+   * 이미 옷을 적어 둔 날에는 권할 이유가 없으므로 그때만 가린다.
    */
-  const [similar, setSimilar] = useState<SimilarDay | null>(null);
   const empty = !log || log.items.length === 0;
-  const canAsk = editing && empty && day !== null && day.high !== null && day.low !== null;
-
-  useEffect(() => {
-    if (!canAsk || !day || day.high === null || day.low === null) return;
-    let alive = true;
-    findSimilarDay(date, day.high, day.low, day.code)
-      .then((found) => {
-        if (alive) setSimilar(found);
-      })
-      .catch(() => {
-        /* 추천은 곁다리다. 못 받아도 기록은 그대로 적는다 */
-      });
-    return () => {
-      alive = false;
-    };
-  }, [canAsk, date, day]);
+  const shownSimilar = editing && empty ? similar : null;
 
   /**
    * 위로 쓸어올리면 커진다 (모바일).
@@ -288,7 +282,7 @@ export function DayPanel({ date, log, day, basePlace, startInEdit = false, onClo
             log={log}
             basePlace={basePlace}
             pinned={pinned}
-            similar={similar}
+            similar={shownSimilar}
             onEdit={startEditing}
             onClose={onClose}
           />

@@ -22,7 +22,7 @@ type Props<T extends string> = {
   glyphClass: string;
 };
 
-/** 셋 중 하나 고르기. 고른 걸 다시 누르면 선택이 풀린다 */
+/** 늘어놓은 것 중 하나 고르기. 고른 걸 다시 누르면 선택이 풀린다 */
 function Picker<T extends string>({
   name,
   values,
@@ -34,7 +34,14 @@ function Picker<T extends string>({
   const [picked, setPicked] = useState<T | null>(defaultValue ?? null);
 
   return (
-    <div className="flex flex-wrap gap-3">
+    /* 칸 너비를 폭에 맞춰 나눈다. 다섯 칸이 폰에서 한 줄에 안 들어가므로
+       좁을 때는 세 칸씩 접고, 넓어지면 한 줄로 편다 (순서가 눈금이라 줄바꿈이
+       들쭉날쭉하면 안 된다) */
+    <div
+      className={`grid gap-2 ${
+        values.length > 3 ? "grid-cols-3 sm:grid-cols-5" : "grid-cols-3"
+      }`}
+    >
       {picked ? <input type="hidden" name={name} value={picked} /> : null}
       {values.map((value) => {
         const active = picked === value;
@@ -44,13 +51,15 @@ function Picker<T extends string>({
             type="button"
             aria-pressed={active}
             onClick={() => setPicked(active ? null : value)}
-            className={`flex min-w-[104px] flex-col items-center gap-2 rounded-xl border px-4 py-4
-              transition-colors ${
+            className={`flex flex-col items-center gap-2 rounded-xl border px-2 py-4
+              text-center transition-colors ${
                 active ? "border-ink bg-ink text-paper" : "border-line text-ink hover:border-ink"
               }`}
           >
             {glyph(value, glyphClass)}
-            <span className="text-sm font-medium">{labels[value]}</span>
+            <span className="text-[13px] font-medium leading-tight sm:text-sm">
+              {labels[value]}
+            </span>
           </button>
         );
       })}

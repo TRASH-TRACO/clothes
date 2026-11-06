@@ -13,10 +13,15 @@ import { ConfirmForm } from "@/components/confirm-form";
 import { CATEGORIES, CATEGORY_META, type Category } from "@/lib/categories";
 import type { Place } from "@/lib/places";
 import { outfitTitle } from "@/lib/outfit-title";
-import type { SimilarDay } from "@/app/actions/similar";
 import { dayLabel } from "@/lib/calendar";
 import { weatherLabel } from "@/lib/weather-codes";
-import type { ActionState, Item, OutfitWithItems, WearLogWithItems } from "@/lib/types";
+import type {
+  ActionState,
+  Item,
+  OutfitWithItems,
+  SimilarDay,
+  WearLogWithItems,
+} from "@/lib/types";
 
 type Props = {
   date: string;
@@ -300,6 +305,14 @@ const FELT_HINT: Record<Felt, { title: string; note: string }> = {
   cold: {
     title: "이런 날엔 이렇게 입었는데 추웠어요",
     note: "한 겹 더 챙기면 좋겠어요.",
+  },
+  cool: {
+    title: "이런 날엔 이렇게 입고 약간 추웠어요",
+    note: "입을 만했지만, 얇은 거 하나 더 있으면 좋겠어요.",
+  },
+  warm: {
+    title: "이런 날엔 이렇게 입고 약간 더웠어요",
+    note: "입을 만했지만, 벗을 수 있는 걸로 입으면 좋겠어요.",
   },
   hot: {
     title: "이런 날엔 이렇게 입었는데 더웠어요",

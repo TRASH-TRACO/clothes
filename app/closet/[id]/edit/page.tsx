@@ -18,8 +18,8 @@ export default async function EditItemPage({ params }: PageProps<"/closet/[id]/e
 
   return (
     <div className="mx-auto max-w-xl px-6 py-12 lg:px-10">
-      <p className="eyebrow">Edit item</p>
-      <h1 className="display mt-2 mb-10 text-4xl sm:text-5xl">{item.name}</h1>
+      {/* 제목이 곧 이름 칸이다 (components/item-form.tsx). 여기서 또 쓰지 않는다 */}
+      <p className="eyebrow mb-4">Edit item</p>
       <ItemForm userId={user.id} item={item} brands={brands} action={updateItem} />
     </div>
   );

@@ -7,7 +7,7 @@ import { CalendarMonth } from "@/components/calendar-month";
 import { DayPanel } from "@/components/day-panel";
 import { isValidDate } from "@/lib/calendar";
 import type { Place } from "@/lib/places";
-import type { WearLogWithItems } from "@/lib/types";
+import type { SimilarDay, WearLogWithItems } from "@/lib/types";
 import type { RecordedDay } from "@/lib/weather-codes";
 
 type Props = {
@@ -17,6 +17,8 @@ type Props = {
   weather: Map<string, RecordedDay>;
   today: string;
   basePlace: Place;
+  /** 빈 날마다 미리 골라 둔 "비슷했던 날". 서버가 그릴 때 정해 온다 */
+  suggestions: Map<string, SimilarDay>;
 };
 
 /**
@@ -25,7 +27,15 @@ type Props = {
  * 어느 날짜가 열려 있는지는 주소(`?d=`)에 담는다. 그래야 링크를 복사해 열 수 있고
  * 뒤로 가기로 닫힌다. 주소는 history.pushState 로만 바꾸므로 서버를 부르지 않는다.
  */
-export function CalendarView({ month, weeks, logs, weather, today, basePlace }: Props) {
+export function CalendarView({
+  month,
+  weeks,
+  logs,
+  weather,
+  today,
+  basePlace,
+  suggestions,
+}: Props) {
   const params = useSearchParams();
   const raw = params.get("d");
   const openDate = raw && isValidDate(raw) ? raw : null;
@@ -77,6 +87,7 @@ export function CalendarView({ month, weeks, logs, weather, today, basePlace }: 
           log={logs.get(openDate) ?? null}
           day={weather.get(openDate) ?? null}
           basePlace={basePlace}
+          similar={suggestions.get(openDate) ?? null}
           startInEdit={startInEdit}
           onClose={close}
         />

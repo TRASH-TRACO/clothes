@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { OutfitBrowser } from "@/components/outfit-browser";
 import { getOutfitFolders, getOutfits } from "@/lib/data";
 
-export const metadata: Metadata = { title: "저장한 코디" };
+export const metadata: Metadata = { title: "코디" };
 
 /**
  * 한 번에 다 받아 두고 거르기는 화면에서 한다 (components/outfit-browser.tsx).

@@ -6,15 +6,26 @@ import { usePathname } from "next/navigation";
 
 import { LabBadge } from "@/components/lab-badge";
 
-/** AI 는 아직 다듬는 중이라 맨 끝에 두고 실험실 표시를 붙인다 */
+/**
+ * AI 는 아직 다듬는 중이라 맨 끝에 두고 실험실 표시를 붙인다.
+ *
+ * **코디는 한 칸이다.** 예전에는 `코디 만들기`(/studio) 와 `저장한 코디`(/outfits)
+ * 가 따로 있었는데, 만들려면 목록을 먼저 보게 되고 목록에는 이미 `새 코디 만들기`
+ * 버튼이 있다. 두 칸이 같은 곳을 가리키는 셈이라 하나로 합쳤다.
+ * 만드는 중(/studio)에도 이 칸이 눌린 것으로 보여야 한다 — `also` 가 그 몫이다.
+ */
 const LINKS = [
-  { href: "/closet", label: "옷장", lab: false },
-  { href: "/studio", label: "코디 만들기", lab: false },
-  { href: "/outfits", label: "저장한 코디", lab: false },
-  { href: "/calendar", label: "캘린더", lab: false },
-  { href: "/cart", label: "장바구니", lab: false },
-  { href: "/ai", label: "AI", lab: true },
+  { href: "/closet", label: "옷장", lab: false, also: [] as string[] },
+  { href: "/outfits", label: "코디", lab: false, also: ["/studio"] },
+  { href: "/calendar", label: "캘린더", lab: false, also: [] as string[] },
+  { href: "/cart", label: "장바구니", lab: false, also: [] as string[] },
+  { href: "/ai", label: "AI", lab: true, also: [] as string[] },
 ];
+
+/** 이 주소에 있을 때 그 칸이 눌린 것으로 볼지 */
+function isActive(pathname: string, href: string, also: string[]) {
+  return [href, ...also].some((path) => pathname === path || pathname.startsWith(`${path}/`));
+}
 
 /**
  * 누른 링크에 밑줄이 차오르게 한다.
@@ -41,7 +52,7 @@ export function NavLinks({ className = "" }: { className?: string }) {
   return (
     <nav className={className}>
       {LINKS.map((link) => {
-        const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
+        const active = isActive(pathname, link.href, link.also);
         return (
           <Link
             key={link.href}

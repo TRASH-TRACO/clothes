@@ -73,6 +73,19 @@ const checks: [string, boolean][] = [
   ["다른 종류면 벌점이 붙는다",
     score(target, { high: 22, low: 14, kind: "snow" }, "ok") >
       score(target, { high: 22, low: 14, kind: "clear" }, "ok")],
+
+  // "약간" 은 그래도 입을 만했던 날이다
+  ["약간 추웠던 날은 추웠던 날보다 낫다", score(target, target, "cool") < score(target, target, "cold")],
+  ["약간 더웠던 날도 마찬가지", score(target, target, "warm") < score(target, target, "hot")],
+  ["약간 추움·약간 더움은 같은 값", score(target, target, "cool") === score(target, target, "warm")],
+  ["딱 맞았던 날보다는 못하다", score(target, target, "cool") > score(target, target, "ok")],
+  ["안 적은 날보다는 낫다", score(target, target, "cool") < score(target, target, null)],
+  ["약간 추웠던 날과 안 적은 날이 같은 기온이면 약간 쪽",
+    pickSimilar(target, [
+      day("2026-03-03", 20, 12, "clear", null),
+      day("2026-01-01", 20, 12, "clear", "cool"),
+    ])?.date === "2026-01-01"],
+  ["모르는 글자는 안 맞았던 날로 본다", score(target, target, "???") === score(target, target, "cold")],
 ];
 
 let failed = 0;

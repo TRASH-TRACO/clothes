@@ -22,7 +22,7 @@ export type Candidate = Target & {
   /** 그날 입은 옷 */
   itemIds: string[];
   /**
-   * 그날 몸으로 느낀 것 ("ok" · "cold" · "hot"). 안 적었으면 null.
+   * 그날 몸으로 느낀 것 ("ok" · "cold" · "cool" · "warm" · "hot"). 안 적었으면 null.
    *
    * 값의 뜻은 lib/feedback 이 정한다. 여기서는 "ok 냐 아니냐" 만 보므로
    * 그대로 글자로 받는다 (이 파일은 아무것도 안 물어야 한다).
@@ -52,13 +52,24 @@ const KIND_PENALTY = 3;
  * "딱 맞았다" 는 날이 제일 권할 만하다. "추웠다·더웠다" 는 그 날씨에 그 옷이
  * 안 맞았다는 뜻이라 권하면 같은 실수를 되풀이하게 된다. 안 적은 날은 그 중간이다.
  *
+ * **"약간" 은 안 적은 날보다 낫다.** 약간 추웠다는 건 그래도 입을 만했다는 뜻이고,
+ * 적어도 그날 뭘 입었는지는 확실히 안다. 모르는 날보다 권할 만하다.
+ *
  * 다만 기온이 훨씬 비슷한 날은 여전히 이긴다 — 벌점이 도 단위라 그만큼만 밀린다.
  */
-const FELT_PENALTY = { ok: 0, unknown: 1, off: 2.5 } as const;
+const FELT_PENALTY = { ok: 0, near: 0.8, unknown: 1, off: 2.5 } as const;
+
+/**
+ * 값의 뜻은 lib/feedback 이 정한다. 여기서는 글자로만 받는다 (이 파일은 아무것도
+ * 안 물어야 검사 스크립트가 그대로 돌린다). 늘어나면 여기도 같이 늘린다.
+ */
+const NEAR_FELT = ["cool", "warm"];
 
 function feltPenalty(felt: string | null): number {
   if (!felt) return FELT_PENALTY.unknown;
-  return felt === "ok" ? FELT_PENALTY.ok : FELT_PENALTY.off;
+  if (felt === "ok") return FELT_PENALTY.ok;
+  if (NEAR_FELT.includes(felt)) return FELT_PENALTY.near;
+  return FELT_PENALTY.off;
 }
 
 /**
@@ -83,8 +94,8 @@ export function tempGap(target: Target, candidate: Target): number {
  *
  * 점수가 같으면 **최근 날**을 고른다. 같은 날씨라면 요즘 입던 게 더 맞다.
  */
-export function pickSimilar(target: Target, candidates: Candidate[]): Candidate | null {
-  let best: Candidate | null = null;
+export function pickSimilar<T extends Candidate>(target: Target, candidates: T[]): T | null {
+  let best: T | null = null;
   let bestScore = Infinity;
 
   for (const candidate of candidates) {
