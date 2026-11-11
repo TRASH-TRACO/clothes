@@ -13,6 +13,23 @@ import { backdropColor, coversFrame, cropToJpeg, loadImage, readBackdrop } from 
 
 const MAX_ZOOM = 4;
 
+/**
+ * 자를 틀의 비율.
+ *
+ * 예전에는 부르는 쪽이 정한 비율 하나뿐이라, **무엇을 자를지 고르는 길이
+ * 끌고 키우는 것밖에 없었다.** 세로로 긴 사진을 정사각에 넣으면 위아래가
+ * 잘리는데, 안 자르려면 끝까지 축소해 여백을 만드는 수밖에 없었다.
+ *
+ * `원본` 은 사진이 가진 비율을 그대로 틀로 쓴다 — 아무것도 안 잘린다.
+ */
+type RatioKey = "square" | "portrait" | "source";
+
+const RATIOS: { key: RatioKey; label: string; value: number | null }[] = [
+  { key: "square", label: "1:1", value: 1 },
+  { key: "portrait", label: "3:4", value: 3 / 4 },
+  { key: "source", label: "원본", value: null },
+];
+
 type Props = {
   file: File;
   /** 잘라낼 비율 (가로 / 세로) */
@@ -44,6 +61,8 @@ export function PhotoCropper({ file, aspect, onCancel, onDone }: Props) {
     url: string;
   } | null>(null);
   const [frame, setFrame] = useState({ width: 0, height: 0 });
+  /** 부르는 쪽이 준 비율로 시작하되, 바꿀 수 있다 */
+  const [ratio, setRatio] = useState<RatioKey>(aspect === 1 ? "square" : "portrait");
   const [view, setView] = useState<View | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -85,6 +104,17 @@ export function PhotoCropper({ file, aspect, onCancel, onDone }: Props) {
   }, []);
 
   const image = source?.image ?? null;
+
+  /**
+   * 지금 틀의 비율. `원본` 이면 사진이 가진 비율이다.
+   * 사진이 아직 안 왔으면 부르는 쪽이 준 값으로 버틴다 (틀 크기가 안 튀게).
+   */
+  const frameAspect =
+    ratio === "source"
+      ? image
+        ? image.naturalWidth / image.naturalHeight
+        : aspect
+      : (RATIOS.find((entry) => entry.key === ratio)?.value ?? aspect);
   // zoom 1 = 프레임을 꽉 채우는 배율(cover). 그 아래로는 원본 전체가
   // 들어가는 배율(contain)까지 내려갈 수 있고, 남는 여백은 색 한 가지로 채운다.
   const baseScale =
@@ -287,13 +317,36 @@ export function PhotoCropper({ file, aspect, onCancel, onDone }: Props) {
 
   return (
     <div>
+      {/* 비율을 먼저 고른다. 끌고 키우는 건 그 안에서 어디를 보여줄지 정하는 일이다 */}
+      <div className="mb-3 flex items-center gap-2">
+        {RATIOS.map((entry) => (
+          <button
+            key={entry.key}
+            type="button"
+            aria-pressed={ratio === entry.key}
+            onClick={() => {
+              if (ratio === entry.key) return;
+              setRatio(entry.key);
+              // 틀이 바뀌면 자리와 배율을 처음부터 다시 잡는다
+              setView(null);
+            }}
+            className={`chip ${ratio === entry.key ? "chip-active" : "bg-paper"}`}
+          >
+            {entry.label}
+          </button>
+        ))}
+        <span className="ml-auto text-xs text-muted">
+          {ratio === "source" ? "안 잘립니다" : "틀 밖은 잘립니다"}
+        </span>
+      </div>
+
       <div
         ref={frameRef}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        style={{ aspectRatio: String(aspect), touchAction: "none", background }}
+        style={{ aspectRatio: String(frameAspect), touchAction: "none", background }}
         className="relative w-full cursor-grab overflow-hidden rounded-xl bg-mist active:cursor-grabbing"
       >
         {source && current ? (
@@ -345,7 +398,7 @@ export function PhotoCropper({ file, aspect, onCancel, onDone }: Props) {
       </div>
 
       <p className="mt-2 text-xs text-muted">
-        드래그로 위치를 옮기고, 휠·두 손가락·슬라이더로 확대합니다.
+        비율을 고른 뒤, 드래그로 위치를 옮기고 휠·두 손가락·슬라이더로 확대합니다.
       </p>
 
       {error ? <p className="mt-2 text-sm text-accent">{error}</p> : null}

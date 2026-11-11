@@ -76,7 +76,11 @@ export function PhotoCarousel({ paths, alt, category, aspect = "aspect-square" }
               sizes="(max-width: 1024px) 100vw, 640px"
               priority={index === 0}
               unoptimized
-              className="object-cover"
+              /* 저장된 사진을 **통째로** 보여준다. 비율을 `원본` 으로 올린 사진은
+                 틀과 비율이 다를 수 있는데, 여기서 또 잘라 버리면 안 자르고 올린
+                 뜻이 없어진다. 1:1·3:4 로 올린 사진은 틀과 비율이 같아서
+                 cover 였을 때와 똑같이 보인다. */
+              className="object-contain"
             />
           </div>
         ))}
