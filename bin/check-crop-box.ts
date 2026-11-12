@@ -4,12 +4,14 @@
  */
 import {
   clampPhoto,
+  clampPlace,
   fitRect,
+  fitScale,
   minScale,
   moveCrop,
   ratioRect,
   resizeCrop,
-  toCropView,
+  sourceRect,
   type Rect,
 } from "../lib/crop-box.ts";
 
@@ -100,19 +102,35 @@ const checks: [string, boolean][] = [
   ["긴 쪽이 정한다",
     near(minScale({ width: 300, height: 400 }, { x: 0, y: 0, width: 150, height: 300 }), 0.75)],
 
-  // 자르는 쪽으로 넘기기
-  ["틀은 네모 크기", (() => {
-    const view = toCropView(photo, { x: 100, y: 80, width: 200, height: 150 }, 1);
-    return view.frame.width === 200 && view.frame.height === 150;
+  // 1단계 결과 → 원본 픽셀 자리
+  ["자른 자리를 원본 픽셀로 옮긴다", (() => {
+    const cut = sourceRect(photo, ratioRect(photo, 1), photo.width / 300);
+    return near(cut.width, 300) && near(cut.height, 300);
   })()],
-  ["자리는 네모 왼쪽 위 기준", (() => {
-    const view = toCropView({ x: 50, y: 0, width: 300, height: 400 }, { x: 100, y: 80, width: 200, height: 150 }, 1);
-    return near(view.offset.x, -50) && near(view.offset.y, -80);
+  ["사진 안에서의 자리를 뺀다", (() => {
+    const cut = sourceRect(photo, { x: 100, y: 80, width: 150, height: 150 }, photo.width / 300);
+    return near(cut.x, 50) && near(cut.y, 80);
   })()],
-  ["네모가 사진과 같으면 자리는 0", (() => {
-    const view = toCropView(photo, photo, 1);
-    return near(view.offset.x, 0) && near(view.offset.y, 0);
+  ["네모가 사진과 같으면 0 에서 시작한다", (() => {
+    const cut = sourceRect(photo, photo, photo.width / 300);
+    return near(cut.x, 0) && near(cut.y, 0) && near(cut.width, 300);
   })()],
+
+  // 2단계: 결과 칸에 조각 놓기
+  ["칸에 통째로 들어가는 배율", near(fitScale({ width: 300, height: 400 }, { width: 400, height: 400 }), 1)],
+  ["긴 쪽이 정한다", near(fitScale({ width: 800, height: 400 }, { width: 400, height: 400 }), 0.5)],
+  ["조각이 칸보다 작으면 안에 가둔다",
+    near(clampPlace({ x: -50, y: 10, width: 100, height: 100 }, { width: 400, height: 400 }).x, 0)],
+  ["오른쪽도 막힌다",
+    near(clampPlace({ x: 999, y: 10, width: 100, height: 100 }, { width: 400, height: 400 }).x, 300)],
+  ["조각이 칸보다 크면 칸을 덮도록 가둔다",
+    near(clampPlace({ x: 50, y: 0, width: 600, height: 600 }, { width: 400, height: 400 }).x, 0)],
+  ["왼쪽으로 너무 가도 막힌다",
+    near(clampPlace({ x: -999, y: 0, width: 600, height: 600 }, { width: 400, height: 400 }).x, -200)],
+  ["안쪽에 있으면 안 건드린다",
+    near(clampPlace({ x: 120, y: 30, width: 100, height: 100 }, { width: 400, height: 400 }).x, 120)],
+  ["크기는 안 바꾼다",
+    near(clampPlace({ x: -999, y: 0, width: 100, height: 100 }, { width: 400, height: 400 }).width, 100)],
 ];
 
 let failed = 0;

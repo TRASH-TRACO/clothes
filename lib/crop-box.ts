@@ -160,15 +160,37 @@ export function minScale(natural: Size, crop: Rect): number {
 }
 
 /**
- * 잘라낼 자리를 `lib/image.ts` 의 cropToJpeg 가 받는 모양으로 옮긴다.
+ * 1단계에서 고른 네모를 **원본 픽셀 자리**로 옮긴다.
  *
- * 그쪽은 "틀 왼쪽 위가 0,0" 인 좌표를 쓴다. 여기서는 작업 칸이 0,0 이므로
- * 네모의 왼쪽 위만큼 빼 주면 된다.
+ * 2단계는 이 자리만 들고 간다 — 거기서는 "사진" 이 아니라 "잘라낸 조각" 을 다룬다.
  */
-export function toCropView(photo: Rect, crop: Rect, scale: number) {
+export function sourceRect(photo: Rect, crop: Rect, scale: number): Rect {
   return {
-    frame: { width: crop.width, height: crop.height },
-    offset: { x: photo.x - crop.x, y: photo.y - crop.y },
-    scale,
+    x: (crop.x - photo.x) / scale,
+    y: (crop.y - photo.y) / scale,
+    width: crop.width / scale,
+    height: crop.height / scale,
   };
+}
+
+/**
+ * 결과 칸 안에서 잘라낸 조각이 놓일 수 있는 자리로 가둔다.
+ *
+ * 조각이 칸보다 **크면** 칸을 덮도록 (빈 곳이 안 생기게), **작으면** 칸 안에
+ * 들어가도록 가둔다. 남는 여백 부호 하나로 두 경우가 갈린다.
+ */
+export function clampPlace(dest: Rect, frame: Size): Rect {
+  const slackX = frame.width - dest.width;
+  const slackY = frame.height - dest.height;
+  return {
+    ...dest,
+    x: Math.min(Math.max(dest.x, Math.min(0, slackX)), Math.max(0, slackX)),
+    y: Math.min(Math.max(dest.y, Math.min(0, slackY)), Math.max(0, slackY)),
+  };
+}
+
+/** 잘라낸 조각이 결과 칸에 통째로 들어가는 배율 */
+export function fitScale(source: Size, frame: Size): number {
+  if (!source.width || !source.height) return 1;
+  return Math.min(frame.width / source.width, frame.height / source.height);
 }

@@ -3,33 +3,31 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import {
-  clampPhoto,
+  clampPlace,
   fitRect,
-  minScale,
+  fitScale,
   moveCrop,
   ratioRect,
   resizeCrop,
-  toCropView,
+  sourceRect,
   HANDLES,
   type Handle,
   type Point,
   type Rect,
 } from "@/lib/crop-box";
-import { backdropColor, cropToJpeg, loadImage, readBackdrop } from "@/lib/image";
+import { backdropColor, loadImage, placeToJpeg, readBackdrop } from "@/lib/image";
 
-/** 2단계에서 고른 범위를 몇 배까지 키울 수 있나 */
-const MAX_ZOOM = 6;
+/**
+ * 2단계에서 잘라낸 조각을 얼마나 줄이고 키울 수 있나.
+ *
+ * 1 이 "칸에 통째로 들어가는 크기" 다. 1 아래로 내려가면 사방에 여백이 생기고,
+ * 위로 올라가면 칸 밖으로 넘친다 (넘친 자리는 잘린다).
+ */
+const MIN_ZOOM = 0.4;
+const MAX_ZOOM = 5;
 
 /** 자를 네모가 이보다 작아지면 손가락으로 잡을 수가 없다 (작업 칸 px) */
 const MIN_CROP = 44;
-
-/**
- * 2단계 칸의 높이 한도 (px).
- *
- * 2단계 칸은 고른 범위와 같은 모양이다. 세로로 길쭉하게 자르면 칸이 화면 밖으로
- * 밀려 나가 버튼도 슬라이더도 안 보인다. 높이를 여기서 끊고 너비를 줄인다.
- */
-const MAX_STAGE = 520;
 
 type Props = {
   file: File;
@@ -48,8 +46,11 @@ const RATIOS: { key: RatioKey; label: string }[] = [
   { key: "source", label: "원본" },
 ];
 
-/** 2단계에서 사진이 놓인 자리 */
-type Zoom = { scale: number; origin: Point };
+/**
+ * 2단계에서 잘라낸 조각이 놓인 자리.
+ * `zoom` 은 "칸에 통째로 들어가는 크기" 의 몇 배인지다.
+ */
+type Place = { zoom: number; offset: Point };
 
 type Drag =
   | { kind: "crop"; last: Point }
@@ -81,7 +82,7 @@ export function PhotoCropper({ file, aspect, onCancel, onDone }: Props) {
   const [step, setStep] = useState<0 | 1>(0);
   const [ratio, setRatio] = useState<RatioKey>(aspect === 1 ? "square" : "portrait");
   const [crop, setCrop] = useState<(Rect & { key: string }) | null>(null);
-  const [zoom, setZoom] = useState<Zoom | null>(null);
+  const [place, setPlace] = useState<Place | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -164,68 +165,87 @@ export function PhotoCropper({ file, aspect, onCancel, onDone }: Props) {
   );
 
   /**
-   * 2단계 틀. 고른 네모를 **칸 너비에 꽉 차게** 키운 것이다.
-   * 1단계에서 고른 그 범위가 그대로 2단계의 전부다.
+   * 결과 칸. **1단계에서 뭘 자르든 이 크기는 안 바뀐다** — 부르는 쪽이 정한
+   * 비율 그대로다 (옷은 정사각, 착장은 3:4). 2단계에서 움직이는 건 그 안에 놓인
+   * 조각뿐이다.
    */
-  const frame = useMemo<Rect | null>(() => {
-    if (!current || !width) return null;
-    const value = current.width / current.height;
-    // 세로로 길면 높이에서 끊고 너비를 줄인다 (모양은 그대로)
-    const height = Math.min(width / value, MAX_STAGE);
-    return { x: 0, y: 0, width: height * value, height };
-  }, [current, width]);
+  const frame = useMemo(
+    () => ({ width, height: width / aspect }),
+    [width, aspect],
+  );
 
-  /** 1단계에서 2단계로 넘어갈 때 사진이 놓일 자리 */
-  const entry = useMemo<Zoom | null>(() => {
-    if (!current || !frame || !photo0.width) return null;
-    const k = frame.width / current.width;
+  /** 1단계에서 고른 네모를 원본 픽셀 자리로 (2단계는 이 조각만 들고 간다) */
+  const cut = useMemo<Rect | null>(() => {
+    if (!current || !photo0.width) return null;
+    return sourceRect(photo0, current, photo0.width / natural.width);
+  }, [current, photo0, natural]);
+
+  /** 조각이 결과 칸에 통째로 들어가는 배율 (zoom 1 이 이것이다) */
+  const base = cut && frame.width ? fitScale(cut, frame) : 0;
+
+  /** 조각이 칸 한가운데에 통째로 들어간 자리 — 아직 손대지 않았을 때 */
+  const entry = useMemo<Place | null>(() => {
+    if (!cut || !base) return null;
     return {
-      scale: (photo0.width / natural.width) * k,
-      origin: { x: (photo0.x - current.x) * k, y: (photo0.y - current.y) * k },
+      zoom: 1,
+      offset: {
+        x: (frame.width - cut.width * base) / 2,
+        y: (frame.height - cut.height * base) / 2,
+      },
     };
-  }, [current, frame, photo0, natural]);
+  }, [cut, base, frame]);
 
-  const view = step === 1 ? (zoom ?? entry) : null;
+  const view = step === 1 ? (place ?? entry) : null;
 
-  /** 지금 화면에 놓인 사진 자리 */
-  const photoRect = useMemo<Rect | null>(() => {
-    if (step === 0) return photo0.width ? photo0 : null;
-    if (!view) return null;
+  /** 결과 칸 안에서 조각이 놓인 자리 */
+  const dest = useMemo<Rect | null>(() => {
+    if (!view || !cut || !base) return null;
     return {
-      x: view.origin.x,
-      y: view.origin.y,
-      width: natural.width * view.scale,
-      height: natural.height * view.scale,
+      x: view.offset.x,
+      y: view.offset.y,
+      width: cut.width * base * view.zoom,
+      height: cut.height * base * view.zoom,
     };
-  }, [step, photo0, view, natural]);
+  }, [view, cut, base]);
 
-  /** 뒤에 깔 색. 누끼 사진의 투명한 자리가 저장 결과와 같아 보이도록 */
+  /** 1단계에 그릴 사진 자리 */
+  const photoRect = photo0.width ? photo0 : null;
+
+  /** 뒤에 깔 색. 여백과 누끼 사진의 투명한 자리가 저장 결과와 같아 보이도록 */
   const backdrop = useMemo(() => (image ? readBackdrop(image) : null), [image]);
   const sheet = backdrop ? backdropColor(backdrop, true) : undefined;
+  const padding =
+    backdrop && dest
+      ? backdropColor(
+          backdrop,
+          dest.x <= 0.5 &&
+            dest.y <= 0.5 &&
+            dest.x + dest.width >= frame.width - 0.5 &&
+            dest.y + dest.height >= frame.height - 0.5,
+        )
+      : undefined;
 
-  /** 2단계에서 사진만 키운다. 틀(=고른 범위)은 안 움직인다 */
+  /** 2단계에서 조각만 키우고 줄인다. 결과 칸은 그대로다 */
   const zoomTo = useCallback(
     (next: (from: number) => number, anchor: Point) => {
-      if (!frame || !entry) return;
-      setZoom((previous) => {
-        const base = previous ?? entry;
-        // 고른 범위보다 더 넓게는 못 간다. 그게 1단계에서 정한 것이다.
-        const low = Math.max(entry.scale, minScale(natural, frame));
-        const scale = Math.min(Math.max(next(base.scale), low), entry.scale * MAX_ZOOM);
-        const k = scale / base.scale;
-        const moved = clampPhoto(
+      if (!entry || !cut || !base) return;
+      setPlace((previous) => {
+        const from = previous ?? entry;
+        const zoom = Math.min(Math.max(next(from.zoom), MIN_ZOOM), MAX_ZOOM);
+        const k = zoom / from.zoom;
+        const moved = clampPlace(
           {
-            x: anchor.x - (anchor.x - base.origin.x) * k,
-            y: anchor.y - (anchor.y - base.origin.y) * k,
-            width: natural.width * scale,
-            height: natural.height * scale,
+            x: anchor.x - (anchor.x - from.offset.x) * k,
+            y: anchor.y - (anchor.y - from.offset.y) * k,
+            width: cut.width * base * zoom,
+            height: cut.height * base * zoom,
           },
           frame,
         );
-        return { scale, origin: { x: moved.x, y: moved.y } };
+        return { zoom, offset: { x: moved.x, y: moved.y } };
       });
     },
-    [frame, entry, natural],
+    [entry, cut, base, frame],
   );
 
   /**
@@ -260,11 +280,11 @@ export function PhotoCropper({ file, aspect, onCancel, onDone }: Props) {
 
   function pickRatio(next: RatioKey) {
     setRatio(next);
-    setZoom(null);
-    updateCrop((base) => {
+    setPlace(null);
+    updateCrop((box) => {
       const value = ratioValue(next);
-      if (value === null) return base; // 자유: 지금 네모를 그대로 둔다
-      const center = { x: base.x + base.width / 2, y: base.y + base.height / 2 };
+      if (value === null) return box; // 자유: 지금 네모를 그대로 둔다
+      const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
       return ratioRect(photo0, value, center);
     });
   }
@@ -334,19 +354,19 @@ export function PhotoCropper({ file, aspect, onCancel, onDone }: Props) {
       return;
     }
 
-    if (!frame || !entry) return;
-    setZoom((previous) => {
-      const base = previous ?? entry;
-      const moved = clampPhoto(
+    if (!entry || !cut || !base) return;
+    setPlace((previous) => {
+      const from = previous ?? entry;
+      const moved = clampPlace(
         {
-          x: base.origin.x + dx,
-          y: base.origin.y + dy,
-          width: natural.width * base.scale,
-          height: natural.height * base.scale,
+          x: from.offset.x + dx,
+          y: from.offset.y + dy,
+          width: cut.width * base * from.zoom,
+          height: cut.height * base * from.zoom,
         },
         frame,
       );
-      return { scale: base.scale, origin: { x: moved.x, y: moved.y } };
+      return { zoom: from.zoom, offset: { x: moved.x, y: moved.y } };
     });
   }
 
@@ -357,36 +377,38 @@ export function PhotoCropper({ file, aspect, onCancel, onDone }: Props) {
   }
 
   async function confirm() {
-    if (!image || !frame || !photoRect || !view) return;
+    if (!image || !cut || !dest) return;
     setBusy(true);
     setError("");
     try {
-      onDone(await cropToJpeg(image, toCropView(photoRect, frame, view.scale)));
+      onDone(await placeToJpeg(image, { source: cut, frame, dest }));
     } catch (cause) {
       setBusy(false);
       setError(cause instanceof Error ? cause.message : "이미지 처리에 실패했습니다.");
     }
   }
 
-  /** 지금 설정대로 저장하면 몇 픽셀인지. 작게 자르면 흐려지므로 같이 보여준다 */
+  /**
+   * 지금 설정대로 저장하면 몇 픽셀인지.
+   *
+   * 1단계는 잘라낼 조각의 크기, 2단계는 **결과 칸** 의 크기다 (조각을 줄이면
+   * 칸은 그대로인 채 여백이 늘어난다). 작게 자른 채로 크게 쓰면 흐려지는데
+   * 누르기 전에는 알 길이 없다.
+   */
   const output =
     step === 0
-      ? current && photo0.width
-        ? {
-            width: Math.round((current.width * natural.width) / photo0.width),
-            height: Math.round((current.height * natural.width) / photo0.width),
-          }
+      ? cut
+        ? { width: Math.round(cut.width), height: Math.round(cut.height) }
         : null
-      : frame && view
+      : cut && dest
         ? {
-            width: Math.round(frame.width / view.scale),
-            height: Math.round(frame.height / view.scale),
+            width: Math.round((frame.width * cut.width) / dest.width),
+            height: Math.round((frame.height * cut.width) / dest.width),
           }
         : null;
 
-  /** 지금 칸의 크기. 1단계는 정사각, 2단계는 고른 범위와 같은 모양이다 */
-  const stage =
-    step === 0 || !frame ? { width: area.width, height: area.height } : frame;
+  /** 지금 칸의 크기. 1단계는 정사각, 2단계는 결과 칸 그대로다 */
+  const stage = step === 0 ? { width: area.width, height: area.height } : frame;
 
   return (
     <div>
@@ -426,10 +448,22 @@ export function PhotoCropper({ file, aspect, onCancel, onDone }: Props) {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        style={{ width: stage.width || "100%", height: stage.height, touchAction: "none" }}
-        className="relative mx-auto select-none overflow-hidden rounded-xl bg-[#171717]"
+        style={{
+          width: stage.width || "100%",
+          height: stage.height,
+          touchAction: "none",
+          // 2단계 칸은 **저장될 여백 색** 그대로다. 1단계는 사진에 집중하도록 어둡게
+          background: step === 1 ? padding : undefined,
+        }}
+        className={`relative mx-auto select-none overflow-hidden rounded-xl ${
+          step === 1 ? "border border-line" : "bg-[#171717]"
+        }`}
       >
-        {source && photoRect ? (
+        {!source ? (
+          <div className="flex h-full items-center justify-center text-sm text-paper/70">
+            불러오는 중…
+          </div>
+        ) : step === 0 && photoRect ? (
           <>
             {/* 누끼 사진의 투명한 자리가 저장 결과와 같아 보이도록 깔아 둔다 */}
             <div
@@ -458,11 +492,38 @@ export function PhotoCropper({ file, aspect, onCancel, onDone }: Props) {
               }}
             />
           </>
-        ) : (
-          <div className="flex h-full items-center justify-center text-sm text-paper/70">
-            불러오는 중…
+        ) : cut && dest ? (
+          /* 2단계: 결과 칸에 **조각만** 놓는다. 남는 자리는 저장할 때와 같은 색이다.
+             조각만 보이게 하려고 창(overflow-hidden) 안에서 사진을 밀어 놓는다 */
+          <div
+            className="absolute overflow-hidden"
+            style={{
+              left: dest.x,
+              top: dest.y,
+              width: dest.width,
+              height: dest.height,
+              /* 사진 바탕색과 여백 색이 같으면 조각이 어디까지인지 안 보인다.
+                 고치는 동안만 보이는 선이고 저장에는 안 들어간다 */
+              outline: "1px dashed rgba(17,17,17,0.25)",
+              outlineOffset: -1,
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={source.url}
+              alt="자른 사진"
+              draggable={false}
+              style={{
+                position: "absolute",
+                left: -cut.x * (dest.width / cut.width),
+                top: -cut.y * (dest.width / cut.width),
+                width: natural.width * (dest.width / cut.width),
+                height: natural.height * (dest.width / cut.width),
+                maxWidth: "none",
+              }}
+            />
           </div>
-        )}
+        ) : null}
 
         {/* 1단계: 네모와 모서리 손잡이 */}
         {step === 0 && current ? (
@@ -520,14 +581,6 @@ export function PhotoCropper({ file, aspect, onCancel, onDone }: Props) {
           </>
         ) : null}
 
-        {/* 2단계: 틀이 곧 화면이라 안내선만 */}
-        {step === 1 ? (
-          <div className="pointer-events-none absolute inset-0 grid grid-cols-3 grid-rows-3">
-            {Array.from({ length: 9 }).map((_, index) => (
-              <div key={index} className="border border-paper/20" />
-            ))}
-          </div>
-        ) : null}
       </div>
       </div>
 
@@ -537,17 +590,15 @@ export function PhotoCropper({ file, aspect, onCancel, onDone }: Props) {
           <span className="text-xs text-muted">축소</span>
           <input
             type="range"
-            min={entry.scale}
-            max={entry.scale * MAX_ZOOM}
-            /* 눈금은 범위를 200칸으로 나눈다. 고정값이면 사진마다 폭이 달라서
-               어떤 사진에서는 화살표를 한참 눌러도 안 움직인다 */
-            step={(entry.scale * (MAX_ZOOM - 1)) / 200}
-            value={view?.scale ?? entry.scale}
+            min={MIN_ZOOM}
+            max={MAX_ZOOM}
+            step={(MAX_ZOOM - MIN_ZOOM) / 200}
+            value={view?.zoom ?? 1}
             onChange={(event) => {
               const value = Number(event.target.value);
-              zoomTo(() => value, { x: (frame?.width ?? 0) / 2, y: (frame?.height ?? 0) / 2 });
+              zoomTo(() => value, { x: frame.width / 2, y: frame.height / 2 });
             }}
-            aria-label="사진 확대 배율"
+            aria-label="자른 사진 확대 배율"
             className="h-1 flex-1 cursor-pointer accent-ink"
           />
           <span className="text-xs text-muted">확대</span>
@@ -557,7 +608,7 @@ export function PhotoCropper({ file, aspect, onCancel, onDone }: Props) {
       <p className="mt-2 text-xs text-muted">
         {step === 0
           ? "모서리를 끌어 자를 범위를 정합니다. 네모 안을 끌면 범위가 옮겨집니다."
-          : "고른 범위 안에서 사진을 끌어 옮기고, 두 손가락·휠·슬라이더로 키웁니다."}
+          : "잘라낸 사진을 끌어 옮기고, 두 손가락·휠·슬라이더로 키우거나 줄입니다. 칸 크기는 그대로입니다."}
       </p>
 
       {error ? <p className="mt-2 text-sm text-accent">{error}</p> : null}
@@ -568,7 +619,7 @@ export function PhotoCropper({ file, aspect, onCancel, onDone }: Props) {
             <button
               type="button"
               onClick={() => {
-                setZoom(null);
+                setPlace(null);
                 setStep(1);
               }}
               disabled={!current}

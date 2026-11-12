@@ -114,19 +114,6 @@ export function readBackdrop(image: HTMLImageElement): Backdrop {
 }
 
 /** 크롭 화면의 상태. offset은 프레임 좌상단 기준 이미지 좌상단 위치(CSS px) */
-export type CropView = {
-  frame: { width: number; height: number };
-  offset: { x: number; y: number };
-  /** 원본 1px이 화면에서 차지하는 CSS px */
-  scale: number;
-};
-
-/**
- * 파일을 <img>로 읽어들인다.
- * 크롭 미리보기와 최종 출력이 같은 요소를 쓰도록 해서
- * EXIF 회전이 다르게 적용되는 일이 없게 한다.
- * 반환된 url은 다 쓴 뒤 revokeObjectURL 해야 한다.
- */
 export function loadImage(
   file: File,
 ): Promise<{ image: HTMLImageElement; url: string }> {
@@ -146,24 +133,36 @@ export function loadImage(
   });
 }
 
-/** 사진이 프레임을 빈틈없이 덮는지. 0.5px 쯤의 반올림 오차는 덮은 것으로 본다 */
-export function coversFrame(image: HTMLImageElement, view: CropView): boolean {
+/**
+ * 결과 칸에 **잘라낸 조각**을 놓는 방법.
+ *
+ * 자르기(1단계)와 확대/축소(2단계)가 다른 일이라 받는 것도 둘이다.
+ *   source — 원본에서 잘라낸 자리 (원본 픽셀)
+ *   frame  — 결과 칸 (화면 px). 옷은 정사각, 착장은 3:4 로 **늘 같다**
+ *   dest   — 그 칸 안에서 조각이 놓일 자리 (화면 px). 키우면 넘치고, 줄이면 여백이 남는다
+ */
+export type PlaceView = {
+  source: { x: number; y: number; width: number; height: number };
+  frame: { width: number; height: number };
+  dest: { x: number; y: number; width: number; height: number };
+};
+
+/** 조각이 결과 칸을 빈틈없이 덮는지. 0.5px 쯤의 반올림 오차는 덮은 것으로 본다 */
+export function coversFrame(view: PlaceView): boolean {
   const epsilon = 0.5;
-  const width = image.naturalWidth * view.scale;
-  const height = image.naturalHeight * view.scale;
   return (
-    view.offset.x <= epsilon &&
-    view.offset.y <= epsilon &&
-    view.offset.x + width >= view.frame.width - epsilon &&
-    view.offset.y + height >= view.frame.height - epsilon
+    view.dest.x <= epsilon &&
+    view.dest.y <= epsilon &&
+    view.dest.x + view.dest.width >= view.frame.width - epsilon &&
+    view.dest.y + view.dest.height >= view.frame.height - epsilon
   );
 }
 
 /**
  * 사진 뒤에 깔 색.
  *
- * **크롭 화면과 저장 결과가 같은 색을 써야 한다.** 예전에는 크롭 화면이 흐린 사진을
- * 깔고 저장은 다른 걸 깔아서, 자르기 전과 후의 배경이 서로 달랐다.
+ * **자르는 화면과 저장 결과가 같은 색을 써야 한다.** 예전에는 자르는 화면이 흐린
+ * 사진을 깔고 저장은 다른 걸 깔아서, 자르기 전과 후의 배경이 서로 달랐다.
  */
 export function backdropColor(backdrop: Backdrop, covers: boolean): string {
   // 다 덮으면 여백이 없다. 그때 깔아 둔 색은 투명한 자리에만 비친다.
@@ -171,26 +170,31 @@ export function backdropColor(backdrop: Backdrop, covers: boolean): string {
 }
 
 /**
- * 프레임에 보이는 그대로를 JPEG로 인코딩한다.
+ * 결과 칸에 보이는 그대로를 JPEG 로 인코딩한다.
  *
- * 원본보다 축소해서 여백이 생기면 **사진 가장자리에서 뽑은 색 한 가지**로 채운다
+ * 조각을 줄여서 여백이 생기면 **사진 가장자리에서 뽑은 색 한 가지**로 채운다
  * (lib/fill-color.ts). 예전에는 사진을 뭉갠 블러를 깔았는데, 흐릿한 사진이 사진과
  * 맞닿으니 경계에서 둘이 섞여 옷이 번져 나간 것처럼 보일 때가 많았다.
  *
- * 긴 변이 MAX_EDGE를 넘으면 줄인다 (핸드폰 사진이 5MB씩 올라가는 걸 막기 위함).
+ * **해상도는 조각이 정한다.** 화면에서 재던 값(화면 px) 이 아니라 조각의 원본
+ * 픽셀을 그대로 쓰도록 배율을 잡는다 — 작업 칸이 폰에서 380px 이라고 결과까지
+ * 380px 이 되면 안 된다. 긴 변이 MAX_EDGE 를 넘으면 그때 줄인다.
  */
-export async function cropToJpeg(
+export async function placeToJpeg(
   image: HTMLImageElement,
-  view: CropView,
+  view: PlaceView,
   quality = QUALITY,
 ): Promise<Blob> {
-  // scale로 나누면 프레임에 보이는 영역이 원본 픽셀로 몇 인지가 나온다
-  const nativeWidth = view.frame.width / view.scale;
-  const nativeHeight = view.frame.height / view.scale;
-  const shrink = Math.min(1, MAX_EDGE / Math.max(nativeWidth, nativeHeight));
+  // 화면 px 하나가 원본 픽셀 몇인지
+  const native = view.dest.width > 0 ? view.source.width / view.dest.width : 1;
+  const shrink = Math.min(
+    1,
+    MAX_EDGE / Math.max(view.frame.width * native, view.frame.height * native),
+  );
+  const k = native * shrink;
 
-  const width = Math.max(1, Math.round(nativeWidth * shrink));
-  const height = Math.max(1, Math.round(nativeHeight * shrink));
+  const width = Math.max(1, Math.round(view.frame.width * k));
+  const height = Math.max(1, Math.round(view.frame.height * k));
 
   const canvas = document.createElement("canvas");
   canvas.width = width;
@@ -199,27 +203,27 @@ export async function cropToJpeg(
   const context = canvas.getContext("2d");
   if (!context) throw new Error("이미지를 처리할 수 없습니다.");
 
-  const backdrop = readBackdrop(image);
-
-  // 프레임 좌표 → 출력 좌표
-  const k = width / view.frame.width;
-  const dx = view.offset.x * k;
-  const dy = view.offset.y * k;
-  const dw = image.naturalWidth * view.scale * k;
-  const dh = image.naturalHeight * view.scale * k;
-
   // 먼저 바탕을 깐다. 두 가지를 한꺼번에 한다.
-  //   1) 사진이 프레임을 다 못 덮으면 그 여백을 메운다 (가장자리에서 뽑은 색).
+  //   1) 조각이 칸을 다 못 덮으면 그 여백을 메운다 (가장자리에서 뽑은 색).
   //   2) 투명한 자리가 검정으로 떨어지지 않게 막는다. JPEG 에는 투명이 없어서,
   //      안 깔면 누끼 딴 PNG 의 투명했던 자리가 전부 검정이 된다.
-  // 다 덮는 불투명 사진이면 어차피 위에 가려지므로 달라지는 게 없다.
-  // 크롭 화면도 같은 색을 깐다 (components/photo-cropper.tsx).
-  context.fillStyle = backdropColor(backdrop, coversFrame(image, view));
+  const backdrop = readBackdrop(image);
+  context.fillStyle = backdropColor(backdrop, coversFrame(view));
   context.fillRect(0, 0, width, height);
 
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = "high";
-  context.drawImage(image, dx, dy, dw, dh);
+  context.drawImage(
+    image,
+    view.source.x,
+    view.source.y,
+    view.source.width,
+    view.source.height,
+    view.dest.x * k,
+    view.dest.y * k,
+    view.dest.width * k,
+    view.dest.height * k,
+  );
 
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, "image/jpeg", quality),
@@ -228,7 +232,6 @@ export async function cropToJpeg(
   return blob;
 }
 
-/** 실측표 사진을 모델에 보낼 때 줄이는 크기. 글씨가 읽힐 만큼은 남겨야 한다 */
 const READ_EDGE = 1400;
 
 /**
