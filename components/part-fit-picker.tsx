@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { fitAxisOf, type MeasurementField } from "@/lib/categories";
 import { PART_FIT_BY_AXIS, PART_FIT_LABELS, type PartFit } from "@/lib/feedback";
+import { SENT, SENT_FIELD } from "@/lib/form-guard";
 
 /**
  * 부위별로 어땠는지. 기장은 길다/짧다, 품은 크다/작다만 뜬다 —
@@ -31,6 +32,8 @@ export function PartFitPicker({
 
   return (
     <div className="space-y-2">
+      {/* 이 칸이 폼에 있었다는 표 (lib/form-guard.ts). 하나도 안 골라도 보낸다 */}
+      <input type="hidden" name={SENT_FIELD} value={SENT.fitNotes} />
       {fields.map((field) => {
         const options = PART_FIT_BY_AXIS[fitAxisOf(field)];
         const value = picked[field.key];

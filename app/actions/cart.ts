@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { isCategory, measurementFields } from "@/lib/categories";
+import { SENT, SENT_FIELD, keepSent } from "@/lib/form-guard";
 import { safeUrl } from "@/lib/safe-url";
 import { PHOTO_BUCKET } from "@/lib/supabase/env";
 import { createClient, getUser } from "@/lib/supabase/server";
@@ -83,9 +84,16 @@ export async function saveCartItem(_prev: ActionState, formData: FormData): Prom
   const id = String(formData.get("id") ?? "").trim();
 
   if (id) {
+    // 화면에 없던 칸은 안 건드린다 (lib/form-guard.ts).
+    // 분류를 안 고르면 실측 칸 자체가 없으므로, 적어 둔 실측이 조용히 안 지워진다.
+    const patch = keepSent(values, formData.getAll(SENT_FIELD).map(String), {
+      [SENT.photos]: ["photo_path"],
+      [SENT.measurements]: ["measurements"],
+    });
+
     const { error } = await supabase
       .from("cart_items")
-      .update(values)
+      .update(patch)
       .eq("id", id)
       .eq("user_id", user.id);
     if (error) return fail(error.message);

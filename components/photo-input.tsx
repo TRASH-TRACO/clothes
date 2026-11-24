@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useRef, useState } from "react";
 
 import { PhotoCropper } from "@/components/photo-cropper";
+import { SENT, SENT_FIELD } from "@/lib/form-guard";
 import { createClient } from "@/lib/supabase/client";
 import { PHOTO_BUCKET, photoUrl } from "@/lib/supabase/env";
 
@@ -68,6 +69,8 @@ export function PhotoInput({
 
   return (
     <div>
+      {/* 이 칸이 폼에 있었다는 표 (lib/form-guard.ts). 비어 있어도 보낸다 */}
+      <input type="hidden" name={SENT_FIELD} value={SENT.photos} />
       <input type="hidden" name={name} value={path ?? ""} />
 
       {pending ? (

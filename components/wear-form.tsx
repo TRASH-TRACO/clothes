@@ -7,6 +7,7 @@ import { useClosetData } from "@/components/closet-data";
 import { ItemPhoto } from "@/components/item-photo";
 import { FeltPicker } from "@/components/feedback-picker";
 import { FELT_LABELS, type Felt } from "@/lib/feedback";
+import { SENT, SENT_FIELD } from "@/lib/form-guard";
 import { PlacePicker } from "@/components/place-picker";
 import { deleteWearLog } from "@/app/actions/wear";
 import { ConfirmForm } from "@/components/confirm-form";
@@ -83,6 +84,9 @@ export function WearForm({ date, log, basePlace, place, action, onCancel, simila
     <>
       <form action={formAction} className="mt-10 space-y-12">
         <input type="hidden" name="worn_on" value={date} />
+        {/* 그날 입은 옷 칸이 폼에 있었다는 표 (lib/form-guard.ts).
+            표가 없으면 서버는 적어 둔 옷을 안 지운다 */}
+        <input type="hidden" name={SENT_FIELD} value={SENT.items} />
         {outfitId ? <input type="hidden" name="outfit_id" value={outfitId} /> : null}
         {[...picked].map((id) => (
           <input key={id} type="hidden" name="item_ids" value={id} />

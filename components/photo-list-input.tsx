@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 import { PhotoCropper } from "@/components/photo-cropper";
+import { SENT, SENT_FIELD } from "@/lib/form-guard";
 import { createClient } from "@/lib/supabase/client";
 import { PHOTO_BUCKET, photoUrl } from "@/lib/supabase/env";
 
@@ -92,9 +93,17 @@ export function PhotoListInput({
    *
    * 저장 버튼도 잠그지만(onBusy), 눌려도 잃는 게 없어야 한다.
    */
-  const fields = paths.map((path) => (
-    <input key={path} type="hidden" name="photo_paths" value={path} />
-  ));
+  const fields = (
+    <>
+      {/* **이 칸이 폼에 있었다**는 표. 경로가 하나도 없어도 보낸다 —
+          "사진을 다 지웠다" 와 "이 칸이 화면에 없었다" 를 서버가 구별해야 한다
+          (lib/form-guard.ts). 표가 없으면 서버는 사진을 아예 안 건드린다. */}
+      <input type="hidden" name={SENT_FIELD} value={SENT.photos} />
+      {paths.map((path) => (
+        <input key={path} type="hidden" name="photo_paths" value={path} />
+      ))}
+    </>
+  );
 
   if (pending) {
     return (

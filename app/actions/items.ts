@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { isCategory, isKindOf, measurementFields, type Category } from "@/lib/categories";
 import { isFit, isPartFit, type Fit, type PartFit } from "@/lib/feedback";
+import { SENT, SENT_FIELD, keepSent } from "@/lib/form-guard";
 import { PHOTO_BUCKET } from "@/lib/supabase/env";
 import { createClient, getUser } from "@/lib/supabase/server";
 import type { ActionState } from "@/lib/types";
@@ -30,7 +31,18 @@ type ItemValues = {
 };
 
 type ParseResult =
-  { ok: true; values: ItemValues } | { ok: false; message: string };
+  | { ok: true; values: ItemValues; marks: string[] }
+  | { ok: false; message: string };
+
+/**
+ * 어느 칸이 어느 묶음에 딸렸는지 (lib/form-guard.ts).
+ * 표가 안 온 묶음은 고칠 때 통째로 빠져서, DB 에 있던 값이 그대로 남는다.
+ */
+const GROUPS: Record<string, readonly string[]> = {
+  [SENT.photos]: ["photo_path", "photo_paths"],
+  [SENT.measurements]: ["measurements"],
+  [SENT.fitNotes]: ["fit_notes"],
+};
 
 function parseItem(formData: FormData): ParseResult {
   const category = formData.get("category");
@@ -65,6 +77,7 @@ function parseItem(formData: FormData): ParseResult {
 
   return {
     ok: true,
+    marks: formData.getAll(SENT_FIELD).map(String),
     values: {
       category,
       // 카테고리를 바꾸면 예전 세분류가 딸려올 수 있으니 목록에 있는 값만 받는다
@@ -160,9 +173,20 @@ export async function updateItem(
   if (!user) return fail("로그인이 필요합니다.");
 
   const brand = await canonicalBrand(supabase, user.id, parsed.values.brand);
+
+  /**
+   * **화면에 없던 칸은 안 건드린다.**
+   *
+   * 폼은 빈 칸을 안 보내므로, 서버에서는 "다 지우고 저장했다" 와 "그 칸이 화면에
+   * 없었다" 가 똑같이 보인다. 예전에 사진이 통째로 날아간 게 그래서였다.
+   * 이제 칸을 그린 쪽이 표를 같이 보내고, 표가 없으면 여기서 아예 뺀다
+   * (lib/form-guard.ts).
+   */
+  const patch = keepSent({ ...parsed.values, brand }, parsed.marks, GROUPS);
+
   const { error } = await supabase
     .from("items")
-    .update({ ...parsed.values, brand })
+    .update(patch)
     .eq("id", id)
     .eq("user_id", user.id);
 

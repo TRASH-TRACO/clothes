@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 
 import { isCategory, type Category } from "@/lib/categories";
 import { isRating } from "@/lib/feedback";
+import { SENT, SENT_FIELD, keepSent } from "@/lib/form-guard";
 import { isMissingColumn } from "@/lib/data";
 import { findSameOutfit, outfitKey } from "@/lib/outfit-key";
 import { outfitTitle } from "@/lib/outfit-title";
@@ -127,17 +128,28 @@ export async function saveOutfit(_prev: ActionState, formData: FormData): Promis
   let id = outfitId;
 
   if (id) {
-    const { error } = await supabase
-      .from("outfits")
-      // 첫 장이 대표 사진. 목록 카드는 photo_path 만 보므로 같이 채운다.
-      .update({
+    /**
+     * **화면에 없던 칸은 안 건드린다.** 사진 칸이 폼에 안 실렸으면(자르기 창이
+     * 떠 있었다거나 화면이 덜 그려졌다거나) 여기서 빼서, 저장해 둔 착장 사진이
+     * 조용히 날아가지 않게 한다 (lib/form-guard.ts).
+     */
+    const patch = keepSent(
+      {
         name,
         memo,
+        // 첫 장이 대표 사진. 목록 카드는 photo_path 만 보므로 같이 채운다.
         photo_path: photos[0] ?? null,
         photo_paths: photos,
         rating,
         folder_id: folderId,
-      })
+      },
+      formData.getAll(SENT_FIELD).map(String),
+      { [SENT.photos]: ["photo_path", "photo_paths"] },
+    );
+
+    const { error } = await supabase
+      .from("outfits")
+      .update(patch)
       .eq("id", id)
       .eq("user_id", user.id);
     if (error) return fail(error.message);

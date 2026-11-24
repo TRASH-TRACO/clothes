@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { isValidDate, monthOf } from "@/lib/calendar";
 import { isFelt } from "@/lib/feedback";
+import { SENT, SENT_FIELD, wasSent } from "@/lib/form-guard";
 import { isCheckViolation } from "@/lib/data";
 import { isPlace, roundPlace } from "@/lib/places";
 import { getBasePlace } from "@/lib/data";
@@ -103,17 +104,25 @@ export async function saveWearLog(_prev: ActionState, formData: FormData): Promi
   }
   if (error || !log) return fail(error?.message ?? "기록을 저장하지 못했습니다.");
 
-  const { error: clearError } = await supabase
-    .from("wear_log_items")
-    .delete()
-    .eq("wear_log_id", log.id);
-  if (clearError) return fail(clearError.message);
-
-  if (itemIds.length > 0) {
-    const { error: itemsError } = await supabase
+  /**
+   * **옷 칸이 폼에 없었으면 적어 둔 옷을 안 지운다** (lib/form-guard.ts).
+   *
+   * 여기는 늘 "지우고 다시 넣는" 식이라, 옷 칸만 빠진 저장이 들어오면 그날 입은
+   * 옷이 통째로 사라진다. 지역만 고치려다 그렇게 되면 안 된다.
+   */
+  if (wasSent(formData.getAll(SENT_FIELD).map(String), SENT.items)) {
+    const { error: clearError } = await supabase
       .from("wear_log_items")
-      .insert(itemIds.map((itemId) => ({ wear_log_id: log.id, item_id: itemId })));
-    if (itemsError) return fail(itemsError.message);
+      .delete()
+      .eq("wear_log_id", log.id);
+    if (clearError) return fail(clearError.message);
+
+    if (itemIds.length > 0) {
+      const { error: itemsError } = await supabase
+        .from("wear_log_items")
+        .insert(itemIds.map((itemId) => ({ wear_log_id: log.id, item_id: itemId })));
+      if (itemsError) return fail(itemsError.message);
+    }
   }
 
   // 지역을 정했으면 그 지역 날씨를 받아 저장한다.

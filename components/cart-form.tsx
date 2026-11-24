@@ -6,6 +6,7 @@ import { useActionState, useState } from "react";
 import { saveCartItem } from "@/app/actions/cart";
 import { PhotoInput } from "@/components/photo-input";
 import { CATEGORIES, CATEGORY_META, measurementFields, type Category } from "@/lib/categories";
+import { SENT, SENT_FIELD } from "@/lib/form-guard";
 import { safeUrl } from "@/lib/safe-url";
 import type { ActionState, CartItem } from "@/lib/types";
 
@@ -140,7 +141,10 @@ export function CartForm({ userId, item }: Props) {
 
       {/* 분류를 정했을 때만. 안 정한 채 칸만 늘어놓으면 뭘 적으란 건지 모른다 */}
       {fields.length > 0 ? (
+        /* 이 칸이 폼에 있었다는 표 (lib/form-guard.ts). 분류를 안 고르면 칸 자체가
+           없으므로 표도 안 가고, 그러면 적어 둔 실측이 안 지워진다 */
         <section>
+          <input type="hidden" name={SENT_FIELD} value={SENT.measurements} />
           <p className="label mb-1">상품 페이지 실측</p>
           <p className="mb-4 text-sm text-muted">
             상세 페이지에 적힌 숫자를 옮겨두면, 가진 옷과 몇 cm 차이인지 바로 견줄 수 있습니다.

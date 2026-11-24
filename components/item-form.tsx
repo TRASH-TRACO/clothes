@@ -15,6 +15,7 @@ import {
   type Category,
 } from "@/lib/categories";
 import { COLOR_PRESETS, isLight } from "@/lib/colors";
+import { SENT, SENT_FIELD } from "@/lib/form-guard";
 import { itemPhotos } from "@/lib/photos";
 import { readPartFits } from "@/lib/feedback";
 import type { ActionState, Item } from "@/lib/types";
@@ -383,6 +384,9 @@ export function ItemForm({ userId, item, brands, action }: Props) {
                 실측{category ? ` (${CATEGORY_META[category].label})` : ""}
               </h2>
               <p className="mb-4 text-sm text-muted">비워두면 저장하지 않습니다.</p>
+              {/* 이 칸이 폼에 있었다는 표 (lib/form-guard.ts). 접혀 있을 때는 안
+                  보내므로, 안 펴고 저장해도 적어 둔 실측이 안 지워진다 */}
+              <input type="hidden" name={SENT_FIELD} value={SENT.measurements} />
               <div className="grid gap-4 sm:grid-cols-2">
                 {fields.map((field) => (
                   <div key={field.key}>
