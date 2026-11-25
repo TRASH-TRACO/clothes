@@ -537,3 +537,33 @@ alter table public.wear_logs
 alter table public.wear_logs
   add constraint wear_logs_felt_check
   check (felt is null or felt in ('cold', 'cool', 'ok', 'warm', 'hot'));
+
+-- 20. 백업 Storage 버킷 ------------------------------------------------
+-- 밤마다 서버가 옷장을 통째로 묶어 여기에 둔다 (app/api/backup/daily).
+-- 사람이 아무것도 안 해도 쌓이고, 30일치만 남긴다.
+--
+-- **사진 버킷(clothes)과 따로 둔다.** 같은 데 두면 사진을 지우는 코드가
+-- 백업까지 건드릴 수 있고, 사진을 내주는 /api/photo 가 백업도 내주게 된다.
+--
+-- 넣는 건 service_role 이 한다 (로그인한 사람이 없는 시각에 도는 일이라
+-- RLS 를 지나간다). 사람은 **자기 것을 읽고 지울 수만** 있다.
+insert into storage.buckets (id, name, public)
+values ('backups', 'backups', false)
+on conflict (id) do update set public = false;
+
+-- 경로는 <user_id>/<YYYY-MM-DD>.zip 이다. 폴더명이 본인 uid 여야 한다.
+drop policy if exists "backups are readable by owner" on storage.objects;
+create policy "backups are readable by owner" on storage.objects
+  for select to authenticated
+  using (
+    bucket_id = 'backups'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists "backups are deletable by owner" on storage.objects;
+create policy "backups are deletable by owner" on storage.objects
+  for delete to authenticated
+  using (
+    bucket_id = 'backups'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );

@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 
 import { AiKeyForm } from "@/components/ai-key-form";
+import { BackupPanel } from "@/components/backup-panel";
 import { ExportPanel } from "@/components/export-panel";
 import { PushToggle } from "@/components/push-toggle";
 import { BasePlaceForm } from "@/components/base-place-form";
+import { listBackups } from "@/lib/backup-store";
 import { getBasePlace, getClaudeKeyHint, hasBasePlace } from "@/lib/data";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { buildExport } from "@/lib/export-build";
 import { toMarkdown } from "@/lib/export-data";
 import { pushPublicKey } from "@/lib/push";
@@ -15,12 +18,13 @@ export const metadata: Metadata = { title: "설정" };
 
 export default async function SettingsPage() {
   const pushKey = pushPublicKey();
-  const [place, chosen, store, keyHint, exported] = await Promise.all([
+  const [place, chosen, store, keyHint, exported, saved] = await Promise.all([
     getBasePlace(),
     hasBasePlace(),
     weatherStoreStatus(),
     getClaudeKeyHint(),
     buildExport().catch(() => null),
+    savedBackups(),
   ]);
 
   return (
@@ -94,6 +98,23 @@ export default async function SettingsPage() {
       </section>
 
       <section className="mt-16 border-t border-line pt-8">
+        <h2 className="eyebrow mb-3">백업</h2>
+        <p className="mb-6 max-w-xl text-sm text-muted">
+          옷장을 통째로 묶어 ZIP 한 덩어리로 받습니다. 아래 내보내기와 달리{" "}
+          <span className="font-semibold text-ink">사진까지, 전체 기간, id 까지</span> 들어 있어
+          되돌릴 수 있는 형식입니다.
+          <span className="mt-2 block">
+            매일 새벽 서버가 하나씩 묶어 두고 30일치를 남깁니다. 다만 그건 같은 곳에 쌓이는
+            것이라, 가끔은 내려받아 밖에 두는 게 안전합니다.
+          </span>
+          <span className="mt-2 block">
+            <span className="font-semibold text-ink">API 키와 알림 구독은 안 담습니다.</span>
+          </span>
+        </p>
+        <BackupPanel saved={saved} />
+      </section>
+
+      <section className="mt-16 border-t border-line pt-8">
         <h2 className="eyebrow mb-3">데이터 내보내기</h2>
         <p className="mb-6 max-w-xl text-sm text-muted">
           옷장·코디·착용 기록을 한 덩어리로 꺼냅니다. 다른 AI 에게 그대로 붙여 넣고
@@ -146,4 +167,12 @@ export default async function SettingsPage() {
       </section>
     </div>
   );
+}
+
+/** 서버에 쌓인 백업 목록. 버킷이 아직 없거나 로그인 전이면 빈 목록이다 */
+async function savedBackups() {
+  const user = await getUser();
+  if (!user) return [];
+  const supabase = await createClient();
+  return listBackups(supabase, user.id).catch(() => []);
 }
