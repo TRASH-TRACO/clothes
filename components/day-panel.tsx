@@ -292,7 +292,13 @@ export function DayPanel({
   );
 }
 
-/** 날짜 화면의 아침·낮·밤 한 줄. 값이 없으면 (예전 기록) 아무것도 안 그린다 */
+/**
+ * 날짜 화면의 아침·낮·밤 한 줄. 값이 없으면 (예전 기록) 아무것도 안 그린다.
+ *
+ * **이 숫자는 기온이 아니라 체감이다** (apparent_temperature). 위의 최고·최저는
+ * 실제 기온이라, 바람 부는 날에는 아침 체감이 최저 기온보다 낮게 나온다.
+ * 아무 말 없이 나란히 놓으면 숫자가 틀린 것처럼 보이므로 이름을 붙여 둔다.
+ */
 function DayPartsLine({ day }: { day: RecordedDay }) {
   const parts = { morning: day.morning, day: day.day, night: day.night };
   const columns: [string, number | null][] = [
@@ -307,6 +313,9 @@ function DayPartsLine({ day }: { day: RecordedDay }) {
 
   return (
     <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+      <span className="rounded-full bg-mist px-2 py-0.5 text-xs font-semibold text-muted">
+        체감
+      </span>
       {columns
         .filter(([, value]) => value !== null)
         .map(([label, value]) => (

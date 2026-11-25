@@ -29,6 +29,10 @@ function Metric({ label, value }: { label: string; value: string }) {
  * **최고·최저로 옷을 고르면 틀린다.** 최저는 새벽 값이라 겪지 않는 시간이고
  * 최고는 오후 2~3시다. 정작 집을 나서는 아침 기온이 그 사이에 숨어 있어서,
  * 최고 20°에 맞춰 입고 14°에 서 있게 된다. 그래서 크게 따로 뺀다.
+ *
+ * **이 숫자는 기온이 아니라 체감이다** (apparent_temperature). 옆의 최고·최저는
+ * 실제 기온이라, 바람 부는 날에는 아침 체감이 최저 기온보다 낮게 나온다.
+ * 아무 말 없이 나란히 놓으면 숫자가 틀린 것처럼 보이므로 이름을 붙여 둔다.
  */
 export function DayPartsBlock({ parts }: { parts: DayParts }) {
   const gap = swing(parts);
@@ -43,6 +47,9 @@ export function DayPartsBlock({ parts }: { parts: DayParts }) {
 
   return (
     <div className="mt-5 rounded-xl bg-mist px-5 py-4">
+      <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+        체감 기온
+      </p>
       {/* 칸 너비를 똑같이 나눠야 이름과 숫자가 한 줄로 선다.
           flex + justify-between 으로 벌리면 값 길이에 따라 들쭉날쭉해진다. */}
       <dl className="grid grid-cols-3 gap-2">
@@ -102,7 +109,7 @@ export function WeatherCard({ weather }: { weather: Weather }) {
     {
       // 내일은 뺀다. 여기 들어오는 값이 **하루 최저 체감**이라 새벽 값인데,
       // 위 블록의 "아침" 은 07~09시라 숫자가 달라서 둘이 같이 있으면 헷갈린다.
-      label: "체감",
+      label: "지금 체감",
       value: tomorrow || weather.feelsLike === null ? null : deg(weather.feelsLike),
     },
     {
